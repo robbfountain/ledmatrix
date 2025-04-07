@@ -1,0 +1,13 @@
+{
+    "timezone": "America/New_York",
+    "display": {
+        "brightness": 50,
+        "rows": 32,
+        "cols": 64,
+        "chain_length": 2
+    },
+    "clock": {
+        "format": "%H:%M:%S",
+        "update_interval": 1
+    }
+} 
