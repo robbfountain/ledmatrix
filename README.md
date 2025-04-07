@@ -10,21 +10,29 @@ A simple, modular clock application for Raspberry Pi using Adafruit LED Matrix d
 
 ## Installation
 
-1. Install the rpi-rgb-led-matrix library from the existing folder:
+1. Install required system packages:
+```bash
+sudo apt-get update
+sudo apt-get install -y python3-pip python3-dev python3-setuptools
+sudo apt-get install -y build-essential git
+```
+
+2. Install the rpi-rgb-led-matrix library:
 ```bash
 cd rpi-rgb-led-matrix-master
 make
 sudo make install
+cd ..
 ```
 
-2. Install Python dependencies:
+3. Install Python dependencies:
 ```bash
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
-3. Install the DejaVu Sans font (if not already installed):
+4. Install the DejaVu Sans font:
 ```bash
-sudo apt-get install fonts-dejavu
+sudo apt-get install -y fonts-dejavu
 ```
 
 ## Configuration
@@ -39,7 +47,7 @@ Edit the `config/config.json` file to customize:
 To start the clock:
 ```bash
 cd src
-python clock.py
+python3 clock.py
 ```
 
 To stop the clock, press Ctrl+C.
