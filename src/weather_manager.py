@@ -48,15 +48,28 @@ class WeatherManager:
         country = self.location['country']
         units = self.weather_config.get('units', 'imperial')
 
-        # Get current weather
-        current_url = f"http://api.openweathermap.org/data/2.5/weather?q={city},{state},{country}&appid={api_key}&units={units}"
-        
-        # Get forecast data (includes hourly and daily)
-        forecast_url = f"http://api.openweathermap.org/data/2.5/forecast?q={city},{state},{country}&appid={api_key}&units={units}"
+        # First get coordinates using geocoding API
+        geo_url = f"http://api.openweathermap.org/geo/1.0/direct?q={city},{state},{country}&limit=1&appid={api_key}"
         
         try:
+            # Get coordinates
+            response = requests.get(geo_url)
+            response.raise_for_status()
+            geo_data = response.json()
+            
+            if not geo_data:
+                print(f"Could not find coordinates for {city}, {state}")
+                return
+                
+            lat = geo_data[0]['lat']
+            lon = geo_data[0]['lon']
+            
+            # Get current weather and forecast using coordinates
+            weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={api_key}&units={units}"
+            forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}&units={units}"
+            
             # Fetch current weather
-            response = requests.get(current_url)
+            response = requests.get(weather_url)
             response.raise_for_status()
             self.weather_data = response.json()
 
@@ -69,6 +82,7 @@ class WeatherManager:
             self._process_forecast_data(self.forecast_data)
             
             self.last_update = time.time()
+            print("Weather data updated successfully")
         except Exception as e:
             print(f"Error fetching weather data: {e}")
             self.weather_data = None
@@ -80,28 +94,45 @@ class WeatherManager:
             return
 
         # Process hourly forecast (next 6 hours)
-        hourly = forecast_data.get('hourly', [])[:6]
+        hourly_list = forecast_data.get('list', [])[:6]  # Get next 6 3-hour forecasts
         self.hourly_forecast = []
-        for hour in hourly:
-            dt = datetime.fromtimestamp(hour['dt'])
-            temp = round(hour['temp'])
-            condition = hour['weather'][0]['main']
+        
+        for hour_data in hourly_list:
+            dt = datetime.fromtimestamp(hour_data['dt'])
+            temp = round(hour_data['main']['temp'])
+            condition = hour_data['weather'][0]['main']
             self.hourly_forecast.append({
-                'hour': dt.strftime('%I%p'),
+                'hour': dt.strftime('%I%p').lstrip('0'),  # Remove leading 0
                 'temp': temp,
                 'condition': condition
             })
 
         # Process daily forecast (next 3 days)
-        daily = forecast_data.get('daily', [])[1:4]  # Skip today, get next 3 days
+        daily_data = {}
+        for item in hourly_list:
+            date = datetime.fromtimestamp(item['dt']).strftime('%Y-%m-%d')
+            if date not in daily_data:
+                daily_data[date] = {
+                    'temps': [],
+                    'conditions': [],
+                    'date': datetime.fromtimestamp(item['dt'])
+                }
+            daily_data[date]['temps'].append(item['main']['temp'])
+            daily_data[date]['conditions'].append(item['weather'][0]['main'])
+
+        # Calculate daily summaries
         self.daily_forecast = []
-        for day in daily:
-            dt = datetime.fromtimestamp(day['dt'])
-            temp = round(day['temp']['day'])
-            condition = day['weather'][0]['main']
+        for date, data in list(daily_data.items())[:3]:  # First 3 days
+            temps = data['temps']
+            temp_high = round(max(temps))
+            temp_low = round(min(temps))
+            condition = max(set(data['conditions']), key=data['conditions'].count)
+            
             self.daily_forecast.append({
-                'date': dt.strftime('%a'),
-                'temp': temp,
+                'date': data['date'].strftime('%a'),  # Day name (Mon, Tue, etc.)
+                'date_str': data['date'].strftime('%m/%d'),  # Date (4/8, 4/9, etc.)
+                'temp_high': temp_high,
+                'temp_low': temp_low,
                 'condition': condition
             })
 
@@ -192,7 +223,7 @@ class WeatherManager:
             
             # Format the day, date, and temperature
             day_str = day['date']  # Day name (Mon, Tue, etc.)
-            date_str = day['date']  # Date (4/8, 4/9, etc.)
+            date_str = day['date_str']  # Date (4/8, 4/9, etc.)
             temp_str = f"{day['temp_low']}°F / {day['temp_high']}°F"
             
             # Position the text and icon

@@ -30,12 +30,12 @@ class DisplayController:
         try:
             while True:
                 current_time = time.time()
-                rotation_interval = self.config['display'].get('rotation_interval', 15)
+                rotation_interval = self.config['display'].get('rotation_interval', 30)
 
                 # Track if we're switching modes
                 switching_modes = False
-
-                # Switch display if interval has passed
+                
+                # Check if we need to switch display mode
                 if current_time - self.last_switch > rotation_interval:
                     # Cycle through: clock -> current weather -> hourly forecast -> daily forecast
                     if self.current_display == 'clock':
@@ -51,28 +51,28 @@ class DisplayController:
                     logger.info("Switching display to: %s", self.current_display)
                     self.last_switch = current_time
                     switching_modes = True
+                    self.display_manager.clear()  # Clear display when switching modes
 
-                # Update scroll position for hourly forecast
+                # Update scroll position for hourly forecast if needed
                 if self.current_display == 'hourly' and current_time - self.last_scroll > self.scroll_interval:
                     self.scroll_position += self.scroll_speed
                     self.last_scroll = current_time
-                    switching_modes = True  # Force clear for smooth scrolling
+                    
+                    # Reset scroll position if we've gone through all forecasts
+                    if self.scroll_position > self.display_manager.matrix.width * 3:  # Approximate width of all forecasts
+                        self.scroll_position = 0
 
-                # Display current screen
+                # Display current screen (only force clear when switching modes)
                 if self.current_display == 'clock':
-                    logger.debug("Updating clock display")
                     self.clock.display_time(force_clear=switching_modes)
                 elif self.current_display == 'weather':
-                    logger.debug("Updating current weather display")
                     self.weather.display_weather(force_clear=switching_modes)
                 elif self.current_display == 'hourly':
-                    logger.debug("Updating hourly forecast display")
                     self.weather.display_hourly_forecast(self.scroll_position, force_clear=switching_modes)
                 else:  # daily
-                    logger.debug("Updating daily forecast display")
                     self.weather.display_daily_forecast(force_clear=switching_modes)
 
-                # Sleep for a shorter interval to make scrolling smoother
+                # Sleep for a short interval
                 time.sleep(0.02)
 
         except KeyboardInterrupt:
