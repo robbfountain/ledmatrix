@@ -30,19 +30,15 @@ class DisplayController:
         try:
             while True:
                 current_time = time.time()
-                rotation_interval = self.config['display'].get('rotation_interval', 30)
-
-                # Track if we're switching modes
-                switching_modes = False
                 
                 # Check if we need to switch display mode
-                if current_time - self.last_switch > rotation_interval:
+                if current_time - self.last_switch > self.config['display'].get('rotation_interval', 30):
                     # Cycle through: clock -> current weather -> hourly forecast -> daily forecast
                     if self.current_display == 'clock':
                         self.current_display = 'weather'
                     elif self.current_display == 'weather':
                         self.current_display = 'hourly'
-                        self.scroll_position = 0
+                        self.scroll_position = 0  # Reset scroll position when switching to hourly
                     elif self.current_display == 'hourly':
                         self.current_display = 'daily'
                     else:  # daily
@@ -50,30 +46,37 @@ class DisplayController:
                     
                     logger.info("Switching display to: %s", self.current_display)
                     self.last_switch = current_time
-                    switching_modes = True
                     self.display_manager.clear()  # Clear display when switching modes
+                    force_clear = True
+                else:
+                    force_clear = False
 
                 # Update scroll position for hourly forecast if needed
-                if self.current_display == 'hourly' and current_time - self.last_scroll > self.scroll_interval:
-                    self.scroll_position += self.scroll_speed
-                    self.last_scroll = current_time
-                    
-                    # Reset scroll position if we've gone through all forecasts
-                    if self.scroll_position > self.display_manager.matrix.width * 3:  # Approximate width of all forecasts
-                        self.scroll_position = 0
+                if self.current_display == 'hourly':
+                    if current_time - self.last_scroll > self.scroll_interval:
+                        self.scroll_position += self.scroll_speed
+                        self.last_scroll = current_time
+                        
+                        # Reset scroll position if we've gone through all forecasts
+                        if self.scroll_position > self.display_manager.matrix.width * 3:
+                            self.scroll_position = 0
+                            force_clear = True  # Clear when resetting scroll
 
-                # Display current screen (only force clear when switching modes)
+                # Display current screen
                 if self.current_display == 'clock':
-                    self.clock.display_time(force_clear=switching_modes)
+                    self.clock.display_time(force_clear=force_clear)
                 elif self.current_display == 'weather':
-                    self.weather.display_weather(force_clear=switching_modes)
+                    self.weather.display_weather(force_clear=force_clear)
                 elif self.current_display == 'hourly':
-                    self.weather.display_hourly_forecast(self.scroll_position, force_clear=switching_modes)
+                    self.weather.display_hourly_forecast(self.scroll_position, force_clear=force_clear)
                 else:  # daily
-                    self.weather.display_daily_forecast(force_clear=switching_modes)
+                    self.weather.display_daily_forecast(force_clear=force_clear)
 
-                # Sleep for a short interval
-                time.sleep(0.02)
+                # Sleep longer when not scrolling
+                if self.current_display == 'hourly':
+                    time.sleep(0.05)  # 50ms for smooth scrolling
+                else:
+                    time.sleep(0.1)  # 100ms for static displays
 
         except KeyboardInterrupt:
             print("\nDisplay stopped by user")

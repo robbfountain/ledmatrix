@@ -35,6 +35,7 @@ class WeatherManager:
         self.hourly_forecast = None
         self.daily_forecast = None
         self.scroll_position = 0
+        self.last_draw_time = 0  # Add draw time tracking to reduce flickering
 
     def _fetch_weather(self) -> None:
         """Fetch current weather and forecast data from OpenWeatherMap API."""
@@ -184,14 +185,24 @@ class WeatherManager:
             if not self.hourly_forecast:
                 return
 
-        # Always clear when drawing hourly forecast to prevent ghosting
-        self.display_manager.clear()
+        current_time = time.time()
+        # Only update if forced or enough time has passed (100ms minimum between updates)
+        if not force_clear and current_time - self.last_draw_time < 0.1:
+            return
+
+        # Clear display when starting new scroll
+        if force_clear:
+            self.display_manager.clear()
 
         # Calculate base positions
         display_width = self.display_manager.matrix.width
         display_height = self.display_manager.matrix.height
         forecast_width = display_width // 2  # Each forecast takes half the width
         icon_size = 12  # Slightly smaller icons for better fit
+
+        # Create a new image for this frame
+        self.display_manager.image = Image.new('RGB', (self.display_manager.matrix.width, self.display_manager.matrix.height))
+        self.display_manager.draw = ImageDraw.Draw(self.display_manager.image)
 
         # Create the forecast display
         for i, forecast in enumerate(self.hourly_forecast):
@@ -236,6 +247,10 @@ class WeatherManager:
                         fill=(64, 64, 64)  # Dim gray line
                     )
 
+        # Update the display
+        self.display_manager.update_display()
+        self.last_draw_time = current_time
+
     def display_daily_forecast(self, force_clear: bool = False) -> None:
         """Display 3-day forecast information."""
         if not self.daily_forecast:
@@ -243,8 +258,14 @@ class WeatherManager:
             if not self.daily_forecast:
                 return
 
-        # Always clear when drawing daily forecast
-        self.display_manager.clear()
+        current_time = time.time()
+        # Only update if forced or enough time has passed
+        if not force_clear and current_time - self.last_draw_time < 0.1:
+            return
+
+        # Create new image for this frame
+        self.display_manager.image = Image.new('RGB', (self.display_manager.matrix.width, self.display_manager.matrix.height))
+        self.display_manager.draw = ImageDraw.Draw(self.display_manager.image)
 
         # Calculate layout parameters
         display_width = self.display_manager.matrix.width
@@ -290,4 +311,8 @@ class WeatherManager:
                 self.display_manager.draw.line(
                     [(sep_x, 0), (sep_x, display_height)],
                     fill=(64, 64, 64)  # Dim gray line
-                ) 
+                )
+
+        # Update the display
+        self.display_manager.update_display()
+        self.last_draw_time = current_time 
