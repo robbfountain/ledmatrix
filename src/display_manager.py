@@ -36,21 +36,20 @@ class DisplayManager:
         options.parallel = hardware_config.get('parallel', 1)
         options.hardware_mapping = hardware_config.get('hardware_mapping', 'adafruit-hat-pwm')
         
-        # Increase brightness and optimize display quality
-        options.brightness = hardware_config.get('brightness', 100)  # Maximum brightness
-        options.pwm_bits = hardware_config.get('pwm_bits', 11)  # Maximum color depth
-        options.pwm_lsb_nanoseconds = hardware_config.get('pwm_lsb_nanoseconds', 130)
-        options.led_rgb_sequence = hardware_config.get('led_rgb_sequence', 'RGB')
+        # Optimize display settings for maximum visibility
+        options.brightness = 100  # Maximum brightness
+        options.pwm_bits = 11  # Maximum color depth
+        options.pwm_lsb_nanoseconds = 130
+        options.led_rgb_sequence = 'RGB'
         options.pixel_mapper_config = hardware_config.get('pixel_mapper_config', '')
-        options.row_address_type = hardware_config.get('row_addr_type', 0)
-        options.multiplexing = hardware_config.get('multiplexing', 0)
+        options.row_address_type = 0
+        options.multiplexing = 0
         options.disable_hardware_pulsing = True  # Reduce flickering
         options.show_refresh_rate = False
-        options.limit_refresh_rate_hz = hardware_config.get('limit_refresh_rate_hz', 120)  # Higher refresh rate
+        options.limit_refresh_rate_hz = 120  # Higher refresh rate
         
-        # Runtime configuration
-        runtime_config = self.config.get('runtime', {})
-        options.gpio_slowdown = runtime_config.get('gpio_slowdown', 1)  # Reduce slowdown
+        # Minimal GPIO slowdown for better performance
+        options.gpio_slowdown = 1
         
         # Initialize the matrix
         self.matrix = RGBMatrix(options=options)
@@ -153,6 +152,9 @@ class DisplayManager:
         
         # Draw main text
         self.draw.text((x, y), text, font=font, fill=color)
+        
+        # Update the display
+        self.update_display()
 
     def draw_scrolling_text(self, text: str, scroll_position: int, force_clear: bool = False) -> None:
         """Draw scrolling text on the display."""
