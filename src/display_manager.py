@@ -124,13 +124,23 @@ class DisplayManager:
     def _load_fonts(self):
         """Load fonts optimized for LED matrix display."""
         try:
-            # Use the default bitmap font - it's actually great for LED matrices
-            self.font = ImageFont.load_default()
-            self.small_font = ImageFont.load_default()
-            logger.info("Using default bitmap font")
+            # Use DejaVu Sans with optimized sizes
+            matrix_height = self.matrix.height
+            # For 32px height matrix, use 16px for large text and 8px for small
+            large_size = 16  # Fixed size instead of percentage
+            small_size = 8   # Fixed size for better clarity
             
+            try:
+                self.font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", large_size)
+                self.small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", small_size)
+                logger.info(f"Using DejaVu Sans with sizes {large_size}px and {small_size}px")
+            except Exception as e:
+                logger.error(f"Failed to load DejaVu Sans: {e}")
+                self.font = ImageFont.load_default()
+                self.small_font = ImageFont.load_default()
+                
         except Exception as e:
-            logger.error(f"Error loading fonts: {e}")
+            logger.error(f"Error in font loading: {e}")
             self.font = ImageFont.load_default()
             self.small_font = self.font
 
@@ -138,20 +148,28 @@ class DisplayManager:
         """Draw text on the display with improved clarity."""
         font = self.small_font if small_font else self.font
         
-        # Get text dimensions for centering if x not specified
+        # Get text dimensions including ascenders and descenders
         bbox = self.draw.textbbox((0, 0), text, font=font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
+        
+        # Add padding to prevent cutoff
+        padding = 2
         
         # Center text horizontally if x not specified
         if x is None:
             x = (self.matrix.width - text_width) // 2
         
-        # Center text vertically if y not specified
+        # Center text vertically if y not specified, with padding
         if y is None:
             y = (self.matrix.height - text_height) // 2
-            
-        # Draw text at full brightness for maximum clarity
+        else:
+            # Ensure text doesn't get cut off at bottom
+            max_y = self.matrix.height - text_height - padding
+            y = min(y, max_y)
+            y = max(y, padding)  # Ensure text doesn't get cut off at top
+        
+        # Draw text
         self.draw.text((x, y), text, font=font, fill=color)
 
     def draw_sun(self, x: int, y: int, size: int = 16):
