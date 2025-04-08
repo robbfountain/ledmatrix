@@ -154,6 +154,9 @@ class DisplayManager:
             
             # Calculate next line position
             current_y += line_heights[i] + padding
+        
+        # Update the display with the new image
+        self.matrix.SetImage(self.image)
 
     def cleanup(self):
         """Clean up resources."""
