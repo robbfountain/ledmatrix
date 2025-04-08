@@ -22,11 +22,7 @@ class DisplayManager:
         if not DisplayManager._initialized:
             self.config = config
             logger.info("Initializing DisplayManager with config: %s", config)
-            self._setup_matrix()  # This now sets self.matrix
-            # Use appropriate font size for 32px height
-            self.font = ImageFont.truetype("DejaVuSans.ttf", 14)
-            self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
-            self.draw = ImageDraw.Draw(self.image)
+            self._setup_matrix()  # This now sets self.matrix and self.font
             DisplayManager._initialized = True
 
     def _setup_matrix(self):
@@ -66,6 +62,14 @@ class DisplayManager:
         # Create image with full chain width
         self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
         self.draw = ImageDraw.Draw(self.image)
+        
+        # Initialize font
+        try:
+            self.font = ImageFont.truetype("DejaVuSans.ttf", 14)
+            logger.info("Font initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to load font: {e}")
+            raise
         
         # Draw a test pattern
         self._draw_test_pattern()
