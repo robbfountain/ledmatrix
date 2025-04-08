@@ -276,31 +276,130 @@ class DisplayManager:
                 self.draw.line([center_x, center_y, end_x, end_y], 
                              fill=snow_color, width=1)
 
-    def draw_weather_icon(self, icon_type: str, x: int, y: int, size: int = 16):
-        """Draw a weather icon based on the condition type."""
-        if icon_type == 'Clear':
-            self.draw_sun(x, y, size)
-        elif icon_type == 'Clouds':
-            self.draw_cloud(x, y, size)
-        elif icon_type in ['Rain', 'Drizzle']:
-            self.draw_rain(x, y, size)
-        elif icon_type == 'Snow':
-            self.draw_snow(x, y, size)
-        elif icon_type == 'Thunderstorm':
-            # Draw storm cloud with lightning
-            self.draw_cloud(x, y, size, color=(100, 100, 100))
-            # Add lightning bolt
-            lightning_color = (255, 255, 0)  # Yellow
-            points = [
-                (x + size//2, y + size//2),
-                (x + size//2 - size//4, y + size//2 + size//4),
-                (x + size//2, y + size//2 + size//4),
-                (x + size//2 - size//4, y + size + size//4)
-            ]
-            self.draw.line(points, fill=lightning_color, width=2)
+    # Weather icon color constants
+    WEATHER_COLORS = {
+        'sun': (255, 200, 0),    # Bright yellow
+        'cloud': (200, 200, 200), # Light gray
+        'rain': (0, 100, 255),    # Light blue
+        'snow': (220, 220, 255),  # Ice blue
+        'storm': (255, 255, 0)    # Lightning yellow
+    }
+
+    def _draw_sun(self, x: int, y: int, size: int) -> None:
+        """Draw a sun icon with rays."""
+        center_x, center_y = x + size//2, y + size//2
+        radius = size//4
+        ray_length = size//3
+        
+        # Draw the main sun circle
+        self.draw.ellipse([center_x - radius, center_y - radius, 
+                          center_x + radius, center_y + radius], 
+                         fill=self.WEATHER_COLORS['sun'])
+        
+        # Draw sun rays
+        for angle in range(0, 360, 45):
+            rad = math.radians(angle)
+            start_x = center_x + int((radius + 2) * math.cos(rad))
+            start_y = center_y + int((radius + 2) * math.sin(rad))
+            end_x = center_x + int((radius + ray_length) * math.cos(rad))
+            end_y = center_y + int((radius + ray_length) * math.sin(rad))
+            self.draw.line([start_x, start_y, end_x, end_y], 
+                         fill=self.WEATHER_COLORS['sun'], width=2)
+
+    def _draw_cloud(self, x: int, y: int, size: int) -> None:
+        """Draw a cloud using multiple circles."""
+        cloud_color = self.WEATHER_COLORS['cloud']
+        base_y = y + size//2
+        
+        # Draw main cloud body (3 overlapping circles)
+        circle_radius = size//4
+        positions = [
+            (x + size//3, base_y),           # Left circle
+            (x + size//2, base_y - size//6), # Top circle
+            (x + 2*size//3, base_y)          # Right circle
+        ]
+        
+        for cx, cy in positions:
+            self.draw.ellipse([cx - circle_radius, cy - circle_radius,
+                             cx + circle_radius, cy + circle_radius],
+                            fill=cloud_color)
+
+    def _draw_rain(self, x: int, y: int, size: int) -> None:
+        """Draw rain drops falling from a cloud."""
+        self._draw_cloud(x, y, size)
+        rain_color = self.WEATHER_COLORS['rain']
+        
+        # Draw rain drops at an angle
+        drop_size = size//8
+        drops = [
+            (x + size//4, y + 2*size//3),
+            (x + size//2, y + 3*size//4),
+            (x + 3*size//4, y + 2*size//3)
+        ]
+        
+        for dx, dy in drops:
+            # Draw angled rain drops
+            self.draw.line([dx, dy, dx - drop_size//2, dy + drop_size],
+                         fill=rain_color, width=2)
+
+    def _draw_snow(self, x: int, y: int, size: int) -> None:
+        """Draw snowflakes falling from a cloud."""
+        self._draw_cloud(x, y, size)
+        snow_color = self.WEATHER_COLORS['snow']
+        
+        # Draw snowflakes
+        flake_size = size//6
+        flakes = [
+            (x + size//4, y + 2*size//3),
+            (x + size//2, y + 3*size//4),
+            (x + 3*size//4, y + 2*size//3)
+        ]
+        
+        for fx, fy in flakes:
+            # Draw a snowflake (six-pointed star)
+            for angle in range(0, 360, 60):
+                rad = math.radians(angle)
+                end_x = fx + int(flake_size * math.cos(rad))
+                end_y = fy + int(flake_size * math.sin(rad))
+                self.draw.line([fx, fy, end_x, end_y],
+                             fill=snow_color, width=1)
+
+    def _draw_storm(self, x: int, y: int, size: int) -> None:
+        """Draw a storm cloud with lightning bolt."""
+        self._draw_cloud(x, y, size)
+        
+        # Draw lightning bolt
+        bolt_color = self.WEATHER_COLORS['storm']
+        bolt_points = [
+            (x + size//2, y + size//2),          # Top
+            (x + 3*size//5, y + 2*size//3),      # Middle right
+            (x + 2*size//5, y + 2*size//3),      # Middle left
+            (x + size//2, y + 5*size//6)         # Bottom
+        ]
+        self.draw.polygon(bolt_points, fill=bolt_color)
+
+    def draw_weather_icon(self, condition: str, x: int, y: int, size: int = 16) -> None:
+        """Draw a weather icon based on the condition."""
+        # Clear the area where the icon will be drawn
+        self.draw.rectangle([x, y, x + size, y + size],
+                          fill=(0, 0, 0))
+        
+        # Draw the appropriate weather icon
+        if condition.lower() in ['clear', 'sunny']:
+            self._draw_sun(x, y, size)
+        elif condition.lower() in ['clouds', 'cloudy', 'partly cloudy']:
+            self._draw_cloud(x, y, size)
+        elif condition.lower() in ['rain', 'drizzle', 'shower']:
+            self._draw_rain(x, y, size)
+        elif condition.lower() in ['snow', 'sleet', 'hail']:
+            self._draw_snow(x, y, size)
+        elif condition.lower() in ['thunderstorm', 'storm']:
+            self._draw_storm(x, y, size)
         else:
-            # Default to a cloud for unknown conditions
-            self.draw_cloud(x, y, size)
+            # Default to sun if condition is unknown
+            self._draw_sun(x, y, size)
+        
+        self.update_display()
 
     def draw_text_with_icons(self, text: str, icons: List[tuple] = None, x: int = None, y: int = None, 
                             color: tuple = (255, 255, 255), force_clear: bool = False):
