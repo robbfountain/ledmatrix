@@ -24,7 +24,8 @@ class DisplayManager:
         if not DisplayManager._initialized:
             self.config = config
             logger.info("Initializing DisplayManager with config: %s", config)
-            self._setup_matrix()  # This now sets self.matrix and self.font
+            self._setup_matrix()
+            self._load_fonts()
             DisplayManager._initialized = True
 
     def _setup_matrix(self):
@@ -111,7 +112,22 @@ class DisplayManager:
         self.draw.rectangle((0, 0, self.matrix.width, self.matrix.height), fill=(0, 0, 0))
         self.update_display()
 
-    def draw_text(self, text: str, x: int = None, y: int = None, color: tuple = (255, 255, 255), force_clear: bool = False):
+    def _load_fonts(self):
+        """Load fonts for different text sizes."""
+        try:
+            # Load regular font (size 14 for better readability)
+            self.font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14)
+            # Load small font (size 8 for compact display)
+            self.small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 8)
+            logger.info("Fonts loaded successfully")
+        except Exception as e:
+            logger.error(f"Error loading fonts: {e}")
+            # Fallback to default bitmap font if TTF loading fails
+            self.font = ImageFont.load_default()
+            self.small_font = self.font
+
+    def draw_text(self, text: str, x: int = None, y: int = None, color: tuple = (255, 255, 255), 
+                 force_clear: bool = False, small_font: bool = False):
         """Draw text on the display with automatic centering."""
         if force_clear:
             self.clear()
@@ -119,6 +135,9 @@ class DisplayManager:
             # Just create a new blank image without updating display
             self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
             self.draw = ImageDraw.Draw(self.image)
+        
+        # Select font based on small_font parameter
+        font = self.small_font if small_font else self.font
         
         # Split text into lines if it contains newlines
         lines = text.split('\n')
@@ -131,7 +150,7 @@ class DisplayManager:
         edge_padding = 2  # Minimum padding from display edges
         
         for line in lines:
-            bbox = self.draw.textbbox((0, 0), line, font=self.font)
+            bbox = self.draw.textbbox((0, 0), line, font=font)
             line_width = bbox[2] - bbox[0]
             line_height = bbox[3] - bbox[1]
             line_heights.append(line_height)
@@ -161,8 +180,8 @@ class DisplayManager:
             # Ensure y coordinate stays within bounds
             current_y = max(edge_padding, min(current_y, self.matrix.height - line_heights[i] - edge_padding))
             
-            logger.info(f"Drawing line '{line}' at position ({line_x}, {current_y})")
-            self.draw.text((line_x, current_y), line, font=self.font, fill=color)
+            # Draw the text (removed logging to reduce spam)
+            self.draw.text((line_x, current_y), line, font=font, fill=color)
             
             # Calculate next line position
             current_y += line_heights[i] + padding

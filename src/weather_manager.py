@@ -150,18 +150,32 @@ class WeatherManager:
         if not weather_data:
             return
 
+        current_time = time.time()
         temp = round(weather_data['main']['temp'])
         condition = weather_data['weather'][0]['main']
         
-        # Draw temperature text and weather icon
-        text = f"{temp}°F"
-        icon_x = (self.display_manager.matrix.width - 20) // 2  # Center the 20px icon
-        icon_y = 2  # Near the top
-        self.display_manager.draw_text_with_icons(
-            text,
-            icons=[(condition, icon_x, icon_y)],
-            force_clear=force_clear
-        )
+        # Only update display if forced or data changed
+        if force_clear or not hasattr(self, 'last_temp') or temp != self.last_temp or condition != self.last_condition:
+            # Draw temperature text and weather icon
+            text = f"{temp}°F"
+            icon_x = (self.display_manager.matrix.width - 20) // 2  # Center the 20px icon
+            icon_y = 2  # Near the top
+            
+            # Clear and draw
+            if force_clear:
+                self.display_manager.clear()
+            
+            # Draw icon and text
+            self.display_manager.draw_weather_icon(condition, icon_x, icon_y, size=16)
+            self.display_manager.draw_text(
+                text,
+                y=icon_y + 18,  # Position text below icon
+                small_font=False
+            )
+            
+            # Update cache
+            self.last_temp = temp
+            self.last_condition = condition
 
     def display_hourly_forecast(self, scroll_amount: int = 0, force_clear: bool = False) -> None:
         """Display scrolling hourly forecast information."""
