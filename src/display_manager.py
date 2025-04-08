@@ -2,6 +2,11 @@ from rgbmatrix import RGBMatrix, RGBMatrixOptions
 from PIL import Image, ImageDraw, ImageFont
 import time
 from typing import Dict, Any
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class DisplayManager:
     _instance = None
@@ -16,7 +21,8 @@ class DisplayManager:
         # Only initialize once
         if not DisplayManager._initialized:
             self.config = config
-            self.matrix = self._setup_matrix()
+            logger.info("Initializing DisplayManager with config: %s", config)
+            self._setup_matrix()  # This now sets self.matrix
             self.font = ImageFont.truetype("DejaVuSans.ttf", 24)
             self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
             self.draw = ImageDraw.Draw(self.image)
@@ -33,6 +39,7 @@ class DisplayManager:
         options.chain_length = hardware_config.get('chain_length', 2)
         options.parallel = hardware_config.get('parallel', 1)
         options.hardware_mapping = hardware_config.get('hardware_mapping', 'adafruit-hat-pwm')
+        logger.info("Setting hardware mapping to: %s", options.hardware_mapping)
         options.brightness = hardware_config.get('brightness', 50)
         options.pwm_bits = hardware_config.get('pwm_bits', 11)
         options.pwm_lsb_nanoseconds = hardware_config.get('pwm_lsb_nanoseconds', 130)
@@ -47,14 +54,17 @@ class DisplayManager:
         # Runtime configuration
         runtime_config = self.config.get('runtime', {})
         options.gpio_slowdown = runtime_config.get('gpio_slowdown', 3)
+        logger.info("Setting GPIO slowdown to: %d", options.gpio_slowdown)
 
         # Initialize the matrix
+        logger.info("Initializing RGB matrix with options...")
         self.matrix = RGBMatrix(options=options)
-        self.canvas = self.matrix.CreateFrameCanvas()
+        logger.info("RGB matrix initialized successfully")
         
         # Apply rotation if specified
         self.rotation = hardware_config.get('rotation', 0)
-        
+        logger.info("Display rotation set to: %d degrees", self.rotation)
+
     def _draw_text(self, text, x, y, font, color=(255, 255, 255)):
         """Draw text on the canvas with optional rotation."""
         if self.rotation == 180:
@@ -67,7 +77,8 @@ class DisplayManager:
             x = width - x - text_width
             y = height - y - text_height
             
-        graphics.DrawText(self.canvas, font, x, y, graphics.Color(*color), text)
+        self.draw.text((x, y), text, font=font, fill=color)
+        self.matrix.SetImage(self.image)
 
     def clear(self):
         """Clear the display."""
