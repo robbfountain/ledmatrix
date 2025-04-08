@@ -51,23 +51,19 @@ sudo apt-get install -y fonts-dejavu
 
 ## Performance Optimization
 
-To reduce flickering and improve display quality, you have two options:
+To reduce flickering and improve display quality:
 
-1. Run the program with root privileges (quick solution):
+1. Edit `/boot/firmware/cmdline.txt`:
 ```bash
-sudo python3 clock.py
+sudo nano /boot/firmware/cmdline.txt
 ```
 
-2. For better performance (recommended):
-   - Edit `/boot/firmware/cmdline.txt`:
-     ```bash
-     sudo nano /boot/firmware/cmdline.txt
-     ```
-   - Add `isolcpus=3` at the end of the line
-   - Save and reboot:
-     ```bash
-     sudo reboot
-     ```
+2. Add `isolcpus=3` at the end of the line
+
+3. Save and reboot:
+```bash
+sudo reboot
+```
 
 ## Configuration
 
@@ -76,12 +72,17 @@ Edit the `config/config.json` file to customize:
 - Display settings (brightness, dimensions)
 - Clock format and update interval
 
+For sensitive settings like API keys:
+1. Copy the template: `cp config/config_secrets.template.json config/config_secrets.json`
+2. Edit `config/config_secrets.json` with your API keys
+
 ## Running the Clock
 
-To start the clock with optimal performance:
+The program must be run with root privileges to access the LED matrix hardware:
+
 ```bash
 cd src
-sudo python3 clock.py
+sudo python3 display_controller.py
 ```
 
 To stop the clock, press Ctrl+C.
@@ -93,4 +94,5 @@ To stop the clock, press Ctrl+C.
   - `config_manager.py` - Configuration management
   - `display_manager.py` - LED matrix display handling
 - `config/`
-  - `config.json` - Configuration settings 
+  - `config.json` - Configuration settings
+  - `config_secrets.json` - Private settings (not in git) 
