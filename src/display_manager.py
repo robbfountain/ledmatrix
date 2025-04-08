@@ -1,8 +1,10 @@
 from rgbmatrix import RGBMatrix, RGBMatrixOptions
 from PIL import Image, ImageDraw, ImageFont
 import time
-from typing import Dict, Any
+from typing import Dict, Any, List
 import logging
+import math
+from .weather_icons import WeatherIcons
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -195,6 +197,111 @@ class DisplayManager:
         
         # Update the display with the visible portion
         self.matrix.SetImage(visible_portion)
+
+    def draw_sun(self, x: int, y: int, size: int = 16):
+        """Draw a sun icon using yellow circles and lines."""
+        center = (x + size//2, y + size//2)
+        radius = size//3
+        
+        # Draw the center circle
+        self.draw.ellipse([center[0]-radius, center[1]-radius, 
+                          center[0]+radius, center[1]+radius], 
+                         fill=(255, 255, 0))  # Yellow
+        
+        # Draw the rays
+        ray_length = size//4
+        for angle in range(0, 360, 45):
+            rad = math.radians(angle)
+            start_x = center[0] + (radius * math.cos(rad))
+            start_y = center[1] + (radius * math.sin(rad))
+            end_x = center[0] + ((radius + ray_length) * math.cos(rad))
+            end_y = center[1] + ((radius + ray_length) * math.sin(rad))
+            self.draw.line([start_x, start_y, end_x, end_y], fill=(255, 255, 0), width=2)
+
+    def draw_cloud(self, x: int, y: int, size: int = 16, color=(200, 200, 200)):
+        """Draw a cloud icon."""
+        # Draw multiple circles to form a cloud shape
+        self.draw.ellipse([x+size//4, y+size//3, x+size//4+size//2, y+size//3+size//2], fill=color)
+        self.draw.ellipse([x+size//2, y+size//3, x+size//2+size//2, y+size//3+size//2], fill=color)
+        self.draw.ellipse([x+size//3, y+size//6, x+size//3+size//2, y+size//6+size//2], fill=color)
+
+    def draw_rain(self, x: int, y: int, size: int = 16):
+        """Draw rain icon with cloud and droplets."""
+        # Draw cloud
+        self.draw_cloud(x, y, size)
+        
+        # Draw rain drops
+        drop_color = (0, 0, 255)  # Blue
+        drop_size = size//6
+        for i in range(3):
+            drop_x = x + size//4 + (i * size//3)
+            drop_y = y + size//2
+            self.draw.line([drop_x, drop_y, drop_x, drop_y+drop_size], 
+                          fill=drop_color, width=2)
+
+    def draw_snow(self, x: int, y: int, size: int = 16):
+        """Draw snow icon with cloud and snowflakes."""
+        # Draw cloud
+        self.draw_cloud(x, y, size)
+        
+        # Draw snowflakes
+        snow_color = (200, 200, 255)  # Light blue
+        for i in range(3):
+            center_x = x + size//4 + (i * size//3)
+            center_y = y + size//2 + size//4
+            # Draw a small star shape
+            for angle in range(0, 360, 60):
+                rad = math.radians(angle)
+                end_x = center_x + (size//8 * math.cos(rad))
+                end_y = center_y + (size//8 * math.sin(rad))
+                self.draw.line([center_x, center_y, end_x, end_y], 
+                             fill=snow_color, width=1)
+
+    def draw_weather_icon(self, icon_type: str, x: int, y: int, size: int = 16):
+        """Draw a weather icon based on the condition type."""
+        if icon_type == 'Clear':
+            self.draw_sun(x, y, size)
+        elif icon_type == 'Clouds':
+            self.draw_cloud(x, y, size)
+        elif icon_type in ['Rain', 'Drizzle']:
+            self.draw_rain(x, y, size)
+        elif icon_type == 'Snow':
+            self.draw_snow(x, y, size)
+        elif icon_type == 'Thunderstorm':
+            # Draw storm cloud with lightning
+            self.draw_cloud(x, y, size, color=(100, 100, 100))
+            # Add lightning bolt
+            lightning_color = (255, 255, 0)  # Yellow
+            points = [
+                (x + size//2, y + size//2),
+                (x + size//2 - size//4, y + size//2 + size//4),
+                (x + size//2, y + size//2 + size//4),
+                (x + size//2 - size//4, y + size + size//4)
+            ]
+            self.draw.line(points, fill=lightning_color, width=2)
+        else:
+            # Default to a cloud for unknown conditions
+            self.draw_cloud(x, y, size)
+
+    def draw_text_with_icons(self, text: str, icons: List[tuple] = None, x: int = None, y: int = None, 
+                            color: tuple = (255, 255, 255), force_clear: bool = False):
+        """Draw text with weather icons at specified positions."""
+        if force_clear:
+            self.clear()
+        else:
+            self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
+            self.draw = ImageDraw.Draw(self.image)
+        
+        # First draw the text
+        self.draw_text(text, x, y, color, force_clear=False)
+        
+        # Then draw any icons
+        if icons:
+            for icon_type, icon_x, icon_y in icons:
+                WeatherIcons.draw_weather_icon(self.draw, icon_type, icon_x, icon_y)
+        
+        # Update the display
+        self.update_display()
 
     def cleanup(self):
         """Clean up resources."""

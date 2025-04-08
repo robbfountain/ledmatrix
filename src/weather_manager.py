@@ -66,7 +66,7 @@ class WeatherManager:
             self.forecast_data = response.json()
 
             # Process forecast data
-            self._process_forecast_data()
+            self._process_forecast_data(self.forecast_data)
             
             self.last_update = time.time()
         except Exception as e:
@@ -74,49 +74,35 @@ class WeatherManager:
             self.weather_data = None
             self.forecast_data = None
 
-    def _process_forecast_data(self) -> None:
-        """Process the forecast data into hourly and daily forecasts."""
-        if not self.forecast_data:
+    def _process_forecast_data(self, forecast_data: Dict[str, Any]) -> None:
+        """Process forecast data into hourly and daily forecasts."""
+        if not forecast_data:
             return
 
         # Process hourly forecast (next 6 hours)
+        hourly = forecast_data.get('hourly', [])[:6]
         self.hourly_forecast = []
-        for item in self.forecast_data['list'][:6]:  # First 6 entries (3 hours each)
-            hour = datetime.fromtimestamp(item['dt']).strftime('%I%p').lstrip('0')  # Remove leading zero
-            temp = round(item['main']['temp'])
-            condition = item['weather'][0]['main']
-            icon = self.WEATHER_ICONS.get(condition, '❓')
+        for hour in hourly:
+            dt = datetime.fromtimestamp(hour['dt'])
+            temp = round(hour['temp'])
+            condition = hour['weather'][0]['main']
             self.hourly_forecast.append({
-                'hour': hour,
+                'hour': dt.strftime('%I%p'),
                 'temp': temp,
-                'condition': condition,
-                'icon': icon
+                'condition': condition
             })
 
         # Process daily forecast (next 3 days)
-        daily_data = {}
-        for item in self.forecast_data['list']:
-            date = datetime.fromtimestamp(item['dt']).strftime('%Y-%m-%d')
-            if date not in daily_data:
-                daily_data[date] = {
-                    'temps': [],
-                    'conditions': []
-                }
-            daily_data[date]['temps'].append(item['main']['temp'])
-            daily_data[date]['conditions'].append(item['weather'][0]['main'])
-
-        # Calculate daily summaries
+        daily = forecast_data.get('daily', [])[1:4]  # Skip today, get next 3 days
         self.daily_forecast = []
-        for date, data in list(daily_data.items())[:3]:  # First 3 days
-            avg_temp = round(sum(data['temps']) / len(data['temps']))
-            condition = max(set(data['conditions']), key=data['conditions'].count)
-            icon = self.WEATHER_ICONS.get(condition, '❓')
-            display_date = datetime.strptime(date, '%Y-%m-%d').strftime('%a %d')
+        for day in daily:
+            dt = datetime.fromtimestamp(day['dt'])
+            temp = round(day['temp']['day'])
+            condition = day['weather'][0]['main']
             self.daily_forecast.append({
-                'date': display_date,
-                'temp': avg_temp,
-                'condition': condition,
-                'icon': icon
+                'date': dt.strftime('%a'),
+                'temp': temp,
+                'condition': condition
             })
 
     def get_weather(self) -> Dict[str, Any]:
@@ -135,13 +121,16 @@ class WeatherManager:
 
         temp = round(weather_data['main']['temp'])
         condition = weather_data['weather'][0]['main']
-        icon = self.WEATHER_ICONS.get(condition, '❓')
         
-        # Format the display string with temp and large icon
-        display_text = f"{temp}°F\n{icon}"
-        
-        # Draw both lines at once using the multi-line support in draw_text
-        self.display_manager.draw_text(display_text, force_clear=force_clear)
+        # Draw temperature text and weather icon
+        text = f"{temp}°F"
+        icon_x = (self.display_manager.matrix.width - 20) // 2  # Center the 20px icon
+        icon_y = 2  # Near the top
+        self.display_manager.draw_text_with_icons(
+            text,
+            icons=[(condition, icon_x, icon_y)],
+            force_clear=force_clear
+        )
 
     def display_hourly_forecast(self, scroll_amount: int = 0, force_clear: bool = False) -> None:
         """Display scrolling hourly forecast information."""
@@ -153,18 +142,29 @@ class WeatherManager:
         # Update scroll position
         self.scroll_position = scroll_amount
 
-        # Create the full scrolling text
+        # Create the full scrolling text with icons
         forecasts = []
-        for forecast in self.hourly_forecast:
-            forecasts.append(f"{forecast['hour']}\n{forecast['temp']}°F\n{forecast['icon']}")
-        
-        # Join with some spacing between each forecast
+        icons = []
+        x_offset = self.display_manager.matrix.width - scroll_amount
+        icon_size = 16
+
+        for i, forecast in enumerate(self.hourly_forecast):
+            # Add text
+            forecasts.append(f"{forecast['hour']}\n{forecast['temp']}°F")
+            
+            # Calculate icon position
+            icon_x = x_offset + (i * (icon_size * 3))  # Space icons out
+            icon_y = 2  # Near top
+            icons.append((forecast['condition'], icon_x, icon_y))
+
+        # Join with spacing
         display_text = "   |   ".join(forecasts)
         
-        # Draw the scrolling text
-        self.display_manager.draw_scrolling_text(
+        # Draw everything
+        self.display_manager.draw_text_with_icons(
             display_text,
-            self.scroll_position,
+            icons=icons,
+            x=x_offset,
             force_clear=force_clear
         )
 
@@ -175,13 +175,24 @@ class WeatherManager:
             if not self.daily_forecast:
                 return
 
-        # Create a compact display of all three days
+        # Create text lines and collect icon information
         lines = []
-        for day in self.daily_forecast:
-            lines.append(f"{day['date']}\n{day['temp']}°F {day['icon']}")
+        icons = []
+        y_offset = 2
+        icon_size = 16
+
+        for i, day in enumerate(self.daily_forecast):
+            lines.append(f"{day['date']}: {day['temp']}°F")
+            icons.append((
+                day['condition'],
+                self.display_manager.matrix.width - icon_size - 2,  # Right align
+                y_offset + (i * (icon_size + 2))  # Stack vertically
+            ))
         
-        # Join all lines with newlines
+        # Join lines and draw everything
         display_text = "\n".join(lines)
-        
-        # Draw the forecast
-        self.display_manager.draw_text(display_text, force_clear=force_clear) 
+        self.display_manager.draw_text_with_icons(
+            display_text,
+            icons=icons,
+            force_clear=force_clear
+        ) 
