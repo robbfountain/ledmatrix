@@ -26,7 +26,7 @@ class DisplayController:
         try:
             while True:
                 current_time = time.time()
-                rotation_interval = self.config['display'].get('rotation_interval', 10)
+                rotation_interval = self.config['display'].get('rotation_interval', 15)
 
                 # Switch display if interval has passed
                 if current_time - self.last_switch > rotation_interval:
@@ -44,8 +44,8 @@ class DisplayController:
                     logger.debug("Updating weather display")
                     self.weather.display_weather()
 
-                # Small delay to prevent CPU overload
-                time.sleep(0.1)
+                # Sleep for 0.5 seconds since we only need to check for second changes
+                time.sleep(0.5)
 
         except KeyboardInterrupt:
             print("\nDisplay stopped by user")

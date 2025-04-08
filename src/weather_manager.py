@@ -48,23 +48,8 @@ class WeatherManager:
         temp = round(weather_data['main']['temp'])
         condition = weather_data['weather'][0]['main']
         
-        # Format the display string
-        display_text = self.weather_config.get('display_format', '{temp}°F\n{condition}')
-        display_text = display_text.format(temp=temp, condition=condition)
-
-        # Split text into lines
-        lines = display_text.split('\n')
+        # Format the display string with both temp and condition
+        display_text = f"{temp}°F\n{condition}"
         
-        # Calculate vertical spacing
-        total_height = len(lines) * 24  # Assuming 24px font height
-        start_y = (self.display_manager.matrix.height - total_height) // 2
-
-        # Clear the display
-        self.display_manager.clear()
-
-        # Draw each line centered
-        for i, line in enumerate(lines):
-            text_width = self.display_manager.font.getlength(line)
-            x = (self.display_manager.matrix.width - text_width) // 2
-            y = start_y + (i * 24)
-            self.display_manager.draw_text(line, x, y) 
+        # Draw both lines at once using the multi-line support in draw_text
+        self.display_manager.draw_text(display_text) 

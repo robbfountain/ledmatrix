@@ -21,6 +21,7 @@ class Clock:
         self.clock_config = self.config.get('clock', {})
         # Use configured timezone if available, otherwise try to determine it
         self.timezone = self._get_timezone()
+        self.last_time = None
 
     def _get_timezone(self) -> pytz.timezone:
         """Get timezone based on location or config."""
@@ -69,16 +70,20 @@ class Clock:
     def display_time(self) -> None:
         """Display the current time."""
         current_time = self.get_current_time()
-        logger.debug("Displaying time: %s", current_time)
         
-        # Center the text on the display
-        text_width = self.display_manager.font.getlength(current_time)
-        x = (self.display_manager.matrix.width - text_width) // 2
-        y = (self.display_manager.matrix.height - 24) // 2
-        
-        logger.debug("Drawing time at position (%d, %d)", x, y)
-        self.display_manager.clear()
-        self.display_manager.draw_text(current_time, x, y)
+        # Only update if the time has changed
+        if current_time != self.last_time:
+            logger.debug("Time changed, updating display from %s to %s", self.last_time, current_time)
+            self.last_time = current_time
+            
+            # Center the text on the display
+            text_width = self.display_manager.font.getlength(current_time)
+            x = (self.display_manager.matrix.width - text_width) // 2
+            y = (self.display_manager.matrix.height - 24) // 2
+            
+            logger.debug("Drawing time at position (%d, %d)", x, y)
+            self.display_manager.clear()
+            self.display_manager.draw_text(current_time, x, y)
 
 if __name__ == "__main__":
     clock = Clock()
