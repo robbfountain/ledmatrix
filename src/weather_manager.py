@@ -34,7 +34,6 @@ class WeatherManager:
         self.forecast_data = None
         self.hourly_forecast = None
         self.daily_forecast = None
-        self.scroll_position = 0
         self.last_draw_time = 0
         # Layout constants
         self.PADDING = 2
@@ -50,28 +49,6 @@ class WeatherManager:
             'temp_high': (255, 100, 100),
             'temp_low': (100, 100, 255)
         }
-        # Initialize image buffer
-        self.image = None
-        self.draw = None
-        self._init_buffer()
-
-    def _init_buffer(self):
-        """Initialize or reset the image buffer."""
-        if self.display_manager and self.display_manager.matrix:
-            self.image = Image.new('RGB', (self.display_manager.matrix.width, self.display_manager.matrix.height))
-            self.draw = ImageDraw.Draw(self.image)
-
-    def _clear_buffer(self):
-        """Clear the image buffer without updating display."""
-        if self.image and self.draw:
-            self.draw.rectangle((0, 0, self.image.size[0], self.image.size[1]), fill=(0, 0, 0))
-
-    def _update_display(self):
-        """Update the display with current buffer contents."""
-        if self.image:
-            self.display_manager.image = self.image.copy()
-            self.display_manager.draw = ImageDraw.Draw(self.display_manager.image)
-            self.display_manager.update_display()
 
     def _fetch_weather(self) -> None:
         """Fetch current weather and forecast data from OpenWeatherMap API."""
@@ -181,98 +158,72 @@ class WeatherManager:
             self._fetch_weather()
         return self.weather_data
 
-    def _prepare_display(self, force_clear: bool = False):
-        """Prepare the display for drawing."""
-        if force_clear:
-            self.display_manager.clear()
-        self.display_manager.image = Image.new('RGB', (self.display_manager.matrix.width, self.display_manager.matrix.height))
-        self.display_manager.draw = ImageDraw.Draw(self.display_manager.image)
-
     def display_weather(self, force_clear: bool = False) -> None:
-        """Display current weather information using an improved layout."""
+        """Display current weather information using a static layout."""
         weather_data = self.get_weather()
         if not weather_data:
             return
 
-        current_time = time.time()
+        # Always clear and redraw
+        self.display_manager.clear()
+        
+        # Calculate layout
+        display_width = self.display_manager.matrix.width
+        display_height = self.display_manager.matrix.height
+        
+        # Get weather data
         temp = round(weather_data['main']['temp'])
         condition = weather_data['weather'][0]['main']
         humidity = weather_data['main']['humidity']
         
-        # Only update display if forced or data changed
-        if force_clear or not hasattr(self, 'last_temp') or temp != self.last_temp or condition != self.last_condition:
-            # Prepare display
-            self._prepare_display(force_clear)
-            
-            # Calculate layout
-            display_width = self.display_manager.matrix.width
-            display_height = self.display_manager.matrix.height
-            
-            # Draw main temperature in large format
-            temp_text = f"{temp}°"
-            x_pos = display_width // 4
-            y_pos = display_height // 2 - 4
-            
-            # Draw temperature
-            self.display_manager.draw_text(
-                temp_text,
-                x=x_pos,
-                y=y_pos,
-                color=self.COLORS['highlight'],
-                small_font=False,
-                force_clear=False  # Don't clear since we already prepared the display
-            )
-            
-            # Draw weather icon
-            icon_x = display_width * 3 // 4 - self.ICON_SIZE['large'] // 2
-            icon_y = display_height // 2 - self.ICON_SIZE['large'] // 2
-            self.display_manager.draw_weather_icon(condition, icon_x, icon_y, size=self.ICON_SIZE['large'])
-            
-            # Draw humidity below temperature
-            humidity_text = f"Humidity: {humidity}%"
-            self.display_manager.draw_text(
-                humidity_text,
-                x=self.PADDING,
-                y=display_height - 8,
-                color=self.COLORS['text'],
-                small_font=True,
-                force_clear=False  # Don't clear since we already prepared the display
-            )
-            
-            # Update display
-            self.display_manager.update_display()
-            
-            # Update cache
-            self.last_temp = temp
-            self.last_condition = condition
+        # Draw temperature (large, centered)
+        temp_text = f"{temp}°F"
+        self.display_manager.draw_text(
+            temp_text,
+            y=2,  # Near top
+            color=self.COLORS['highlight'],
+            small_font=False
+        )
+        
+        # Draw weather icon below temperature
+        icon_x = (display_width - self.ICON_SIZE['large']) // 2
+        icon_y = display_height // 2 - 4
+        self.display_manager.draw_weather_icon(condition, icon_x, icon_y, size=self.ICON_SIZE['large'])
+        
+        # Draw humidity at bottom
+        humidity_text = f"Humidity: {humidity}%"
+        self.display_manager.draw_text(
+            humidity_text,
+            y=display_height - 8,
+            color=self.COLORS['text'],
+            small_font=True
+        )
+        
+        # Update display
+        self.display_manager.update_display()
 
     def display_hourly_forecast(self, scroll_position: int = 0, force_clear: bool = False) -> None:
-        """Display scrolling hourly forecast with improved layout."""
+        """Display static hourly forecast showing next 3 hours."""
         if not self.hourly_forecast:
             self.get_weather()
             if not self.hourly_forecast:
                 return
 
-        current_time = time.time()
-        if not force_clear and current_time - self.last_draw_time < 0.1:
-            return
-
-        # Prepare display
-        self._prepare_display(force_clear)
+        # Always clear and redraw
+        self.display_manager.clear()
 
         # Calculate layout parameters
         display_width = self.display_manager.matrix.width
         display_height = self.display_manager.matrix.height
-        forecast_width = display_width // 2
+        section_width = display_width // 3  # Show 3 hours
         
-        # Create header
-        header_text = "HOURLY"
+        # Draw header
+        header_text = "NEXT 3 HOURS"
         self.display_manager.draw_text(
             header_text,
             y=1,
             color=self.COLORS['highlight'],
-            small_font=True,
-            force_clear=False  # Don't clear since we already prepared the display
+            small_font=True
         )
         
         # Draw separator line
@@ -281,25 +232,21 @@ class WeatherManager:
             fill=self.COLORS['separator']
         )
 
-        # Create forecasts
-        for i, forecast in enumerate(self.hourly_forecast):
-            x_pos = display_width - scroll_position + (i * forecast_width)
+        # Show first 3 hours
+        for i, forecast in enumerate(self.hourly_forecast[:3]):
+            x_base = i * section_width
             
-            if x_pos < -forecast_width or x_pos > display_width:
-                continue
-
             # Draw time
             self.display_manager.draw_text(
                 forecast['hour'],
-                x=x_pos + forecast_width // 2,
+                x=x_base + section_width // 2,
                 y=10,
                 color=self.COLORS['text'],
-                small_font=True,
-                force_clear=False  # Don't clear since we already prepared the display
+                small_font=True
             )
 
             # Draw icon
-            icon_x = x_pos + (forecast_width - self.ICON_SIZE['medium']) // 2
+            icon_x = x_base + (section_width - self.ICON_SIZE['medium']) // 2
             icon_y = 14
             self.display_manager.draw_weather_icon(
                 forecast['condition'],
@@ -309,56 +256,48 @@ class WeatherManager:
             )
 
             # Draw temperature
-            temp_text = f"{forecast['temp']}°"
+            temp_text = f"{forecast['temp']}°F"
             self.display_manager.draw_text(
                 temp_text,
-                x=x_pos + forecast_width // 2,
+                x=x_base + section_width // 2,
                 y=display_height - 8,
                 color=self.COLORS['text'],
-                small_font=True,
-                force_clear=False  # Don't clear since we already prepared the display
+                small_font=True
             )
 
-            # Draw separator line
-            if i < len(self.hourly_forecast) - 1:
-                sep_x = x_pos + forecast_width - 1
-                if 0 <= sep_x <= display_width:
-                    self.display_manager.draw.line(
-                        [(sep_x, 8), (sep_x, display_height)],
-                        fill=self.COLORS['separator']
-                    )
+            # Draw separator lines
+            if i < 2:  # Only draw between sections
+                sep_x = x_base + section_width - 1
+                self.display_manager.draw.line(
+                    [(sep_x, 8), (sep_x, display_height)],
+                    fill=self.COLORS['separator']
+                )
 
         # Update display
         self.display_manager.update_display()
-        self.last_draw_time = current_time
 
     def display_daily_forecast(self, force_clear: bool = False) -> None:
-        """Display daily forecast with improved layout and visual hierarchy."""
+        """Display static 3-day forecast."""
         if not self.daily_forecast:
             self.get_weather()
             if not self.daily_forecast:
                 return
 
-        current_time = time.time()
-        if not force_clear and current_time - self.last_draw_time < 0.1:
-            return
-
-        # Prepare display
-        self._prepare_display(force_clear)
+        # Always clear and redraw
+        self.display_manager.clear()
 
         # Calculate layout parameters
         display_width = self.display_manager.matrix.width
         display_height = self.display_manager.matrix.height
         section_width = display_width // 3
 
-        # Create header
+        # Draw header
         header_text = "3-DAY FORECAST"
         self.display_manager.draw_text(
             header_text,
             y=1,
             color=self.COLORS['highlight'],
-            small_font=True,
-            force_clear=False  # Don't clear since we already prepared the display
+            small_font=True
         )
         
         # Draw separator line
@@ -377,8 +316,7 @@ class WeatherManager:
                 x=x_base + section_width // 2,
                 y=10,
                 color=self.COLORS['text'],
-                small_font=True,
-                force_clear=False  # Don't clear since we already prepared the display
+                small_font=True
             )
 
             # Draw weather icon
@@ -392,34 +330,17 @@ class WeatherManager:
             )
 
             # Draw temperatures with different colors for high/low
-            low_text = f"{day['temp_low']}°"
-            high_text = f"{day['temp_high']}°"
-            
-            # Calculate positions for temperatures
-            temp_y = display_height - 8
-            low_x = x_base + section_width // 3
-            high_x = x_base + 2 * section_width // 3
-            
-            # Draw temperatures
+            temp_text = f"{day['temp_low']}°/{day['temp_high']}°"
             self.display_manager.draw_text(
-                low_text,
-                x=low_x,
-                y=temp_y,
-                color=self.COLORS['temp_low'],
-                small_font=True,
-                force_clear=False  # Don't clear since we already prepared the display
-            )
-            self.display_manager.draw_text(
-                high_text,
-                x=high_x,
-                y=temp_y,
-                color=self.COLORS['temp_high'],
-                small_font=True,
-                force_clear=False  # Don't clear since we already prepared the display
+                temp_text,
+                x=x_base + section_width // 2,
+                y=display_height - 8,
+                color=self.COLORS['text'],
+                small_font=True
             )
 
             # Draw separator lines
-            if i < len(self.daily_forecast) - 1:
+            if i < 2:  # Only draw between sections
                 sep_x = x_base + section_width - 1
                 self.display_manager.draw.line(
                     [(sep_x, 8), (sep_x, display_height)],
@@ -427,5 +348,4 @@ class WeatherManager:
                 )
 
         # Update display
-        self.display_manager.update_display()
-        self.last_draw_time = current_time 
+        self.display_manager.update_display() 

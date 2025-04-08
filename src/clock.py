@@ -22,6 +22,13 @@ class Clock:
         # Use configured timezone if available, otherwise try to determine it
         self.timezone = self._get_timezone()
         self.last_time = None
+        self.last_date = None
+        # Colors for different elements
+        self.COLORS = {
+            'time': (255, 255, 255),  # White for time
+            'ampm': (200, 200, 200),  # Light gray for AM/PM
+            'date': (150, 150, 150)   # Darker gray for date
+        }
 
     def _get_timezone(self) -> pytz.timezone:
         """Get timezone based on location or config."""
@@ -62,27 +69,78 @@ class Clock:
         print("Using fallback timezone: US/Central")
         return pytz.timezone('US/Central')
 
-    def get_current_time(self) -> str:
-        """Get the current time in the configured timezone."""
-        current_time = datetime.now(self.timezone)
-        return current_time.strftime(self.clock_config.get('format', '%H:%M:%S'))
+    def _get_ordinal_suffix(self, day: int) -> str:
+        """Get the ordinal suffix for a day number (1st, 2nd, 3rd, etc.)."""
+        if 10 <= day % 100 <= 20:
+            suffix = 'th'
+        else:
+            suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(day % 10, 'th')
+        return suffix
+
+    def get_current_time(self) -> tuple:
+        """Get the current time and date in the configured timezone."""
+        current = datetime.now(self.timezone)
+        
+        # Format time in 12-hour format with AM/PM
+        time_str = current.strftime('%I:%M')  # Remove leading zero from hour
+        if time_str.startswith('0'):
+            time_str = time_str[1:]
+        
+        # Get AM/PM
+        ampm = current.strftime('%p')
+        
+        # Format date with ordinal suffix
+        day_suffix = self._get_ordinal_suffix(current.day)
+        date_str = current.strftime(f'%A, %B %-d{day_suffix}')
+        
+        return time_str, ampm, date_str
 
     def display_time(self, force_clear: bool = False) -> None:
-        """Display the current time."""
-        current_time = self.get_current_time()
+        """Display the current time and date."""
+        time_str, ampm, date_str = self.get_current_time()
         
-        # Only update if the time has changed
-        if current_time != self.last_time:
-            logger.debug("Time changed, updating display from %s to %s", self.last_time, current_time)
-            self.last_time = current_time
+        # Only update if something has changed
+        if time_str != self.last_time or date_str != self.last_date or force_clear:
+            # Clear the display
+            self.display_manager.clear()
             
-            # Center the text on the display
-            text_width = self.display_manager.font.getlength(current_time)
-            x = (self.display_manager.matrix.width - text_width) // 2
-            y = (self.display_manager.matrix.height - 24) // 2
+            # Calculate positions
+            display_width = self.display_manager.matrix.width
+            display_height = self.display_manager.matrix.height
             
-            logger.debug("Drawing time at position (%d, %d)", x, y)
-            self.display_manager.draw_text(current_time, x, y, force_clear=force_clear)
+            # Draw time (large, centered)
+            self.display_manager.draw_text(
+                time_str,
+                y=4,  # Near top
+                color=self.COLORS['time'],
+                small_font=False
+            )
+            
+            # Draw AM/PM (small, next to time)
+            time_width = self.display_manager.font.getlength(time_str)
+            ampm_x = (display_width + time_width) // 2 + 2  # Right of time
+            self.display_manager.draw_text(
+                ampm,
+                x=ampm_x,
+                y=6,  # Align with time
+                color=self.COLORS['ampm'],
+                small_font=True
+            )
+            
+            # Draw date (small, centered below time)
+            self.display_manager.draw_text(
+                date_str,
+                y=display_height - 10,  # Near bottom
+                color=self.COLORS['date'],
+                small_font=True
+            )
+            
+            # Update display
+            self.display_manager.update_display()
+            
+            # Update cache
+            self.last_time = time_str
+            self.last_date = date_str
 
 if __name__ == "__main__":
     clock = Clock()
