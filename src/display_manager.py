@@ -66,17 +66,7 @@ class DisplayManager:
         logger.info("Display rotation set to: %d degrees", self.rotation)
 
     def _draw_text(self, text, x, y, font, color=(255, 255, 255)):
-        """Draw text on the canvas with optional rotation."""
-        if self.rotation == 180:
-            # For 180 degree rotation, flip coordinates
-            width = self.matrix.width
-            height = self.matrix.height
-            # Get text size for proper positioning
-            text_width, text_height = font.getsize(text)
-            # Adjust coordinates for rotation
-            x = width - x - text_width
-            y = height - y - text_height
-            
+        """Draw text on the canvas."""
         self.draw.text((x, y), text, font=font, fill=color)
         self.matrix.SetImage(self.image)
 
