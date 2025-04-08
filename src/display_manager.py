@@ -36,25 +36,25 @@ class DisplayManager:
         # Hardware configuration
         hardware_config = self.config.get('hardware', {})
         options.rows = hardware_config.get('rows', 32)
-        options.cols = hardware_config.get('cols', 32)  # Each panel is 32 columns
+        options.cols = hardware_config.get('cols', 64)  # Each panel is 64 columns
         options.chain_length = hardware_config.get('chain_length', 2)
         options.parallel = hardware_config.get('parallel', 1)
         options.hardware_mapping = hardware_config.get('hardware_mapping', 'adafruit-hat-pwm')
         logger.info("Setting hardware mapping to: %s", options.hardware_mapping)
-        options.brightness = hardware_config.get('brightness', 50)
-        options.pwm_bits = hardware_config.get('pwm_bits', 11)
+        options.brightness = hardware_config.get('brightness', 60)
+        options.pwm_bits = hardware_config.get('pwm_bits', 8)
         options.pwm_lsb_nanoseconds = hardware_config.get('pwm_lsb_nanoseconds', 130)
         options.led_rgb_sequence = hardware_config.get('led_rgb_sequence', 'RGB')
         options.pixel_mapper_config = hardware_config.get('pixel_mapper_config', '')
         options.row_address_type = hardware_config.get('row_addr_type', 0)
         options.multiplexing = hardware_config.get('multiplexing', 0)
         options.disable_hardware_pulsing = hardware_config.get('disable_hardware_pulsing', True)
-        options.show_refresh_rate = hardware_config.get('show_refresh_rate', False)
-        options.limit_refresh_rate_hz = hardware_config.get('limit_refresh_rate_hz', 120)
+        options.show_refresh_rate = hardware_config.get('show_refresh_rate', True)
+        options.limit_refresh_rate_hz = hardware_config.get('limit_refresh_rate_hz', 100)
 
         # Runtime configuration
         runtime_config = self.config.get('runtime', {})
-        options.gpio_slowdown = runtime_config.get('gpio_slowdown', 4)
+        options.gpio_slowdown = runtime_config.get('gpio_slowdown', 2)
         logger.info("Setting GPIO slowdown to: %d", options.gpio_slowdown)
 
         # Initialize the matrix
@@ -66,6 +66,29 @@ class DisplayManager:
         # Create image with full chain width
         self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
         self.draw = ImageDraw.Draw(self.image)
+        
+        # Draw a test pattern
+        self._draw_test_pattern()
+
+    def _draw_test_pattern(self):
+        """Draw a test pattern to verify the display is working."""
+        # Clear the display first
+        self.clear()
+        
+        # Draw a red rectangle border
+        self.draw.rectangle([0, 0, self.matrix.width-1, self.matrix.height-1], outline=(255, 0, 0))
+        
+        # Draw a diagonal line
+        self.draw.line([0, 0, self.matrix.width-1, self.matrix.height-1], fill=(0, 255, 0))
+        
+        # Draw some text
+        self.draw.text((10, 10), "TEST", font=self.font, fill=(0, 0, 255))
+        
+        # Update the display
+        self.matrix.SetImage(self.image)
+        
+        # Wait a moment
+        time.sleep(2)
 
     def _draw_text(self, text, x, y, font, color=(255, 255, 255)):
         """Draw text on the canvas."""
