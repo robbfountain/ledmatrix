@@ -170,87 +170,110 @@ class WeatherManager:
             if not self.hourly_forecast:
                 return
 
-        # Update scroll position
-        self.scroll_position = scroll_amount
+        # Always clear when drawing hourly forecast to prevent ghosting
+        self.display_manager.clear()
 
-        # Create the full scrolling text with icons
-        forecasts = []
-        icons = []
-        x_offset = self.display_manager.matrix.width - scroll_amount
-        icon_size = 16
+        # Calculate base positions
+        display_width = self.display_manager.matrix.width
+        display_height = self.display_manager.matrix.height
+        forecast_width = display_width // 2  # Each forecast takes half the width
+        icon_size = 12  # Slightly smaller icons for better fit
 
+        # Create the forecast display
         for i, forecast in enumerate(self.hourly_forecast):
-            # Add text
-            forecasts.append(f"{forecast['hour']}\n{forecast['temp']}°F")
+            # Calculate x position with scrolling
+            x_pos = display_width - scroll_amount + (i * forecast_width)
             
-            # Calculate icon position
-            icon_x = x_offset + (i * (icon_size * 3))  # Space icons out
-            icon_y = 2  # Near top
-            icons.append((forecast['condition'], icon_x, icon_y))
+            # Only draw if the forecast would be visible
+            if x_pos < -forecast_width or x_pos > display_width:
+                continue
 
-        # Join with spacing
-        display_text = "   |   ".join(forecasts)
-        
-        # Draw everything
-        self.display_manager.draw_text_with_icons(
-            display_text,
-            icons=icons,
-            x=x_offset,
-            force_clear=force_clear
-        )
+            # Draw icon at top
+            icon_x = x_pos + (forecast_width - icon_size) // 2
+            icon_y = 2
+            self.display_manager.draw_weather_icon(forecast['condition'], icon_x, icon_y, size=icon_size)
+
+            # Draw hour below icon
+            hour_text = forecast['hour']
+            hour_y = icon_y + icon_size + 2
+            self.display_manager.draw_text(
+                hour_text,
+                x=x_pos + forecast_width // 2,  # Center in section
+                y=hour_y,
+                small_font=True
+            )
+
+            # Draw temperature at bottom
+            temp_text = f"{forecast['temp']}°"
+            temp_y = display_height - 8  # 8 pixels from bottom
+            self.display_manager.draw_text(
+                temp_text,
+                x=x_pos + forecast_width // 2,  # Center in section
+                y=temp_y,
+                small_font=True
+            )
+
+            # Draw separator line if not last forecast
+            if i < len(self.hourly_forecast) - 1:
+                sep_x = x_pos + forecast_width - 1
+                if 0 <= sep_x <= display_width:
+                    self.display_manager.draw.line(
+                        [(sep_x, 0), (sep_x, display_height)],
+                        fill=(64, 64, 64)  # Dim gray line
+                    )
 
     def display_daily_forecast(self, force_clear: bool = False) -> None:
         """Display 3-day forecast information."""
         if not self.daily_forecast:
-            self.get_weather()  # This will also update forecasts
+            self.get_weather()
             if not self.daily_forecast:
                 return
+
+        # Always clear when drawing daily forecast
+        self.display_manager.clear()
 
         # Calculate layout parameters
         display_width = self.display_manager.matrix.width
         display_height = self.display_manager.matrix.height
-        day_width = display_width // 3  # Divide screen into 3 equal sections
-        icon_size = 16
-        padding = 4  # Padding between elements
+        section_width = display_width // 3  # Width for each day
+        icon_size = 12  # Smaller icons for better fit
 
-        # Create text lines and collect icon information
-        lines = []
-        icons = []
-        
         for i, day in enumerate(self.daily_forecast):
-            # Calculate horizontal position for this day
-            x_offset = i * day_width
+            # Calculate base x position for this section
+            x_base = i * section_width
             
-            # Format the day, date, and temperature
-            day_str = day['date']  # Day name (Mon, Tue, etc.)
-            date_str = day['date_str']  # Date (4/8, 4/9, etc.)
-            temp_str = f"{day['temp_low']}°F / {day['temp_high']}°F"
-            
-            # Position the text and icon
-            text_x = x_offset + (day_width // 2)  # Center text horizontally
-            day_y = padding  # Day name at the top
-            date_y = day_y + 10  # Date below the day name
-            temp_y = display_height - padding - 10  # Temperature at the bottom
-            
-            # Position icon in the middle
-            icon_x = x_offset + (day_width // 2) - (icon_size // 2)
-            icon_y = (display_height // 2) - (icon_size // 2)
-            
-            # Add the formatted lines
-            lines.append((day_str, text_x, day_y))
-            lines.append((date_str, text_x, date_y))
-            lines.append((temp_str, text_x, temp_y))
-            
-            # Add icon position
-            icons.append((day['condition'], icon_x, icon_y))
+            # Draw day name at top (e.g., "MON")
+            day_text = day['date'].upper()
+            self.display_manager.draw_text(
+                day_text,
+                x=x_base + section_width // 2,  # Center in section
+                y=2,  # Near top
+                small_font=True
+            )
 
-        # Draw everything
-        self.display_manager.draw_text_with_icons(
-            "",  # Empty text as we'll draw lines manually
-            icons=icons,
-            force_clear=force_clear
-        )
-        
-        # Draw each line of text
-        for text, x, y in lines:
-            self.display_manager.draw_text(text, x=x, y=y, force_clear=False) 
+            # Draw weather icon in middle
+            icon_x = x_base + (section_width - icon_size) // 2
+            icon_y = (display_height - icon_size) // 2
+            self.display_manager.draw_weather_icon(
+                day['condition'],
+                icon_x,
+                icon_y,
+                size=icon_size
+            )
+
+            # Draw temperature at bottom (e.g., "45°/65°")
+            temp_text = f"{day['temp_low']}°/{day['temp_high']}°"
+            self.display_manager.draw_text(
+                temp_text,
+                x=x_base + section_width // 2,  # Center in section
+                y=display_height - 8,  # 8 pixels from bottom
+                small_font=True
+            )
+
+            # Draw separator line if not last day
+            if i < len(self.daily_forecast) - 1:
+                sep_x = x_base + section_width - 1
+                self.display_manager.draw.line(
+                    [(sep_x, 0), (sep_x, display_height)],
+                    fill=(64, 64, 64)  # Dim gray line
+                ) 
