@@ -1,15 +1,22 @@
 import time
+import logging
 from datetime import datetime
 import pytz
 from typing import Dict, Any
 from src.config_manager import ConfigManager
 from src.display_manager import DisplayManager
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 class Clock:
-    def __init__(self):
+    def __init__(self, display_manager: DisplayManager = None):
         self.config_manager = ConfigManager()
         self.config = self.config_manager.config
-        self.display_manager = DisplayManager(self.config.get('display', {}))
+        # Use the provided display_manager or create a new one if none provided
+        self.display_manager = display_manager or DisplayManager(self.config.get('display', {}))
+        logger.info("Clock initialized with display_manager: %s", id(self.display_manager))
         self.location = self.config.get('location', {})
         self.clock_config = self.config.get('clock', {})
         # Use configured timezone if available, otherwise try to determine it
@@ -62,12 +69,14 @@ class Clock:
     def display_time(self) -> None:
         """Display the current time."""
         current_time = self.get_current_time()
+        logger.debug("Displaying time: %s", current_time)
         
         # Center the text on the display
         text_width = self.display_manager.font.getlength(current_time)
         x = (self.display_manager.matrix.width - text_width) // 2
         y = (self.display_manager.matrix.height - 24) // 2
         
+        logger.debug("Drawing time at position (%d, %d)", x, y)
         self.display_manager.clear()
         self.display_manager.draw_text(current_time, x, y)
 
