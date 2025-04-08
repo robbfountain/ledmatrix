@@ -36,24 +36,25 @@ class DisplayManager:
         options.parallel = hardware_config.get('parallel', 1)
         options.hardware_mapping = hardware_config.get('hardware_mapping', 'adafruit-hat-pwm')
         
-        # Optimize display settings for maximum visibility
+        # Optimize display settings for chained panels
         options.brightness = 100
         options.pwm_bits = 11
-        options.pwm_lsb_nanoseconds = 130
+        options.pwm_lsb_nanoseconds = 200  # Increased for better stability
         options.led_rgb_sequence = 'RGB'
         options.pixel_mapper_config = ''
         options.row_address_type = 0
         options.multiplexing = 0
-        options.disable_hardware_pulsing = True
+        options.disable_hardware_pulsing = False  # Enable hardware pulsing for better sync
         options.show_refresh_rate = False
-        options.limit_refresh_rate_hz = 120
-        options.gpio_slowdown = 1
+        options.limit_refresh_rate_hz = 60  # Reduced refresh rate for stability
+        options.gpio_slowdown = 2  # Increased slowdown for better stability
         
         # Initialize the matrix
         self.matrix = RGBMatrix(options=options)
         
         # Create double buffer for smooth updates
         self.offscreen_canvas = self.matrix.CreateFrameCanvas()
+        self.current_canvas = self.matrix.CreateFrameCanvas()
         
         # Create image with full chain width
         self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
@@ -88,19 +89,37 @@ class DisplayManager:
         time.sleep(2)
 
     def update_display(self):
-        """Update the display using double buffering."""
-        # Copy the current image to the offscreen canvas
-        self.offscreen_canvas.SetImage(self.image)
-        # Swap the canvases
-        self.offscreen_canvas = self.matrix.SwapOnVSync(self.offscreen_canvas)
+        """Update the display using double buffering with proper sync."""
+        try:
+            # Copy the current image to the offscreen canvas
+            self.offscreen_canvas.SetImage(self.image)
+            
+            # Wait for the next vsync before swapping
+            self.matrix.SwapOnVSync(self.offscreen_canvas)
+            
+            # Swap our canvas references
+            self.offscreen_canvas, self.current_canvas = self.current_canvas, self.offscreen_canvas
+            
+            # Small delay to ensure stable refresh
+            time.sleep(0.001)
+        except Exception as e:
+            logger.error(f"Error updating display: {e}")
 
     def clear(self):
         """Clear the display completely."""
-        # Create a new image and drawing context
-        self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
-        self.draw = ImageDraw.Draw(self.image)
-        # Update the display to show the clear
-        self.update_display()
+        try:
+            # Create a new black image
+            self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
+            self.draw = ImageDraw.Draw(self.image)
+            
+            # Clear both canvases
+            self.offscreen_canvas.Clear()
+            self.current_canvas.Clear()
+            
+            # Update the display to show the clear
+            self.update_display()
+        except Exception as e:
+            logger.error(f"Error clearing display: {e}")
 
     def _load_fonts(self):
         """Load fonts for different text sizes."""
