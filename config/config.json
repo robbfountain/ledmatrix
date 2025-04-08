@@ -1,13 +1,25 @@
 {
     "timezone": "America/Chicago",
+    "location": {
+        "city": "Dallas",
+        "state": "Texas",
+        "country": "US"
+    },
     "display": {
         "brightness": 50,
         "rows": 32,
         "cols": 64,
-        "chain_length": 2
+        "chain_length": 2,
+        "rotation_interval": 10
     },
     "clock": {
         "format": "%H:%M:%S",
         "update_interval": 1
+    },
+    "weather": {
+        "api_key": "YOUR_OPENWEATHERMAP_API_KEY",
+        "update_interval": 300,
+        "units": "imperial",
+        "display_format": "{temp}°F\n{condition}"
     }
 } 
