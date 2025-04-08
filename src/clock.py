@@ -12,29 +12,47 @@ class Clock:
         self.display_manager = DisplayManager(self.config.get('display', {}))
         self.location = self.config.get('location', {})
         self.clock_config = self.config.get('clock', {})
+        # Use configured timezone if available, otherwise try to determine it
         self.timezone = self._get_timezone()
 
-    def _get_timezone(self) -> str:
-        """Get timezone based on location."""
-        from timezonefinder import TimezoneFinder
-        from geopy.geocoders import Nominatim
+    def _get_timezone(self) -> pytz.timezone:
+        """Get timezone based on location or config."""
+        # First try to use timezone from config if it exists
+        if 'timezone' in self.config:
+            try:
+                return pytz.timezone(self.config['timezone'])
+            except pytz.exceptions.UnknownTimeZoneError:
+                print(f"Warning: Invalid timezone in config: {self.config['timezone']}")
 
+        # If no timezone in config or it's invalid, try to determine from location
         try:
+            from timezonefinder import TimezoneFinder
+            from geopy.geocoders import Nominatim
+            from geopy.exc import GeocoderTimedOut
+
             # Get coordinates for the location
             geolocator = Nominatim(user_agent="led_matrix_clock")
             location_str = f"{self.location['city']}, {self.location['state']}, {self.location['country']}"
-            location = geolocator.geocode(location_str)
             
-            if location:
-                # Find timezone from coordinates
-                tf = TimezoneFinder()
-                timezone_str = tf.timezone_at(lng=location.longitude, lat=location.latitude)
-                return pytz.timezone(timezone_str)
-        except Exception as e:
-            print(f"Error finding timezone: {e}")
+            try:
+                location = geolocator.geocode(location_str, timeout=5)  # 5 second timeout
+                if location:
+                    # Find timezone from coordinates
+                    tf = TimezoneFinder()
+                    timezone_str = tf.timezone_at(lng=location.longitude, lat=location.latitude)
+                    if timezone_str:
+                        return pytz.timezone(timezone_str)
+            except GeocoderTimedOut:
+                print("Warning: Timeout while looking up location coordinates")
+            except Exception as e:
+                print(f"Warning: Error finding timezone from location: {e}")
         
-        # Fallback to UTC
-        return pytz.UTC
+        except Exception as e:
+            print(f"Warning: Error importing geolocation libraries: {e}")
+        
+        # Fallback to US/Central for Dallas
+        print("Using fallback timezone: US/Central")
+        return pytz.timezone('US/Central')
 
     def get_current_time(self) -> str:
         """Get the current time in the configured timezone."""
