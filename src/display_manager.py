@@ -1,7 +1,7 @@
 from rgbmatrix import RGBMatrix, RGBMatrixOptions
 from PIL import Image, ImageDraw, ImageFont
 import time
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 import logging
 import math
 from .weather_icons import WeatherIcons
@@ -19,15 +19,11 @@ class DisplayManager:
             cls._instance = super(DisplayManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, config: Dict[str, Any]):
-        # Only initialize once
-        if not DisplayManager._initialized:
-            self.config = config
-            logger.info("Initializing DisplayManager with config: %s", config)
-            self._setup_matrix()
-            self._load_fonts()
-            DisplayManager._initialized = True
-
+    def __init__(self, config: Dict[str, Any] = None):
+        self.config = config or {}
+        self._setup_matrix()
+        self._load_fonts()
+        
     def _setup_matrix(self):
         """Initialize the RGB matrix with configuration settings."""
         options = RGBMatrixOptions()
@@ -35,39 +31,39 @@ class DisplayManager:
         # Hardware configuration
         hardware_config = self.config.get('hardware', {})
         options.rows = hardware_config.get('rows', 32)
-        options.cols = hardware_config.get('cols', 64)  # Each panel is 64 columns
+        options.cols = hardware_config.get('cols', 64)
         options.chain_length = hardware_config.get('chain_length', 2)
         options.parallel = hardware_config.get('parallel', 1)
         options.hardware_mapping = hardware_config.get('hardware_mapping', 'adafruit-hat-pwm')
-        logger.info("Setting hardware mapping to: %s", options.hardware_mapping)
-        options.brightness = hardware_config.get('brightness', 60)
-        options.pwm_bits = hardware_config.get('pwm_bits', 8)
+        
+        # Increase brightness and optimize display quality
+        options.brightness = hardware_config.get('brightness', 100)  # Maximum brightness
+        options.pwm_bits = hardware_config.get('pwm_bits', 11)  # Maximum color depth
         options.pwm_lsb_nanoseconds = hardware_config.get('pwm_lsb_nanoseconds', 130)
         options.led_rgb_sequence = hardware_config.get('led_rgb_sequence', 'RGB')
         options.pixel_mapper_config = hardware_config.get('pixel_mapper_config', '')
         options.row_address_type = hardware_config.get('row_addr_type', 0)
         options.multiplexing = hardware_config.get('multiplexing', 0)
-        options.disable_hardware_pulsing = hardware_config.get('disable_hardware_pulsing', True)
-        options.show_refresh_rate = hardware_config.get('show_refresh_rate', True)
-        options.limit_refresh_rate_hz = hardware_config.get('limit_refresh_rate_hz', 100)
-
+        options.disable_hardware_pulsing = True  # Reduce flickering
+        options.show_refresh_rate = False
+        options.limit_refresh_rate_hz = hardware_config.get('limit_refresh_rate_hz', 120)  # Higher refresh rate
+        
         # Runtime configuration
         runtime_config = self.config.get('runtime', {})
-        options.gpio_slowdown = runtime_config.get('gpio_slowdown', 2)
-        logger.info("Setting GPIO slowdown to: %d", options.gpio_slowdown)
-
-        # Initialize the matrix
-        logger.info("Initializing RGB matrix with options...")
-        self.matrix = RGBMatrix(options=options)
-        logger.info("RGB matrix initialized successfully")
-        logger.info(f"Matrix dimensions: {self.matrix.width}x{self.matrix.height}")
+        options.gpio_slowdown = runtime_config.get('gpio_slowdown', 1)  # Reduce slowdown
         
-        # Create double buffer
+        # Initialize the matrix
+        self.matrix = RGBMatrix(options=options)
+        
+        # Create double buffer for smooth updates
         self.offscreen_canvas = self.matrix.CreateFrameCanvas()
         
         # Create image with full chain width
         self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
         self.draw = ImageDraw.Draw(self.image)
+        
+        # Set matrix to use luminance correction for better color reproduction
+        self.matrix.set_luminance_correct(True)
         
         # Initialize font
         try:
@@ -101,16 +97,17 @@ class DisplayManager:
         time.sleep(2)
 
     def update_display(self):
-        """Update the display using double buffering."""
+        """Update the display using double buffering for smooth transitions."""
         # Copy the current image to the offscreen canvas
         self.offscreen_canvas.SetImage(self.image)
-        # Swap the canvases
+        # Swap the canvases on VSync for smooth transition
         self.offscreen_canvas = self.matrix.SwapOnVSync(self.offscreen_canvas)
 
     def clear(self):
-        """Clear the display."""
-        self.draw.rectangle((0, 0, self.matrix.width, self.matrix.height), fill=(0, 0, 0))
-        self.update_display()
+        """Clear the display completely."""
+        self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
+        self.draw = ImageDraw.Draw(self.image)
+        self.update_display()  # Ensure the clear is displayed
 
     def _load_fonts(self):
         """Load fonts for different text sizes."""
@@ -126,68 +123,36 @@ class DisplayManager:
             self.font = ImageFont.load_default()
             self.small_font = self.font
 
-    def draw_text(self, text: str, x: int = None, y: int = None, color: tuple = (255, 255, 255), 
-                 force_clear: bool = False, small_font: bool = False):
-        """Draw text on the display with automatic centering."""
-        if force_clear:
-            self.clear()
-        else:
-            # Just create a new blank image without updating display
-            self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
-            self.draw = ImageDraw.Draw(self.image)
+    def draw_text(self, text: str, x: int = None, y: int = None, color: Tuple[int, int, int] = (255, 255, 255), small_font: bool = False) -> None:
+        """Draw text on the display with improved visibility."""
+        # Ensure maximum brightness for text
+        if isinstance(color, tuple) and len(color) == 3:
+            # Increase brightness of colors while maintaining relative ratios
+            color = tuple(min(255, int(c * 1.2)) for c in color)
         
-        # Select font based on small_font parameter
         font = self.small_font if small_font else self.font
         
-        # Split text into lines if it contains newlines
-        lines = text.split('\n')
+        # Get text dimensions for centering if x not specified
+        bbox = self.draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
         
-        # Calculate total height of all lines
-        line_heights = []
-        line_widths = []
-        total_height = 0
-        padding = 2  # Add padding between lines
-        edge_padding = 2  # Minimum padding from display edges
+        # Center text horizontally if x not specified
+        if x is None:
+            x = (self.matrix.width - text_width) // 2
         
-        for line in lines:
-            bbox = self.draw.textbbox((0, 0), line, font=font)
-            line_width = bbox[2] - bbox[0]
-            line_height = bbox[3] - bbox[1]
-            line_heights.append(line_height)
-            line_widths.append(line_width)
-            total_height += line_height
-        
-        # Add padding between lines
-        if len(lines) > 1:
-            total_height += padding * (len(lines) - 1)
-        
-        # Calculate starting Y position to center all lines vertically
+        # Center text vertically if y not specified
         if y is None:
-            y = max(edge_padding, (self.matrix.height - total_height) // 2)
+            text_height = bbox[3] - bbox[1]
+            y = (self.matrix.height - text_height) // 2
         
-        # Draw each line
-        current_y = y
-        for i, line in enumerate(lines):
-            if x is None:
-                # Center this line horizontally
-                line_x = (self.matrix.width - line_widths[i]) // 2
-            else:
-                line_x = x
-            
-            # Ensure x coordinate stays within bounds
-            line_x = max(edge_padding, min(line_x, self.matrix.width - line_widths[i] - edge_padding))
-            
-            # Ensure y coordinate stays within bounds
-            current_y = max(edge_padding, min(current_y, self.matrix.height - line_heights[i] - edge_padding))
-            
-            # Draw the text (removed logging to reduce spam)
-            self.draw.text((line_x, current_y), line, font=font, fill=color)
-            
-            # Calculate next line position
-            current_y += line_heights[i] + padding
+        # Draw text with slight glow effect for better visibility
+        # Draw shadow/glow
+        shadow_offset = 1
+        shadow_color = tuple(max(0, int(c * 0.3)) for c in color)
+        self.draw.text((x + shadow_offset, y + shadow_offset), text, font=font, fill=shadow_color)
         
-        # Update the display using double buffering
-        self.update_display()
+        # Draw main text
+        self.draw.text((x, y), text, font=font, fill=color)
 
     def draw_scrolling_text(self, text: str, scroll_position: int, force_clear: bool = False) -> None:
         """Draw scrolling text on the display."""

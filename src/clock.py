@@ -23,11 +23,11 @@ class Clock:
         self.timezone = self._get_timezone()
         self.last_time = None
         self.last_date = None
-        # Colors for different elements
+        # Colors for different elements - using brighter colors
         self.COLORS = {
-            'time': (255, 255, 255),  # White for time
-            'ampm': (200, 200, 200),  # Light gray for AM/PM
-            'date': (150, 150, 150)   # Darker gray for date
+            'time': (255, 255, 255),  # Bright white for time
+            'ampm': (200, 200, 255),  # Light blue for AM/PM
+            'date': (255, 200, 200)   # Light red for date
         }
 
     def _get_timezone(self) -> pytz.timezone:
@@ -108,21 +108,21 @@ class Clock:
             display_width = self.display_manager.matrix.width
             display_height = self.display_manager.matrix.height
             
-            # Draw time (large, centered)
+            # Draw time (large, centered, near top)
             self.display_manager.draw_text(
                 time_str,
-                y=4,  # Near top
+                y=2,  # Slightly higher
                 color=self.COLORS['time'],
                 small_font=False
             )
             
             # Draw AM/PM (small, next to time)
             time_width = self.display_manager.font.getlength(time_str)
-            ampm_x = (display_width + time_width) // 2 + 2  # Right of time
+            ampm_x = (display_width + time_width) // 2 + 1  # Closer to time
             self.display_manager.draw_text(
                 ampm,
                 x=ampm_x,
-                y=6,  # Align with time
+                y=4,  # Align better with time
                 color=self.COLORS['ampm'],
                 small_font=True
             )
@@ -130,7 +130,7 @@ class Clock:
             # Draw date (small, centered below time)
             self.display_manager.draw_text(
                 date_str,
-                y=display_height - 10,  # Near bottom
+                y=display_height - 8,  # Slightly higher from bottom
                 color=self.COLORS['date'],
                 small_font=True
             )
