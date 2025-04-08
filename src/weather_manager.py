@@ -175,24 +175,51 @@ class WeatherManager:
             if not self.daily_forecast:
                 return
 
+        # Calculate layout parameters
+        display_width = self.display_manager.matrix.width
+        display_height = self.display_manager.matrix.height
+        day_width = display_width // 3  # Divide screen into 3 equal sections
+        icon_size = 16
+        padding = 4  # Padding between elements
+
         # Create text lines and collect icon information
         lines = []
         icons = []
-        y_offset = 2
-        icon_size = 16
-
-        for i, day in enumerate(self.daily_forecast):
-            lines.append(f"{day['date']}: {day['temp']}°F")
-            icons.append((
-                day['condition'],
-                self.display_manager.matrix.width - icon_size - 2,  # Right align
-                y_offset + (i * (icon_size + 2))  # Stack vertically
-            ))
         
-        # Join lines and draw everything
-        display_text = "\n".join(lines)
+        for i, day in enumerate(self.daily_forecast):
+            # Calculate horizontal position for this day
+            x_offset = i * day_width
+            
+            # Format the day, date, and temperature
+            day_str = day['date']  # Day name (Mon, Tue, etc.)
+            date_str = day['date']  # Date (4/8, 4/9, etc.)
+            temp_str = f"{day['temp_low']}°F / {day['temp_high']}°F"
+            
+            # Position the text and icon
+            text_x = x_offset + (day_width // 2)  # Center text horizontally
+            day_y = padding  # Day name at the top
+            date_y = day_y + 10  # Date below the day name
+            temp_y = display_height - padding - 10  # Temperature at the bottom
+            
+            # Position icon in the middle
+            icon_x = x_offset + (day_width // 2) - (icon_size // 2)
+            icon_y = (display_height // 2) - (icon_size // 2)
+            
+            # Add the formatted lines
+            lines.append((day_str, text_x, day_y))
+            lines.append((date_str, text_x, date_y))
+            lines.append((temp_str, text_x, temp_y))
+            
+            # Add icon position
+            icons.append((day['condition'], icon_x, icon_y))
+
+        # Draw everything
         self.display_manager.draw_text_with_icons(
-            display_text,
+            "",  # Empty text as we'll draw lines manually
             icons=icons,
             force_clear=force_clear
-        ) 
+        )
+        
+        # Draw each line of text
+        for text, x, y in lines:
+            self.display_manager.draw_text(text, x=x, y=y, force_clear=False) 
