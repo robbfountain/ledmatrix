@@ -23,8 +23,8 @@ class DisplayManager:
             self.config = config
             logger.info("Initializing DisplayManager with config: %s", config)
             self._setup_matrix()  # This now sets self.matrix
-            # Use a smaller font size for better fitting
-            self.font = ImageFont.truetype("DejaVuSans.ttf", 16)
+            # Use an even smaller font size for better fitting
+            self.font = ImageFont.truetype("DejaVuSans.ttf", 12)
             self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
             self.draw = ImageDraw.Draw(self.image)
             DisplayManager._initialized = True
@@ -89,6 +89,7 @@ class DisplayManager:
         line_widths = []
         total_height = 0
         max_width = 0
+        padding = 2  # Add padding between lines
         
         for line in lines:
             bbox = self.draw.textbbox((0, 0), line, font=self.font)
@@ -97,7 +98,10 @@ class DisplayManager:
             line_heights.append(line_height)
             line_widths.append(line_width)
             total_height += line_height
-            max_width = max(max_width, line_width)
+        
+        # Add padding between lines
+        if len(lines) > 1:
+            total_height += padding * (len(lines) - 1)
         
         # Calculate starting Y position to center all lines vertically
         if y is None:
@@ -114,7 +118,7 @@ class DisplayManager:
                 
             logger.info(f"Drawing line '{line}' at position ({line_x}, {current_y})")
             self.draw.text((line_x, current_y), line, font=self.font, fill=color)
-            current_y += line_heights[i]
+            current_y += line_heights[i] + padding
         
         self.matrix.SetImage(self.image)
 
