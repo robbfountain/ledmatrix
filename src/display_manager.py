@@ -124,37 +124,10 @@ class DisplayManager:
     def _load_fonts(self):
         """Load fonts optimized for LED matrix display."""
         try:
-            # Use DejaVu Sans Mono for better pixel alignment
-            font_paths = [
-                "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",  # Primary choice - monospace
-                "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",  # Fallback 1 - bold mono
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"  # Final fallback
-            ]
-            
-            font_loaded = False
-            for font_path in font_paths:
-                try:
-                    # Calculate optimal sizes for 32px height matrix
-                    matrix_height = self.matrix.height
-                    # For time display: use slightly smaller size for better clarity
-                    large_size = int(0.4 * matrix_height)  # Changed from 0.5 to 0.4
-                    # For weather info: use height-optimized size
-                    small_size = max(6, int(0.2 * matrix_height))  # Changed from 0.25 to 0.2
-                    
-                    self.font = ImageFont.truetype(font_path, large_size)
-                    self.small_font = ImageFont.truetype(font_path, small_size)
-                    
-                    font_loaded = True
-                    logger.info(f"Loaded font: {font_path} (large: {large_size}px, small: {small_size}px)")
-                    break
-                except Exception as e:
-                    logger.debug(f"Failed to load font {font_path}: {e}")
-                    continue
-            
-            if not font_loaded:
-                logger.warning("No TrueType fonts available, falling back to default bitmap font")
-                self.font = ImageFont.load_default()
-                self.small_font = self.font
+            # Use the default bitmap font - it's actually great for LED matrices
+            self.font = ImageFont.load_default()
+            self.small_font = ImageFont.load_default()
+            logger.info("Using default bitmap font")
             
         except Exception as e:
             logger.error(f"Error loading fonts: {e}")
@@ -177,27 +150,8 @@ class DisplayManager:
         # Center text vertically if y not specified
         if y is None:
             y = (self.matrix.height - text_height) // 2
-        
-        # Apply Y-axis correction based on font size
-        if not small_font:
-            # For large font, adjust up slightly less
-            y -= int(self.matrix.height * 0.05)  # Changed from 0.1 to 0.05
-        else:
-            # For small font, minimal adjustment
-            y += int(self.matrix.height * 0.02)  # Changed from 0.05 to 0.02
-        
-        # Reduce brightness more for larger text to prevent bleeding
-        if isinstance(color, tuple) and len(color) == 3:
-            r, g, b = color
-            if not small_font:
-                # Larger text needs more brightness reduction
-                factor = 0.75  # 25% reduction for large text
-            else:
-                # Smaller text can stay brighter
-                factor = 0.85  # 15% reduction for small text
-            color = (int(r * factor), int(g * factor), int(b * factor))
-        
-        # Draw text with pixel-perfect alignment
+            
+        # Draw text at full brightness for maximum clarity
         self.draw.text((x, y), text, font=font, fill=color)
 
     def draw_sun(self, x: int, y: int, size: int = 16):
