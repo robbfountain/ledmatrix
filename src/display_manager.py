@@ -59,6 +59,9 @@ class DisplayManager:
         logger.info("RGB matrix initialized successfully")
         logger.info(f"Matrix dimensions: {self.matrix.width}x{self.matrix.height}")
         
+        # Create double buffer
+        self.offscreen_canvas = self.matrix.CreateFrameCanvas()
+        
         # Create image with full chain width
         self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
         self.draw = ImageDraw.Draw(self.image)
@@ -88,25 +91,32 @@ class DisplayManager:
         # Draw some text
         self.draw.text((10, 10), "TEST", font=self.font, fill=(0, 0, 255))
         
-        # Update the display
-        self.matrix.SetImage(self.image)
+        # Update the display using double buffering
+        self.update_display()
         
         # Wait a moment
         time.sleep(2)
 
-    def _draw_text(self, text, x, y, font, color=(255, 255, 255)):
-        """Draw text on the canvas."""
-        self.draw.text((x, y), text, font=font, fill=color)
-        self.matrix.SetImage(self.image)
+    def update_display(self):
+        """Update the display using double buffering."""
+        # Copy the current image to the offscreen canvas
+        self.offscreen_canvas.SetImage(self.image)
+        # Swap the canvases
+        self.offscreen_canvas = self.matrix.SwapOnVSync(self.offscreen_canvas)
 
     def clear(self):
         """Clear the display."""
         self.draw.rectangle((0, 0, self.matrix.width, self.matrix.height), fill=(0, 0, 0))
-        self.matrix.SetImage(self.image)
+        self.update_display()
 
-    def draw_text(self, text: str, x: int = None, y: int = None, color: tuple = (255, 255, 255)):
+    def draw_text(self, text: str, x: int = None, y: int = None, color: tuple = (255, 255, 255), force_clear: bool = False):
         """Draw text on the display with automatic centering."""
-        self.clear()
+        if force_clear:
+            self.clear()
+        else:
+            # Just create a new blank image without updating display
+            self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
+            self.draw = ImageDraw.Draw(self.image)
         
         # Split text into lines if it contains newlines
         lines = text.split('\n')
@@ -138,7 +148,7 @@ class DisplayManager:
         current_y = y
         for i, line in enumerate(lines):
             if x is None:
-                # Center this line horizontally across full width (128 pixels)
+                # Center this line horizontally
                 line_x = (self.matrix.width - line_widths[i]) // 2
             else:
                 line_x = x
@@ -155,8 +165,8 @@ class DisplayManager:
             # Calculate next line position
             current_y += line_heights[i] + padding
         
-        # Update the display with the new image
-        self.matrix.SetImage(self.image)
+        # Update the display using double buffering
+        self.update_display()
 
     def cleanup(self):
         """Clean up resources."""

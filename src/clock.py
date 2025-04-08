@@ -67,7 +67,7 @@ class Clock:
         current_time = datetime.now(self.timezone)
         return current_time.strftime(self.clock_config.get('format', '%H:%M:%S'))
 
-    def display_time(self) -> None:
+    def display_time(self, force_clear: bool = False) -> None:
         """Display the current time."""
         current_time = self.get_current_time()
         
@@ -82,8 +82,7 @@ class Clock:
             y = (self.display_manager.matrix.height - 24) // 2
             
             logger.debug("Drawing time at position (%d, %d)", x, y)
-            self.display_manager.clear()
-            self.display_manager.draw_text(current_time, x, y)
+            self.display_manager.draw_text(current_time, x, y, force_clear=force_clear)
 
 if __name__ == "__main__":
     clock = Clock()

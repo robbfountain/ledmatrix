@@ -39,7 +39,7 @@ class WeatherManager:
             self._fetch_weather()
         return self.weather_data
 
-    def display_weather(self) -> None:
+    def display_weather(self, force_clear: bool = False) -> None:
         """Display weather information on the LED matrix."""
         weather_data = self.get_weather()
         if not weather_data:
@@ -52,4 +52,4 @@ class WeatherManager:
         display_text = f"{temp}°F\n{condition}"
         
         # Draw both lines at once using the multi-line support in draw_text
-        self.display_manager.draw_text(display_text) 
+        self.display_manager.draw_text(display_text, force_clear=force_clear) 

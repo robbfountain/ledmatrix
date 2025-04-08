@@ -28,6 +28,9 @@ class DisplayController:
                 current_time = time.time()
                 rotation_interval = self.config['display'].get('rotation_interval', 15)
 
+                # Track if we're switching modes
+                switching_modes = False
+
                 # Switch display if interval has passed
                 if current_time - self.last_switch > rotation_interval:
                     logger.info("Switching display from %s to %s", 
@@ -35,14 +38,15 @@ class DisplayController:
                               'weather' if self.current_display == 'clock' else 'clock')
                     self.current_display = 'weather' if self.current_display == 'clock' else 'clock'
                     self.last_switch = current_time
+                    switching_modes = True
 
                 # Display current screen
                 if self.current_display == 'clock':
                     logger.debug("Updating clock display")
-                    self.clock.display_time()
+                    self.clock.display_time(force_clear=switching_modes)
                 else:
                     logger.debug("Updating weather display")
-                    self.weather.display_weather()
+                    self.weather.display_weather(force_clear=switching_modes)
 
                 # Sleep for 0.5 seconds since we only need to check for second changes
                 time.sleep(0.5)
