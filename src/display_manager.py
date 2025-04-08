@@ -23,8 +23,8 @@ class DisplayManager:
             self.config = config
             logger.info("Initializing DisplayManager with config: %s", config)
             self._setup_matrix()  # This now sets self.matrix
-            # Use an even smaller font size for better fitting
-            self.font = ImageFont.truetype("DejaVuSans.ttf", 12)
+            # Use appropriate font size for 32px height
+            self.font = ImageFont.truetype("DejaVuSans.ttf", 14)
             self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
             self.draw = ImageDraw.Draw(self.image)
             DisplayManager._initialized = True
@@ -88,8 +88,8 @@ class DisplayManager:
         line_heights = []
         line_widths = []
         total_height = 0
-        max_width = 0
         padding = 2  # Add padding between lines
+        edge_padding = 2  # Minimum padding from display edges
         
         for line in lines:
             bbox = self.draw.textbbox((0, 0), line, font=self.font)
@@ -105,22 +105,28 @@ class DisplayManager:
         
         # Calculate starting Y position to center all lines vertically
         if y is None:
-            y = (self.matrix.height - total_height) // 2
+            y = max(edge_padding, (self.matrix.height - total_height) // 2)
         
         # Draw each line
         current_y = y
         for i, line in enumerate(lines):
             if x is None:
-                # Center this line horizontally
+                # Center this line horizontally across full width (128 pixels)
                 line_x = (self.matrix.width - line_widths[i]) // 2
             else:
                 line_x = x
-                
+            
+            # Ensure x coordinate stays within bounds
+            line_x = max(edge_padding, min(line_x, self.matrix.width - line_widths[i] - edge_padding))
+            
+            # Ensure y coordinate stays within bounds
+            current_y = max(edge_padding, min(current_y, self.matrix.height - line_heights[i] - edge_padding))
+            
             logger.info(f"Drawing line '{line}' at position ({line_x}, {current_y})")
             self.draw.text((line_x, current_y), line, font=self.font, fill=color)
+            
+            # Calculate next line position
             current_y += line_heights[i] + padding
-        
-        self.matrix.SetImage(self.image)
 
     def cleanup(self):
         """Clean up resources."""

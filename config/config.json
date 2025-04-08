@@ -25,7 +25,7 @@
         "runtime": {
             "gpio_slowdown": 2
         },
-        "rotation_interval": 30
+        "rotation_interval": 15
     },
     "clock": {
         "format": "%H:%M:%S",
