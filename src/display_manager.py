@@ -124,18 +124,19 @@ class DisplayManager:
     def _load_fonts(self):
         """Load fonts optimized for LED matrix display."""
         try:
-            # Use DejaVu Sans with optimized sizes
-            matrix_height = self.matrix.height
-            # For 32px height matrix, use 16px for large text and 8px for small
-            large_size = 16  # Fixed size instead of percentage
-            small_size = 8   # Fixed size for better clarity
+            # Use DejaVu Sans ExtraLight for thinnest possible characters
+            font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-ExtraLight.ttf"
+            
+            # For 32px height matrix, optimized sizes for ExtraLight
+            large_size = 20  # Slightly larger since ExtraLight is very thin
+            small_size = 10  # Slightly larger for better visibility
             
             try:
-                self.font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", large_size)
-                self.small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", small_size)
-                logger.info(f"Using DejaVu Sans with sizes {large_size}px and {small_size}px")
+                self.font = ImageFont.truetype(font_path, large_size)
+                self.small_font = ImageFont.truetype(font_path, small_size)
+                logger.info(f"Loaded ExtraLight font: {font_path} (large: {large_size}px, small: {small_size}px)")
             except Exception as e:
-                logger.error(f"Failed to load DejaVu Sans: {e}")
+                logger.warning(f"Failed to load ExtraLight font, falling back to default: {e}")
                 self.font = ImageFont.load_default()
                 self.small_font = ImageFont.load_default()
                 
@@ -169,7 +170,7 @@ class DisplayManager:
             y = min(y, max_y)
             y = max(y, padding)  # Ensure text doesn't get cut off at top
         
-        # Draw text
+        # For Light font, we can use full brightness since the characters are thinner
         self.draw.text((x, y), text, font=font, fill=color)
 
     def draw_sun(self, x: int, y: int, size: int = 16):
