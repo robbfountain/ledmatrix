@@ -3,9 +3,14 @@ import os
 from typing import Dict, Any
 
 class ConfigManager:
-    def __init__(self, config_path: str = "../config/config.json", secrets_path: str = "../config/config_secrets.json"):
-        self.config_path = config_path
-        self.secrets_path = secrets_path
+    def __init__(self, config_path: str = None, secrets_path: str = None):
+        # Get the project root directory
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
+        # Set default paths relative to project root
+        self.config_path = config_path or os.path.join(project_root, "config", "config.json")
+        self.secrets_path = secrets_path or os.path.join(project_root, "config", "config_secrets.json")
+        
         self.config: Dict[str, Any] = {}
         self.load_config()
 

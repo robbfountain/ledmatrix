@@ -2,8 +2,8 @@ import time
 from datetime import datetime
 import pytz
 from typing import Dict, Any
-from config_manager import ConfigManager
-from display_manager import DisplayManager
+from src.config_manager import ConfigManager
+from src.display_manager import DisplayManager
 
 class Clock:
     def __init__(self):
