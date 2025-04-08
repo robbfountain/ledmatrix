@@ -47,9 +47,7 @@ class DisplayManager:
         options.disable_hardware_pulsing = True  # Reduce flickering
         options.show_refresh_rate = False
         options.limit_refresh_rate_hz = 120  # Higher refresh rate
-        
-        # Minimal GPIO slowdown for better performance
-        options.gpio_slowdown = 1
+        options.gpio_slowdown = 1  # Minimal GPIO slowdown
         
         # Initialize the matrix
         self.matrix = RGBMatrix(options=options)
@@ -60,9 +58,6 @@ class DisplayManager:
         # Create image with full chain width
         self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
         self.draw = ImageDraw.Draw(self.image)
-        
-        # Set matrix to use luminance correction for better color reproduction
-        self.matrix.set_luminance_correct(True)
         
         # Initialize font
         try:
@@ -124,6 +119,10 @@ class DisplayManager:
 
     def draw_text(self, text: str, x: int = None, y: int = None, color: Tuple[int, int, int] = (255, 255, 255), small_font: bool = False) -> None:
         """Draw text on the display with improved visibility."""
+        # Create a new blank image for this text
+        self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
+        self.draw = ImageDraw.Draw(self.image)
+        
         # Ensure maximum brightness for text
         if isinstance(color, tuple) and len(color) == 3:
             # Increase brightness of colors while maintaining relative ratios

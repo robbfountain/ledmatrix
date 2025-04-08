@@ -23,11 +23,11 @@ class Clock:
         self.timezone = self._get_timezone()
         self.last_time = None
         self.last_date = None
-        # Colors for different elements - using maximum brightness colors
+        # Colors for different elements - using super bright colors
         self.COLORS = {
-            'time': (255, 255, 255),  # Pure white for time
-            'ampm': (255, 255, 0),    # Bright yellow for AM/PM
-            'date': (255, 160, 0)     # Orange for date
+            'time': (255, 255, 255),    # Pure white for time
+            'ampm': (255, 255, 128),    # Bright warm yellow for AM/PM
+            'date': (255, 128, 64)      # Bright orange for date
         }
 
     def _get_timezone(self) -> pytz.timezone:
@@ -111,18 +111,18 @@ class Clock:
             # Draw time (large, centered, near top)
             self.display_manager.draw_text(
                 time_str,
-                y=1,  # Move to top
+                y=3,  # Move down slightly from top
                 color=self.COLORS['time'],
                 small_font=False
             )
             
             # Draw AM/PM (small, next to time)
             time_width = self.display_manager.font.getlength(time_str)
-            ampm_x = (display_width + time_width) // 2 + 1
+            ampm_x = (display_width + time_width) // 2 + 2
             self.display_manager.draw_text(
                 ampm,
                 x=ampm_x,
-                y=3,  # Align with time
+                y=5,  # Align with time
                 color=self.COLORS['ampm'],
                 small_font=True
             )
@@ -130,7 +130,7 @@ class Clock:
             # Draw date (small, centered below time)
             self.display_manager.draw_text(
                 date_str,
-                y=display_height - 7,  # Move up slightly
+                y=display_height - 9,  # Move up more from bottom
                 color=self.COLORS['date'],
                 small_font=True
             )
