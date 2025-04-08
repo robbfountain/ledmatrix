@@ -23,7 +23,8 @@ class DisplayManager:
             self.config = config
             logger.info("Initializing DisplayManager with config: %s", config)
             self._setup_matrix()  # This now sets self.matrix
-            self.font = ImageFont.truetype("DejaVuSans.ttf", 24)
+            # Use a smaller font size for better fitting
+            self.font = ImageFont.truetype("DejaVuSans.ttf", 16)
             self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
             self.draw = ImageDraw.Draw(self.image)
             DisplayManager._initialized = True
@@ -80,19 +81,41 @@ class DisplayManager:
         """Draw text on the display with automatic centering."""
         self.clear()
         
-        # Get text size
-        text_bbox = self.draw.textbbox((0, 0), text, font=self.font)
-        text_width = text_bbox[2] - text_bbox[0]
-        text_height = text_bbox[3] - text_bbox[1]
+        # Split text into lines if it contains newlines
+        lines = text.split('\n')
         
-        # Calculate center position if not specified
-        if x is None:
-            x = (self.matrix.width - text_width) // 2
+        # Calculate total height of all lines
+        line_heights = []
+        line_widths = []
+        total_height = 0
+        max_width = 0
+        
+        for line in lines:
+            bbox = self.draw.textbbox((0, 0), line, font=self.font)
+            line_width = bbox[2] - bbox[0]
+            line_height = bbox[3] - bbox[1]
+            line_heights.append(line_height)
+            line_widths.append(line_width)
+            total_height += line_height
+            max_width = max(max_width, line_width)
+        
+        # Calculate starting Y position to center all lines vertically
         if y is None:
-            y = (self.matrix.height - text_height) // 2
-            
-        logger.info(f"Drawing text '{text}' at position ({x}, {y})")
-        self.draw.text((x, y), text, font=self.font, fill=color)
+            y = (self.matrix.height - total_height) // 2
+        
+        # Draw each line
+        current_y = y
+        for i, line in enumerate(lines):
+            if x is None:
+                # Center this line horizontally
+                line_x = (self.matrix.width - line_widths[i]) // 2
+            else:
+                line_x = x
+                
+            logger.info(f"Drawing line '{line}' at position ({line_x}, {current_y})")
+            self.draw.text((line_x, current_y), line, font=self.font, fill=color)
+            current_y += line_heights[i]
+        
         self.matrix.SetImage(self.image)
 
     def cleanup(self):
