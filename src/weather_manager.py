@@ -5,23 +5,23 @@ from typing import Dict, Any, List
 from PIL import Image, ImageDraw
 
 class WeatherManager:
-    # Weather condition to emoji mapping
+    # Weather condition to larger colored icons (we'll use these as placeholders until you provide custom ones)
     WEATHER_ICONS = {
-        'Clear': '☀️',
-        'Clouds': '☁️',
-        'Rain': '🌧️',
-        'Snow': '❄️',
-        'Thunderstorm': '⛈️',
-        'Drizzle': '🌦️',
-        'Mist': '🌫️',
-        'Fog': '🌫️',
-        'Haze': '🌫️',
-        'Smoke': '🌫️',
-        'Dust': '🌫️',
-        'Sand': '🌫️',
-        'Ash': '🌫️',
-        'Squall': '💨',
-        'Tornado': '🌪️'
+        'Clear': '🌞',      # Larger sun with rays
+        'Clouds': '☁️',     # Cloud
+        'Rain': '🌧️',      # Rain cloud
+        'Snow': '❄️',      # Snowflake
+        'Thunderstorm': '⛈️', # Storm cloud
+        'Drizzle': '🌦️',    # Sun behind rain cloud
+        'Mist': '🌫️',      # Fog
+        'Fog': '🌫️',       # Fog
+        'Haze': '🌫️',      # Fog
+        'Smoke': '🌫️',     # Fog
+        'Dust': '🌫️',      # Fog
+        'Sand': '🌫️',      # Fog
+        'Ash': '🌫️',       # Fog
+        'Squall': '💨',     # Dash symbol
+        'Tornado': '🌪️'     # Tornado
     }
 
     def __init__(self, config: Dict[str, Any], display_manager):
@@ -34,6 +34,7 @@ class WeatherManager:
         self.forecast_data = None
         self.hourly_forecast = None
         self.daily_forecast = None
+        self.scroll_position = 0
 
     def _fetch_weather(self) -> None:
         """Fetch current weather and forecast data from OpenWeatherMap API."""
@@ -81,7 +82,7 @@ class WeatherManager:
         # Process hourly forecast (next 6 hours)
         self.hourly_forecast = []
         for item in self.forecast_data['list'][:6]:  # First 6 entries (3 hours each)
-            hour = datetime.fromtimestamp(item['dt']).strftime('%I%p')
+            hour = datetime.fromtimestamp(item['dt']).strftime('%I%p').lstrip('0')  # Remove leading zero
             temp = round(item['main']['temp'])
             condition = item['weather'][0]['main']
             icon = self.WEATHER_ICONS.get(condition, '❓')
@@ -108,7 +109,6 @@ class WeatherManager:
         self.daily_forecast = []
         for date, data in list(daily_data.items())[:3]:  # First 3 days
             avg_temp = round(sum(data['temps']) / len(data['temps']))
-            # Get most common condition for the day
             condition = max(set(data['conditions']), key=data['conditions'].count)
             icon = self.WEATHER_ICONS.get(condition, '❓')
             display_date = datetime.strptime(date, '%Y-%m-%d').strftime('%a %d')
@@ -137,27 +137,36 @@ class WeatherManager:
         condition = weather_data['weather'][0]['main']
         icon = self.WEATHER_ICONS.get(condition, '❓')
         
-        # Format the display string with temp, icon, and condition
-        display_text = f"{temp}°F {icon}\n{condition}"
+        # Format the display string with temp and large icon
+        display_text = f"{temp}°F\n{icon}"
         
         # Draw both lines at once using the multi-line support in draw_text
         self.display_manager.draw_text(display_text, force_clear=force_clear)
 
-    def display_hourly_forecast(self, index: int = 0, force_clear: bool = False) -> None:
-        """Display hourly forecast information, showing one time slot at a time."""
+    def display_hourly_forecast(self, scroll_amount: int = 0, force_clear: bool = False) -> None:
+        """Display scrolling hourly forecast information."""
         if not self.hourly_forecast:
             self.get_weather()  # This will also update forecasts
             if not self.hourly_forecast:
                 return
 
-        # Get the forecast for the current index
-        forecast = self.hourly_forecast[index % len(self.hourly_forecast)]
+        # Update scroll position
+        self.scroll_position = scroll_amount
+
+        # Create the full scrolling text
+        forecasts = []
+        for forecast in self.hourly_forecast:
+            forecasts.append(f"{forecast['hour']}\n{forecast['temp']}°F\n{forecast['icon']}")
         
-        # Format the display string
-        display_text = f"{forecast['hour']}\n{forecast['temp']}°F {forecast['icon']}"
+        # Join with some spacing between each forecast
+        display_text = "   |   ".join(forecasts)
         
-        # Draw the forecast
-        self.display_manager.draw_text(display_text, force_clear=force_clear)
+        # Draw the scrolling text
+        self.display_manager.draw_scrolling_text(
+            display_text,
+            self.scroll_position,
+            force_clear=force_clear
+        )
 
     def display_daily_forecast(self, force_clear: bool = False) -> None:
         """Display 3-day forecast information."""
@@ -169,7 +178,7 @@ class WeatherManager:
         # Create a compact display of all three days
         lines = []
         for day in self.daily_forecast:
-            lines.append(f"{day['date']}: {day['temp']}°F {day['icon']}")
+            lines.append(f"{day['date']}\n{day['temp']}°F {day['icon']}")
         
         # Join all lines with newlines
         display_text = "\n".join(lines)

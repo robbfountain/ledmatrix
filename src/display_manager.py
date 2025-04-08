@@ -168,6 +168,34 @@ class DisplayManager:
         # Update the display using double buffering
         self.update_display()
 
+    def draw_scrolling_text(self, text: str, scroll_position: int, force_clear: bool = False) -> None:
+        """Draw scrolling text on the display."""
+        if force_clear:
+            self.clear()
+        else:
+            # Just create a new blank image without updating display
+            self.image = Image.new('RGB', (self.matrix.width * 2, self.matrix.height))  # Double width for scrolling
+            self.draw = ImageDraw.Draw(self.image)
+        
+        # Calculate text dimensions
+        bbox = self.draw.textbbox((0, 0), text, font=self.font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        # Draw text at current scroll position
+        y = (self.matrix.height - text_height) // 2
+        self.draw.text((self.matrix.width - scroll_position, y), text, font=self.font, fill=(255, 255, 255))
+        
+        # If text has scrolled past the left edge, draw it again at the right
+        if scroll_position > text_width:
+            self.draw.text((self.matrix.width * 2 - scroll_position, y), text, font=self.font, fill=(255, 255, 255))
+        
+        # Create a cropped version of the image that's the size of our display
+        visible_portion = self.image.crop((0, 0, self.matrix.width, self.matrix.height))
+        
+        # Update the display with the visible portion
+        self.matrix.SetImage(visible_portion)
+
     def cleanup(self):
         """Clean up resources."""
         self.matrix.Clear()
