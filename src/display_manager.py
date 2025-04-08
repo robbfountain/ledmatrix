@@ -42,7 +42,7 @@ class DisplayManager:
         
         # Additional options for stability
         options.disable_hardware_pulsing = False
-        options.show_refresh_rate = 1
+        options.show_refresh_rate = 0  # Turn off refresh rate display
         options.limit_refresh_rate_hz = 100
         
         return RGBMatrix(options=options)
