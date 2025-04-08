@@ -135,6 +135,9 @@ class Clock:
                 small_font=True
             )
             
+            # Update the display after drawing everything
+            self.display_manager.update_display()
+            
             # Update cache
             self.last_time = time_str
             self.last_date = date_str

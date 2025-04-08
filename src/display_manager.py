@@ -37,17 +37,17 @@ class DisplayManager:
         options.hardware_mapping = hardware_config.get('hardware_mapping', 'adafruit-hat-pwm')
         
         # Optimize display settings for maximum visibility
-        options.brightness = 100  # Maximum brightness
-        options.pwm_bits = 11  # Maximum color depth
+        options.brightness = 100
+        options.pwm_bits = 11
         options.pwm_lsb_nanoseconds = 130
         options.led_rgb_sequence = 'RGB'
-        options.pixel_mapper_config = hardware_config.get('pixel_mapper_config', '')
+        options.pixel_mapper_config = ''
         options.row_address_type = 0
         options.multiplexing = 0
-        options.disable_hardware_pulsing = True  # Reduce flickering
+        options.disable_hardware_pulsing = True
         options.show_refresh_rate = False
-        options.limit_refresh_rate_hz = 120  # Higher refresh rate
-        options.gpio_slowdown = 1  # Minimal GPIO slowdown
+        options.limit_refresh_rate_hz = 120
+        options.gpio_slowdown = 1
         
         # Initialize the matrix
         self.matrix = RGBMatrix(options=options)
@@ -72,7 +72,6 @@ class DisplayManager:
 
     def _draw_test_pattern(self):
         """Draw a test pattern to verify the display is working."""
-        # Clear the display first
         self.clear()
         
         # Draw a red rectangle border
@@ -84,24 +83,24 @@ class DisplayManager:
         # Draw some text
         self.draw.text((10, 10), "TEST", font=self.font, fill=(0, 0, 255))
         
-        # Update the display using double buffering
+        # Update the display once after everything is drawn
         self.update_display()
-        
-        # Wait a moment
         time.sleep(2)
 
     def update_display(self):
-        """Update the display using double buffering for smooth transitions."""
+        """Update the display using double buffering."""
         # Copy the current image to the offscreen canvas
         self.offscreen_canvas.SetImage(self.image)
-        # Swap the canvases on VSync for smooth transition
+        # Swap the canvases
         self.offscreen_canvas = self.matrix.SwapOnVSync(self.offscreen_canvas)
 
     def clear(self):
         """Clear the display completely."""
+        # Create a new image and drawing context
         self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
         self.draw = ImageDraw.Draw(self.image)
-        self.update_display()  # Ensure the clear is displayed
+        # Update the display to show the clear
+        self.update_display()
 
     def _load_fonts(self):
         """Load fonts for different text sizes."""
@@ -118,16 +117,7 @@ class DisplayManager:
             self.small_font = self.font
 
     def draw_text(self, text: str, x: int = None, y: int = None, color: Tuple[int, int, int] = (255, 255, 255), small_font: bool = False) -> None:
-        """Draw text on the display with improved visibility."""
-        # Create a new blank image for this text
-        self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
-        self.draw = ImageDraw.Draw(self.image)
-        
-        # Ensure maximum brightness for text
-        if isinstance(color, tuple) and len(color) == 3:
-            # Increase brightness of colors while maintaining relative ratios
-            color = tuple(min(255, int(c * 1.2)) for c in color)
-        
+        """Draw text on the display."""
         font = self.small_font if small_font else self.font
         
         # Get text dimensions for centering if x not specified
@@ -143,45 +133,8 @@ class DisplayManager:
             text_height = bbox[3] - bbox[1]
             y = (self.matrix.height - text_height) // 2
         
-        # Draw text with slight glow effect for better visibility
-        # Draw shadow/glow
-        shadow_offset = 1
-        shadow_color = tuple(max(0, int(c * 0.3)) for c in color)
-        self.draw.text((x + shadow_offset, y + shadow_offset), text, font=font, fill=shadow_color)
-        
         # Draw main text
         self.draw.text((x, y), text, font=font, fill=color)
-        
-        # Update the display
-        self.update_display()
-
-    def draw_scrolling_text(self, text: str, scroll_position: int, force_clear: bool = False) -> None:
-        """Draw scrolling text on the display."""
-        if force_clear:
-            self.clear()
-        else:
-            # Just create a new blank image without updating display
-            self.image = Image.new('RGB', (self.matrix.width * 2, self.matrix.height))  # Double width for scrolling
-            self.draw = ImageDraw.Draw(self.image)
-        
-        # Calculate text dimensions
-        bbox = self.draw.textbbox((0, 0), text, font=self.font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-        
-        # Draw text at current scroll position
-        y = (self.matrix.height - text_height) // 2
-        self.draw.text((self.matrix.width - scroll_position, y), text, font=self.font, fill=(255, 255, 255))
-        
-        # If text has scrolled past the left edge, draw it again at the right
-        if scroll_position > text_width:
-            self.draw.text((self.matrix.width * 2 - scroll_position, y), text, font=self.font, fill=(255, 255, 255))
-        
-        # Create a cropped version of the image that's the size of our display
-        visible_portion = self.image.crop((0, 0, self.matrix.width, self.matrix.height))
-        
-        # Update the display with the visible portion
-        self.matrix.SetImage(visible_portion)
 
     def draw_sun(self, x: int, y: int, size: int = 16):
         """Draw a sun icon using yellow circles and lines."""
@@ -346,11 +299,6 @@ class DisplayManager:
 
     def draw_weather_icon(self, condition: str, x: int, y: int, size: int = 16) -> None:
         """Draw a weather icon based on the condition."""
-        # Clear the area where the icon will be drawn
-        self.draw.rectangle([x, y, x + size, y + size],
-                          fill=(0, 0, 0))
-        
-        # Draw the appropriate weather icon
         if condition.lower() in ['clear', 'sunny']:
             self._draw_sun(x, y, size)
         elif condition.lower() in ['clouds', 'cloudy', 'partly cloudy']:
@@ -362,29 +310,21 @@ class DisplayManager:
         elif condition.lower() in ['thunderstorm', 'storm']:
             self._draw_storm(x, y, size)
         else:
-            # Default to sun if condition is unknown
             self._draw_sun(x, y, size)
-        
-        self.update_display()
+        # Note: No update_display() here - let the caller handle the update
 
     def draw_text_with_icons(self, text: str, icons: List[tuple] = None, x: int = None, y: int = None, 
-                            color: tuple = (255, 255, 255), force_clear: bool = False):
+                            color: tuple = (255, 255, 255)):
         """Draw text with weather icons at specified positions."""
-        if force_clear:
-            self.clear()
-        else:
-            self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
-            self.draw = ImageDraw.Draw(self.image)
+        # Draw the text
+        self.draw_text(text, x, y, color)
         
-        # First draw the text
-        self.draw_text(text, x, y, color, force_clear=False)
-        
-        # Then draw any icons
+        # Draw any icons
         if icons:
             for icon_type, icon_x, icon_y in icons:
-                WeatherIcons.draw_weather_icon(self.draw, icon_type, icon_x, icon_y)
+                self.draw_weather_icon(icon_type, icon_x, icon_y)
         
-        # Update the display
+        # Update the display once after everything is drawn
         self.update_display()
 
     def cleanup(self):
