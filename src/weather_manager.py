@@ -181,6 +181,13 @@ class WeatherManager:
             self._fetch_weather()
         return self.weather_data
 
+    def _prepare_display(self, force_clear: bool = False):
+        """Prepare the display for drawing."""
+        if force_clear:
+            self.display_manager.clear()
+        self.display_manager.image = Image.new('RGB', (self.display_manager.matrix.width, self.display_manager.matrix.height))
+        self.display_manager.draw = ImageDraw.Draw(self.display_manager.image)
+
     def display_weather(self, force_clear: bool = False) -> None:
         """Display current weather information using an improved layout."""
         weather_data = self.get_weather()
@@ -194,9 +201,8 @@ class WeatherManager:
         
         # Only update display if forced or data changed
         if force_clear or not hasattr(self, 'last_temp') or temp != self.last_temp or condition != self.last_condition:
-            # Reset buffer
-            self._init_buffer()
-            self._clear_buffer()
+            # Prepare display
+            self._prepare_display(force_clear)
             
             # Calculate layout
             display_width = self.display_manager.matrix.width
@@ -207,13 +213,14 @@ class WeatherManager:
             x_pos = display_width // 4
             y_pos = display_height // 2 - 4
             
-            # Draw to buffer
+            # Draw temperature
             self.display_manager.draw_text(
                 temp_text,
                 x=x_pos,
                 y=y_pos,
                 color=self.COLORS['highlight'],
-                small_font=False
+                small_font=False,
+                force_clear=False  # Don't clear since we already prepared the display
             )
             
             # Draw weather icon
@@ -228,11 +235,12 @@ class WeatherManager:
                 x=self.PADDING,
                 y=display_height - 8,
                 color=self.COLORS['text'],
-                small_font=True
+                small_font=True,
+                force_clear=False  # Don't clear since we already prepared the display
             )
             
-            # Update display once
-            self._update_display()
+            # Update display
+            self.display_manager.update_display()
             
             # Update cache
             self.last_temp = temp
@@ -249,9 +257,8 @@ class WeatherManager:
         if not force_clear and current_time - self.last_draw_time < 0.1:
             return
 
-        # Reset buffer
-        self._init_buffer()
-        self._clear_buffer()
+        # Prepare display
+        self._prepare_display(force_clear)
 
         # Calculate layout parameters
         display_width = self.display_manager.matrix.width
@@ -264,11 +271,12 @@ class WeatherManager:
             header_text,
             y=1,
             color=self.COLORS['highlight'],
-            small_font=True
+            small_font=True,
+            force_clear=False  # Don't clear since we already prepared the display
         )
         
         # Draw separator line
-        self.draw.line(
+        self.display_manager.draw.line(
             [(0, 8), (display_width, 8)],
             fill=self.COLORS['separator']
         )
@@ -286,7 +294,8 @@ class WeatherManager:
                 x=x_pos + forecast_width // 2,
                 y=10,
                 color=self.COLORS['text'],
-                small_font=True
+                small_font=True,
+                force_clear=False  # Don't clear since we already prepared the display
             )
 
             # Draw icon
@@ -306,20 +315,21 @@ class WeatherManager:
                 x=x_pos + forecast_width // 2,
                 y=display_height - 8,
                 color=self.COLORS['text'],
-                small_font=True
+                small_font=True,
+                force_clear=False  # Don't clear since we already prepared the display
             )
 
             # Draw separator line
             if i < len(self.hourly_forecast) - 1:
                 sep_x = x_pos + forecast_width - 1
                 if 0 <= sep_x <= display_width:
-                    self.draw.line(
+                    self.display_manager.draw.line(
                         [(sep_x, 8), (sep_x, display_height)],
                         fill=self.COLORS['separator']
                     )
 
-        # Update display once
-        self._update_display()
+        # Update display
+        self.display_manager.update_display()
         self.last_draw_time = current_time
 
     def display_daily_forecast(self, force_clear: bool = False) -> None:
@@ -333,9 +343,8 @@ class WeatherManager:
         if not force_clear and current_time - self.last_draw_time < 0.1:
             return
 
-        # Reset buffer
-        self._init_buffer()
-        self._clear_buffer()
+        # Prepare display
+        self._prepare_display(force_clear)
 
         # Calculate layout parameters
         display_width = self.display_manager.matrix.width
@@ -348,11 +357,12 @@ class WeatherManager:
             header_text,
             y=1,
             color=self.COLORS['highlight'],
-            small_font=True
+            small_font=True,
+            force_clear=False  # Don't clear since we already prepared the display
         )
         
         # Draw separator line
-        self.draw.line(
+        self.display_manager.draw.line(
             [(0, 8), (display_width, 8)],
             fill=self.COLORS['separator']
         )
@@ -367,7 +377,8 @@ class WeatherManager:
                 x=x_base + section_width // 2,
                 y=10,
                 color=self.COLORS['text'],
-                small_font=True
+                small_font=True,
+                force_clear=False  # Don't clear since we already prepared the display
             )
 
             # Draw weather icon
@@ -395,24 +406,26 @@ class WeatherManager:
                 x=low_x,
                 y=temp_y,
                 color=self.COLORS['temp_low'],
-                small_font=True
+                small_font=True,
+                force_clear=False  # Don't clear since we already prepared the display
             )
             self.display_manager.draw_text(
                 high_text,
                 x=high_x,
                 y=temp_y,
                 color=self.COLORS['temp_high'],
-                small_font=True
+                small_font=True,
+                force_clear=False  # Don't clear since we already prepared the display
             )
 
             # Draw separator lines
             if i < len(self.daily_forecast) - 1:
                 sep_x = x_base + section_width - 1
-                self.draw.line(
+                self.display_manager.draw.line(
                     [(sep_x, 8), (sep_x, display_height)],
                     fill=self.COLORS['separator']
                 )
 
-        # Update display once
-        self._update_display()
+        # Update display
+        self.display_manager.update_display()
         self.last_draw_time = current_time 
