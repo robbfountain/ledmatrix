@@ -17,7 +17,6 @@
         "update_interval": 1
     },
     "weather": {
-        "api_key": "YOUR_OPENWEATHERMAP_API_KEY",
         "update_interval": 300,
         "units": "imperial",
         "display_format": "{temp}°F\n{condition}"
