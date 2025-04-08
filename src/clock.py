@@ -22,7 +22,7 @@ class Clock:
             while True:
                 current_time = self.get_current_time()
                 # Center the text on the display
-                text_width = self.display_manager.font.getsize(current_time)[0]
+                text_width = self.display_manager.font.getlength(current_time)
                 x = (self.display_manager.matrix.width - text_width) // 2
                 y = (self.display_manager.matrix.height - 24) // 2
                 

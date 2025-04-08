@@ -15,25 +15,59 @@ A simple, modular clock application for Raspberry Pi using Adafruit LED Matrix d
 sudo apt-get update
 sudo apt-get install -y python3-pip python3-dev python3-setuptools
 sudo apt-get install -y build-essential git
+sudo apt-get install -y python3-pil python3-pil.imagetk
+sudo apt-get install -y cython3
 ```
 
-2. Install the rpi-rgb-led-matrix library:
+2. Install the rpi-rgb-led-matrix library and Python bindings:
 ```bash
-cd rpi-rgb-led-matrix-master
+# Make sure you're in the main project directory
+cd ~/LEDSportsMatrix/rpi-rgb-led-matrix-master
+
+# Build the C++ library first
 make
-sudo make install
+
+# Build and install Python bindings
+cd bindings/python
+sudo python3 setup.py install
+cd ../..
+
+# Install the library files
+sudo cp -r lib/* /usr/local/lib/
+sudo cp -r include/* /usr/local/include/
+sudo ldconfig
 cd ..
 ```
 
-3. Install Python dependencies:
+3. Install additional Python packages:
 ```bash
-python3 -m pip install -r requirements.txt
+sudo python3 -m pip install pytz
 ```
 
 4. Install the DejaVu Sans font:
 ```bash
 sudo apt-get install -y fonts-dejavu
 ```
+
+## Performance Optimization
+
+To reduce flickering and improve display quality, you have two options:
+
+1. Run the program with root privileges (quick solution):
+```bash
+sudo python3 clock.py
+```
+
+2. For better performance (recommended):
+   - Edit `/boot/firmware/cmdline.txt`:
+     ```bash
+     sudo nano /boot/firmware/cmdline.txt
+     ```
+   - Add `isolcpus=3` at the end of the line
+   - Save and reboot:
+     ```bash
+     sudo reboot
+     ```
 
 ## Configuration
 
@@ -44,10 +78,10 @@ Edit the `config/config.json` file to customize:
 
 ## Running the Clock
 
-To start the clock:
+To start the clock with optimal performance:
 ```bash
 cd src
-python3 clock.py
+sudo python3 clock.py
 ```
 
 To stop the clock, press Ctrl+C.
