@@ -20,9 +20,10 @@ class DisplayController:
         self.current_display = 'clock'
         self.last_switch = time.time()
         self.scroll_position = 0
-        self.scroll_speed = 2  # Pixels per update
+        self.scroll_speed = 1  # Reduced scroll speed
         self.last_scroll = time.time()
-        self.scroll_interval = 0.05  # 50ms between scroll updates
+        self.scroll_interval = 0.1  # Increased scroll interval for smoother scrolling
+        self.force_clear = False
         logger.info("DisplayController initialized with display_manager: %s", id(self.display_manager))
 
     def run(self):
@@ -46,37 +47,36 @@ class DisplayController:
                     
                     logger.info("Switching display to: %s", self.current_display)
                     self.last_switch = current_time
-                    self.display_manager.clear()  # Clear display when switching modes
-                    force_clear = True
-                else:
-                    force_clear = False
+                    self.force_clear = True  # Set force clear flag instead of clearing immediately
 
                 # Update scroll position for hourly forecast if needed
-                if self.current_display == 'hourly':
-                    if current_time - self.last_scroll > self.scroll_interval:
-                        self.scroll_position += self.scroll_speed
-                        self.last_scroll = current_time
-                        
-                        # Reset scroll position if we've gone through all forecasts
-                        if self.scroll_position > self.display_manager.matrix.width * 3:
-                            self.scroll_position = 0
-                            force_clear = True  # Clear when resetting scroll
+                if self.current_display == 'hourly' and current_time - self.last_scroll > self.scroll_interval:
+                    self.scroll_position += self.scroll_speed
+                    self.last_scroll = current_time
+                    
+                    # Reset scroll position if we've gone through all forecasts
+                    if self.scroll_position > self.display_manager.matrix.width * 3:
+                        self.scroll_position = 0
+                        self.force_clear = True
 
                 # Display current screen
                 if self.current_display == 'clock':
-                    self.clock.display_time(force_clear=force_clear)
+                    self.clock.display_time(force_clear=self.force_clear)
                 elif self.current_display == 'weather':
-                    self.weather.display_weather(force_clear=force_clear)
+                    self.weather.display_weather(force_clear=self.force_clear)
                 elif self.current_display == 'hourly':
-                    self.weather.display_hourly_forecast(self.scroll_position, force_clear=force_clear)
+                    self.weather.display_hourly_forecast(self.scroll_position, force_clear=self.force_clear)
                 else:  # daily
-                    self.weather.display_daily_forecast(force_clear=force_clear)
+                    self.weather.display_daily_forecast(force_clear=self.force_clear)
+
+                # Reset force clear flag after use
+                self.force_clear = False
 
                 # Sleep longer when not scrolling
                 if self.current_display == 'hourly':
-                    time.sleep(0.05)  # 50ms for smooth scrolling
+                    time.sleep(self.scroll_interval)  # Use scroll interval for consistent timing
                 else:
-                    time.sleep(0.1)  # 100ms for static displays
+                    time.sleep(0.2)  # Longer sleep for static displays
 
         except KeyboardInterrupt:
             print("\nDisplay stopped by user")
