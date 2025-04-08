@@ -1,9 +1,9 @@
 import time
 from typing import Dict, Any
-from clock import Clock
-from weather_manager import WeatherManager
-from display_manager import DisplayManager
-from config_manager import ConfigManager
+from src.clock import Clock
+from src.weather_manager import WeatherManager
+from src.display_manager import DisplayManager
+from src.config_manager import ConfigManager
 
 class DisplayController:
     def __init__(self):
@@ -41,6 +41,9 @@ class DisplayController:
         finally:
             self.display_manager.cleanup()
 
-if __name__ == "__main__":
+def main():
     controller = DisplayController()
-    controller.run() 
+    controller.run()
+
+if __name__ == "__main__":
+    main() 
