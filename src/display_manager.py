@@ -122,26 +122,53 @@ class DisplayManager:
             logger.error(f"Error clearing display: {e}")
 
     def _load_fonts(self):
-        """Load fonts for different text sizes."""
+        """Load fonts optimized for LED matrix display."""
         try:
-            # Load regular font (size 14 for better readability)
-            self.font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14)
-            # Load small font (size 8 for compact display)
-            self.small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 8)
-            logger.info("Fonts loaded successfully")
+            # Use DejaVu Sans Mono for better pixel alignment
+            font_paths = [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",  # Primary choice - monospace
+                "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",  # Fallback 1 - bold mono
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"  # Final fallback
+            ]
+            
+            font_loaded = False
+            for font_path in font_paths:
+                try:
+                    # Calculate optimal sizes for 32px height matrix
+                    matrix_height = self.matrix.height
+                    # For time display: use slightly smaller size for better clarity
+                    large_size = int(0.4 * matrix_height)  # Changed from 0.5 to 0.4
+                    # For weather info: use height-optimized size
+                    small_size = max(6, int(0.2 * matrix_height))  # Changed from 0.25 to 0.2
+                    
+                    self.font = ImageFont.truetype(font_path, large_size)
+                    self.small_font = ImageFont.truetype(font_path, small_size)
+                    
+                    font_loaded = True
+                    logger.info(f"Loaded font: {font_path} (large: {large_size}px, small: {small_size}px)")
+                    break
+                except Exception as e:
+                    logger.debug(f"Failed to load font {font_path}: {e}")
+                    continue
+            
+            if not font_loaded:
+                logger.warning("No TrueType fonts available, falling back to default bitmap font")
+                self.font = ImageFont.load_default()
+                self.small_font = self.font
+            
         except Exception as e:
             logger.error(f"Error loading fonts: {e}")
-            # Fallback to default bitmap font if TTF loading fails
             self.font = ImageFont.load_default()
             self.small_font = self.font
 
     def draw_text(self, text: str, x: int = None, y: int = None, color: Tuple[int, int, int] = (255, 255, 255), small_font: bool = False) -> None:
-        """Draw text on the display."""
+        """Draw text on the display with improved clarity."""
         font = self.small_font if small_font else self.font
         
         # Get text dimensions for centering if x not specified
         bbox = self.draw.textbbox((0, 0), text, font=font)
         text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
         
         # Center text horizontally if x not specified
         if x is None:
@@ -149,10 +176,28 @@ class DisplayManager:
         
         # Center text vertically if y not specified
         if y is None:
-            text_height = bbox[3] - bbox[1]
             y = (self.matrix.height - text_height) // 2
         
-        # Draw main text
+        # Apply Y-axis correction based on font size
+        if not small_font:
+            # For large font, adjust up slightly less
+            y -= int(self.matrix.height * 0.05)  # Changed from 0.1 to 0.05
+        else:
+            # For small font, minimal adjustment
+            y += int(self.matrix.height * 0.02)  # Changed from 0.05 to 0.02
+        
+        # Reduce brightness more for larger text to prevent bleeding
+        if isinstance(color, tuple) and len(color) == 3:
+            r, g, b = color
+            if not small_font:
+                # Larger text needs more brightness reduction
+                factor = 0.75  # 25% reduction for large text
+            else:
+                # Smaller text can stay brighter
+                factor = 0.85  # 15% reduction for small text
+            color = (int(r * factor), int(g * factor), int(b * factor))
+        
+        # Draw text with pixel-perfect alignment
         self.draw.text((x, y), text, font=font, fill=color)
 
     def draw_sun(self, x: int, y: int, size: int = 16):
