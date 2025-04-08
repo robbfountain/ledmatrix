@@ -4,12 +4,9 @@ from typing import Dict, Any
 
 class ConfigManager:
     def __init__(self, config_path: str = None, secrets_path: str = None):
-        # Get the project root directory
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        
-        # Set default paths relative to project root
-        self.config_path = config_path or os.path.join(project_root, "config", "config.json")
-        self.secrets_path = secrets_path or os.path.join(project_root, "config", "config_secrets.json")
+        # Use current working directory as base
+        self.config_path = config_path or "config/config.json"
+        self.secrets_path = secrets_path or "config/config_secrets.json"
         
         self.config: Dict[str, Any] = {}
         self.load_config()
@@ -18,6 +15,7 @@ class ConfigManager:
         """Load configuration from JSON files."""
         try:
             # Load main config
+            print(f"Attempting to load config from: {os.path.abspath(self.config_path)}")
             with open(self.config_path, 'r') as f:
                 self.config = json.load(f)
 
@@ -30,10 +28,13 @@ class ConfigManager:
             
         except FileNotFoundError as e:
             if str(e).find('config_secrets.json') == -1:  # Only raise if main config is missing
-                print(f"Configuration file not found at {self.config_path}")
+                print(f"Configuration file not found at {os.path.abspath(self.config_path)}")
                 raise
         except json.JSONDecodeError:
             print("Error parsing configuration file")
+            raise
+        except Exception as e:
+            print(f"Error loading configuration: {str(e)}")
             raise
 
     def _deep_merge(self, target: Dict, source: Dict) -> None:
