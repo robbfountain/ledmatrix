@@ -22,39 +22,52 @@ class DisplayManager:
             self.draw = ImageDraw.Draw(self.image)
             DisplayManager._initialized = True
 
-    def _setup_matrix(self) -> RGBMatrix:
-        """Setup the RGB matrix with the provided configuration."""
+    def _setup_matrix(self):
+        """Initialize the RGB matrix with configuration settings."""
         options = RGBMatrixOptions()
         
-        # Get hardware and runtime configs
-        hw_config = self.config.get('hardware', {})
+        # Hardware configuration
+        hardware_config = self.config.get('hardware', {})
+        options.rows = hardware_config.get('rows', 32)
+        options.cols = hardware_config.get('cols', 64)
+        options.chain_length = hardware_config.get('chain_length', 2)
+        options.parallel = hardware_config.get('parallel', 1)
+        options.hardware_mapping = hardware_config.get('hardware_mapping', 'adafruit-hat-pwm')
+        options.brightness = hardware_config.get('brightness', 50)
+        options.pwm_bits = hardware_config.get('pwm_bits', 11)
+        options.pwm_lsb_nanoseconds = hardware_config.get('pwm_lsb_nanoseconds', 130)
+        options.led_rgb_sequence = hardware_config.get('led_rgb_sequence', 'RGB')
+        options.pixel_mapper_config = hardware_config.get('pixel_mapper_config', '')
+        options.row_address_type = hardware_config.get('row_addr_type', 0)
+        options.multiplexing = hardware_config.get('multiplexing', 0)
+        options.disable_hardware_pulsing = hardware_config.get('disable_hardware_pulsing', True)
+        options.show_refresh_rate = hardware_config.get('show_refresh_rate', False)
+        options.limit_refresh_rate_hz = hardware_config.get('limit_refresh_rate_hz', 100)
+
+        # Runtime configuration
         runtime_config = self.config.get('runtime', {})
+        options.gpio_slowdown = runtime_config.get('gpio_slowdown', 3)
+
+        # Initialize the matrix
+        self.matrix = RGBMatrix(options=options)
+        self.canvas = self.matrix.CreateFrameCanvas()
         
-        # Hardware specific settings
-        options.rows = hw_config.get('rows', 32)
-        options.cols = hw_config.get('cols', 64)
-        options.chain_length = hw_config.get('chain_length', 2)
-        options.parallel = hw_config.get('parallel', 1)
-        options.brightness = hw_config.get('brightness', 50)
-        options.hardware_mapping = hw_config.get('hardware_mapping', 'adafruit-hat')
-        options.pwm_bits = hw_config.get('pwm_bits', 11)
-        options.pwm_lsb_nanoseconds = hw_config.get('pwm_lsb_nanoseconds', 130)
-        options.led_rgb_sequence = hw_config.get('led_rgb_sequence', 'RGB')
-        options.pixel_mapper_config = hw_config.get('pixel_mapper_config', '')
-        options.multiplexing = hw_config.get('multiplexing', 0)
-        options.row_address_type = hw_config.get('row_addr_type', 0)
-        options.panel_type = hw_config.get('panel_type', '')
+        # Apply rotation if specified
+        self.rotation = hardware_config.get('rotation', 0)
         
-        # Display options
-        options.show_refresh_rate = hw_config.get('show_refresh_rate', False)
-        options.limit_refresh_rate_hz = hw_config.get('limit_refresh_rate_hz', 100)
-        options.inverse_colors = hw_config.get('inverse_colors', False)
-        options.disable_hardware_pulsing = hw_config.get('disable_hardware_pulsing', False)
-        
-        # Runtime options
-        options.gpio_slowdown = runtime_config.get('gpio_slowdown', 4)
-        
-        return RGBMatrix(options=options)
+    def _draw_text(self, text, x, y, font, color=(255, 255, 255)):
+        """Draw text on the canvas with optional rotation."""
+        if self.rotation == 180:
+            # For 180 degree rotation, flip coordinates
+            width = self.matrix.width
+            height = self.matrix.height
+            # Get text size for proper positioning
+            text_width, text_height = font.getsize(text)
+            # Adjust coordinates for rotation
+            x = width - x - text_width
+            y = height - y - text_height
+            
+        graphics.DrawText(self.canvas, font, x, y, graphics.Color(*color), text)
 
     def clear(self):
         """Clear the display."""

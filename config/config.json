@@ -22,13 +22,14 @@
             "panel_type": "",
             "row_addr_type": 0,
             "multiplexing": 0,
-            "disable_hardware_pulsing": false,
+            "disable_hardware_pulsing": true,
             "inverse_colors": false,
             "show_refresh_rate": false,
-            "limit_refresh_rate_hz": 100
+            "limit_refresh_rate_hz": 100,
+            "rotation": 180
         },
         "runtime": {
-            "gpio_slowdown": 3
+            "gpio_slowdown": 2
         },
         "rotation_interval": 10
     },

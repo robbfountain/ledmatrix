@@ -76,6 +76,42 @@ For sensitive settings like API keys:
 1. Copy the template: `cp config/config_secrets.template.json config/config_secrets.json`
 2. Edit `config/config_secrets.json` with your API keys
 
+## Important: Sound Module Configuration
+
+The LED matrix library is known to conflict with the Raspberry Pi's built-in sound module. To prevent issues:
+
+1. Remove unnecessary services that might interfere with the LED matrix:
+```bash
+sudo apt-get remove bluez bluez-firmware pi-bluetooth triggerhappy pigpio
+```
+
+2. Blacklist the sound module:
+```bash
+cat <<EOF | sudo tee /etc/modprobe.d/blacklist-rgb-matrix.conf
+blacklist snd_bcm2835
+EOF
+
+sudo update-initramfs -u
+```
+
+3. Reboot:
+```bash
+sudo reboot
+```
+
+Note: If you still experience issues, you can additionally disable the audio hardware by editing `/boot/firmware/config.txt`:
+```bash
+sudo nano /boot/firmware/config.txt
+```
+And adding:
+```
+dtparam=audio=off
+```
+
+Alternatively, you can:
+- Use external USB sound adapters if you need audio
+- Run the program with `--led-no-hardware-pulse` flag (may cause more flicker)
+
 ## Running the Clock
 
 The program must be run with root privileges to access the LED matrix hardware:
