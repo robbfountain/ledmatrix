@@ -22,9 +22,8 @@ class StockManager:
         self.base_url = "https://query2.finance.yahoo.com"
         self.logo_cache = {}
         
-        # Create logos directory if it doesn't exist
+        # Set logos directory path (assuming it exists)
         self.logos_dir = "assets/logos/stocks"
-        os.makedirs(self.logos_dir, exist_ok=True)
         
         # Default colors for stocks
         self.default_colors = [
@@ -98,38 +97,36 @@ class StockManager:
             
         try:
             # Try to get logo from Yahoo Finance
-            url = f"{self.base_url}/v8/finance/chart/{symbol}"
-            params = {
-                "interval": "1d",
-                "period": "1d"
-            }
-            response = requests.get(url, params=params)
+            url = f"https://query2.finance.yahoo.com/v7/finance/options/{symbol}"
+            response = requests.get(url)
             data = response.json()
             
-            if "chart" in data and "result" in data["chart"] and data["chart"]["result"]:
-                result = data["chart"]["result"][0]
-                if "meta" in result and "logo_url" in result["meta"]:
-                    logo_url = result["meta"]["logo_url"]
+            if "optionChain" in data and "result" in data["optionChain"] and data["optionChain"]["result"]:
+                result = data["optionChain"]["result"][0]
+                if "quote" in result and "logoUrl" in result["quote"]:
+                    logo_url = result["quote"]["logoUrl"]
                     
                     # Download the logo
                     logo_response = requests.get(logo_url)
                     if logo_response.status_code == 200:
-                        with open(logo_path, "wb") as f:
-                            f.write(logo_response.content)
-                        logger.info(f"Downloaded logo for {symbol}")
-                        return logo_path
+                        try:
+                            with open(logo_path, "wb") as f:
+                                f.write(logo_response.content)
+                            logger.info(f"Downloaded logo for {symbol}")
+                            return logo_path
+                        except IOError as e:
+                            logger.error(f"Could not write logo file for {symbol}: {e}")
+                            return None
             
             # If we couldn't get a logo, create a placeholder
-            self._create_placeholder_logo(symbol, logo_path)
-            return logo_path
+            return self._create_placeholder_logo(symbol, logo_path)
             
         except Exception as e:
             logger.error(f"Error downloading logo for {symbol}: {e}")
             # Create a placeholder logo
-            self._create_placeholder_logo(symbol, logo_path)
-            return logo_path
+            return self._create_placeholder_logo(symbol, logo_path)
             
-    def _create_placeholder_logo(self, symbol: str, logo_path: str):
+    def _create_placeholder_logo(self, symbol: str, logo_path: str) -> str:
         """Create a placeholder logo with the stock symbol."""
         try:
             from PIL import Image, ImageDraw, ImageFont
@@ -146,14 +143,28 @@ class StockManager:
                 font = ImageFont.load_default()
                 
             # Draw the symbol
-            draw.text((4, 8), symbol, fill=(255, 255, 255), font=font)
+            text_bbox = draw.textbbox((0, 0), symbol, font=font)
+            text_width = text_bbox[2] - text_bbox[0]
+            text_height = text_bbox[3] - text_bbox[1]
             
-            # Save the image
-            img.save(logo_path)
-            logger.info(f"Created placeholder logo for {symbol}")
+            # Center the text
+            x = (32 - text_width) // 2
+            y = (32 - text_height) // 2
+            
+            draw.text((x, y), symbol, fill=(255, 255, 255), font=font)
+            
+            try:
+                # Save the image
+                img.save(logo_path)
+                logger.info(f"Created placeholder logo for {symbol}")
+                return logo_path
+            except IOError as e:
+                logger.error(f"Could not save placeholder logo for {symbol}: {e}")
+                return None
             
         except Exception as e:
             logger.error(f"Error creating placeholder logo for {symbol}: {e}")
+            return None
 
     def update_stock_data(self):
         """Update stock data if enough time has passed."""
@@ -178,8 +189,10 @@ class StockManager:
                 else:
                     data['color'] = tuple(stock['color'])
                     
-                # Download logo
-                data['logo_path'] = self._download_logo(symbol)
+                # Try to get logo
+                logo_path = self._download_logo(symbol)
+                if logo_path:
+                    data['logo_path'] = logo_path
                 
                 self.stock_data[symbol] = data
                 
@@ -217,7 +230,8 @@ class StockManager:
         )
         
         # Draw the stock information
-        self.display_manager.draw_text(display_text, color=data['color'])
+        color = (0, 255, 0) if data['change'] >= 0 else (255, 0, 0)  # Green for up, red for down
+        self.display_manager.draw_text(display_text, color=color)
         self.display_manager.update_display()
         
         # Move to next stock for next update
