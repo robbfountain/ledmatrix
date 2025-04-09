@@ -19,151 +19,69 @@ class StockManager:
         self.last_update = 0
         self.stock_data = {}
         self.current_stock_index = 0
-        self.base_url = "https://query2.finance.yahoo.com"
-        self.logo_cache = {}
-        
-        # Set logos directory path (assuming it exists)
-        self.logos_dir = "assets/logos/stocks"
-        
-        # Default colors for stocks
-        self.default_colors = [
-            (0, 255, 0),    # Green
-            (0, 255, 255),  # Cyan
-            (255, 255, 0),  # Yellow
-            (255, 165, 0),  # Orange
-            (128, 0, 128),  # Purple
-            (255, 0, 0),    # Red
-            (0, 0, 255),    # Blue
-            (255, 192, 203) # Pink
-        ]
+        self.base_url = "https://query1.finance.yahoo.com"
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
         
     def _get_stock_color(self, symbol: str) -> Tuple[int, int, int]:
-        """Get a consistent color for a stock symbol."""
-        # Use the symbol as a seed for consistent color assignment
-        random.seed(hash(symbol))
-        color_index = random.randint(0, len(self.default_colors) - 1)
-        random.seed()  # Reset the seed
-        return self.default_colors[color_index]
+        """Get color based on stock performance."""
+        if symbol not in self.stock_data:
+            return (255, 255, 255)  # White for unknown
+        
+        change = self.stock_data[symbol].get('change', 0)
+        if change > 0:
+            return (0, 255, 0)  # Green for positive
+        elif change < 0:
+            return (255, 0, 0)  # Red for negative
+        return (255, 255, 0)  # Yellow for no change
         
     def _fetch_stock_data(self, symbol: str) -> Dict[str, Any]:
         """Fetch stock data from Yahoo Finance API."""
         try:
-            # Use Yahoo Finance API directly
-            url = f"{self.base_url}/v8/finance/chart/{symbol}"
+            # Use Yahoo Finance quote endpoint
+            url = f"{self.base_url}/v7/finance/quote"
             params = {
-                "interval": "1m",
-                "period": "1d"
+                "symbols": symbol
             }
-            response = requests.get(url, params=params)
+            
+            response = requests.get(url, params=params, headers=self.headers)
+            response.raise_for_status()  # Raise an error for bad status codes
+            
             data = response.json()
+            logger.debug(f"Raw response for {symbol}: {data}")
             
-            if "chart" not in data or "result" not in data["chart"] or not data["chart"]["result"]:
-                logger.error(f"Invalid response for {symbol}: {data}")
+            if not data or "quoteResponse" not in data or "result" not in data["quoteResponse"] or not data["quoteResponse"]["result"]:
+                logger.error(f"Invalid response format for {symbol}")
                 return None
-                
-            result = data["chart"]["result"][0]
-            meta = result["meta"]
             
-            # Extract price data
-            price = meta.get("regularMarketPrice", 0)
-            prev_close = meta.get("chartPreviousClose", 0)
+            quote = data["quoteResponse"]["result"][0]
             
-            # Calculate change percentage
-            change_pct = 0
-            if prev_close > 0:
+            # Extract required fields with fallbacks
+            price = quote.get("regularMarketPrice", 0)
+            prev_close = quote.get("regularMarketPreviousClose", price)
+            change_pct = quote.get("regularMarketChangePercent", 0)
+            
+            # If we didn't get a change percentage, calculate it
+            if change_pct == 0 and prev_close != 0:
                 change_pct = ((price - prev_close) / prev_close) * 100
-                
-            # Get company name if available
-            company_name = meta.get("instrumentInfo", {}).get("longName", symbol)
-                
+            
             return {
                 "symbol": symbol,
-                "name": company_name,
+                "name": quote.get("longName", symbol),
                 "price": price,
                 "change": change_pct,
                 "open": prev_close
             }
-        except Exception as e:
-            logger.error(f"Error fetching stock data for {symbol}: {e}")
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error fetching data for {symbol}: {e}")
             return None
-            
-    def _download_logo(self, symbol: str) -> str:
-        """Download company logo for a stock symbol."""
-        logo_path = os.path.join(self.logos_dir, f"{symbol}.png")
-        
-        # If logo already exists, return the path
-        if os.path.exists(logo_path):
-            return logo_path
-            
-        try:
-            # Try to get logo from Yahoo Finance
-            url = f"https://query2.finance.yahoo.com/v7/finance/options/{symbol}"
-            response = requests.get(url)
-            data = response.json()
-            
-            if "optionChain" in data and "result" in data["optionChain"] and data["optionChain"]["result"]:
-                result = data["optionChain"]["result"][0]
-                if "quote" in result and "logoUrl" in result["quote"]:
-                    logo_url = result["quote"]["logoUrl"]
-                    
-                    # Download the logo
-                    logo_response = requests.get(logo_url)
-                    if logo_response.status_code == 200:
-                        try:
-                            with open(logo_path, "wb") as f:
-                                f.write(logo_response.content)
-                            logger.info(f"Downloaded logo for {symbol}")
-                            return logo_path
-                        except IOError as e:
-                            logger.error(f"Could not write logo file for {symbol}: {e}")
-                            return None
-            
-            # If we couldn't get a logo, create a placeholder
-            return self._create_placeholder_logo(symbol, logo_path)
-            
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON decode error for {symbol}: {e}")
+            return None
         except Exception as e:
-            logger.error(f"Error downloading logo for {symbol}: {e}")
-            # Create a placeholder logo
-            return self._create_placeholder_logo(symbol, logo_path)
-            
-    def _create_placeholder_logo(self, symbol: str, logo_path: str) -> str:
-        """Create a placeholder logo with the stock symbol."""
-        try:
-            from PIL import Image, ImageDraw, ImageFont
-            
-            # Create a 32x32 image with a colored background
-            color = self._get_stock_color(symbol)
-            img = Image.new('RGB', (32, 32), color)
-            draw = ImageDraw.Draw(img)
-            
-            # Try to load a font, fall back to default if not available
-            try:
-                font = ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 8)
-            except:
-                font = ImageFont.load_default()
-                
-            # Draw the symbol
-            text_bbox = draw.textbbox((0, 0), symbol, font=font)
-            text_width = text_bbox[2] - text_bbox[0]
-            text_height = text_bbox[3] - text_bbox[1]
-            
-            # Center the text
-            x = (32 - text_width) // 2
-            y = (32 - text_height) // 2
-            
-            draw.text((x, y), symbol, fill=(255, 255, 255), font=font)
-            
-            try:
-                # Save the image
-                img.save(logo_path)
-                logger.info(f"Created placeholder logo for {symbol}")
-                return logo_path
-            except IOError as e:
-                logger.error(f"Could not save placeholder logo for {symbol}: {e}")
-                return None
-            
-        except Exception as e:
-            logger.error(f"Error creating placeholder logo for {symbol}: {e}")
+            logger.error(f"Unexpected error fetching data for {symbol}: {e}")
             return None
 
     def update_stock_data(self):
@@ -174,29 +92,27 @@ class StockManager:
             
         # Get symbols from config
         symbols = self.stocks_config.get('symbols', [])
-        
+        if not symbols:
+            logger.warning("No stock symbols configured")
+            return
+            
         # If symbols is a list of strings, convert to list of dicts
-        if symbols and isinstance(symbols[0], str):
+        if isinstance(symbols[0], str):
             symbols = [{"symbol": symbol} for symbol in symbols]
             
+        success = False  # Track if we got any successful updates
         for stock in symbols:
             symbol = stock['symbol']
             data = self._fetch_stock_data(symbol)
             if data:
-                # Add color if not specified
-                if 'color' not in stock:
-                    data['color'] = self._get_stock_color(symbol)
-                else:
-                    data['color'] = tuple(stock['color'])
-                    
-                # Try to get logo
-                logo_path = self._download_logo(symbol)
-                if logo_path:
-                    data['logo_path'] = logo_path
-                
                 self.stock_data[symbol] = data
+                success = True
+                logger.info(f"Updated {symbol}: ${data['price']:.2f} ({data['change']:+.2f}%)")
                 
-        self.last_update = current_time
+        if success:
+            self.last_update = current_time
+        else:
+            logger.error("Failed to fetch data for any configured stocks")
 
     def display_stocks(self, force_clear: bool = False):
         """Display stock information on the LED matrix."""
