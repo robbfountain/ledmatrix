@@ -35,5 +35,13 @@
         "update_interval": 300,
         "units": "imperial",
         "display_format": "{temp}°F\n{condition}"
+    },
+    "stocks": {
+        "enabled": true,
+        "update_interval": 60,
+        "symbols": [
+            "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "JPM", "V", "WMT"
+        ],
+        "display_format": "{symbol}: ${price} ({change}%)"
     }
 } 

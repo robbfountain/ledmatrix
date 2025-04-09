@@ -5,6 +5,7 @@ from src.clock import Clock
 from src.weather_manager import WeatherManager
 from src.display_manager import DisplayManager
 from src.config_manager import ConfigManager
+from src.stock_manager import StockManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +18,7 @@ class DisplayController:
         self.display_manager = DisplayManager(self.config.get('display', {}))
         self.clock = Clock(display_manager=self.display_manager)
         self.weather = WeatherManager(self.config, self.display_manager)
+        self.stocks = StockManager(self.config, self.display_manager)
         self.current_display = 'clock'
         self.last_switch = time.time()
         self.force_clear = True  # Start with a clear screen
@@ -31,14 +33,15 @@ class DisplayController:
                 
                 # Check if we need to switch display mode
                 if current_time - self.last_switch > self.config['display'].get('rotation_interval', 30):
-                    # Cycle through: clock -> current weather -> hourly forecast -> daily forecast
+                    # Cycle through: clock -> weather -> stocks
                     if self.current_display == 'clock':
                         self.current_display = 'weather'
                     elif self.current_display == 'weather':
-                        self.current_display = 'hourly'
-                    elif self.current_display == 'hourly':
-                        self.current_display = 'daily'
-                    else:  # daily
+                        if self.config.get('stocks', {}).get('enabled', False):
+                            self.current_display = 'stocks'
+                        else:
+                            self.current_display = 'clock'
+                    else:  # stocks
                         self.current_display = 'clock'
                     
                     logger.info("Switching display to: %s", self.current_display)
@@ -52,10 +55,8 @@ class DisplayController:
                         self.clock.display_time(force_clear=self.force_clear)
                     elif self.current_display == 'weather':
                         self.weather.display_weather(force_clear=self.force_clear)
-                    elif self.current_display == 'hourly':
-                        self.weather.display_hourly_forecast(force_clear=self.force_clear)
-                    else:  # daily
-                        self.weather.display_daily_forecast(force_clear=self.force_clear)
+                    else:  # stocks
+                        self.stocks.display_stocks(force_clear=self.force_clear)
                 except Exception as e:
                     logger.error(f"Error updating display: {e}")
                     time.sleep(1)  # Wait a bit before retrying
