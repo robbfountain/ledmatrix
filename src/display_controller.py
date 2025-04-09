@@ -20,6 +20,7 @@ class DisplayController:
         self.weather = WeatherManager(self.config, self.display_manager)
         self.stocks = StockManager(self.config, self.display_manager)
         self.current_display = 'clock'
+        self.weather_mode = 'current'  # current, hourly, or daily
         self.last_switch = time.time()
         self.force_clear = True  # Start with a clear screen
         self.update_interval = 0.5  # Slower updates for better stability
@@ -32,19 +33,25 @@ class DisplayController:
                 current_time = time.time()
                 
                 # Check if we need to switch display mode
-                if current_time - self.last_switch > self.config['display'].get('rotation_interval', 30):
-                    # Cycle through: clock -> weather -> stocks
+                if current_time - self.last_switch > self.config['display'].get('rotation_interval', 15):
+                    # Cycle through: clock -> weather (current) -> weather (hourly) -> weather (daily) -> stocks
                     if self.current_display == 'clock':
                         self.current_display = 'weather'
+                        self.weather_mode = 'current'
                     elif self.current_display == 'weather':
-                        if self.config.get('stocks', {}).get('enabled', False):
-                            self.current_display = 'stocks'
-                        else:
-                            self.current_display = 'clock'
+                        if self.weather_mode == 'current':
+                            self.weather_mode = 'hourly'
+                        elif self.weather_mode == 'hourly':
+                            self.weather_mode = 'daily'
+                        else:  # daily
+                            if self.config.get('stocks', {}).get('enabled', False):
+                                self.current_display = 'stocks'
+                            else:
+                                self.current_display = 'clock'
                     else:  # stocks
                         self.current_display = 'clock'
                     
-                    logger.info("Switching display to: %s", self.current_display)
+                    logger.info(f"Switching display to: {self.current_display} {self.weather_mode if self.current_display == 'weather' else ''}")
                     self.last_switch = current_time
                     self.force_clear = True
                     self.display_manager.clear()  # Ensure clean transition
@@ -54,7 +61,12 @@ class DisplayController:
                     if self.current_display == 'clock':
                         self.clock.display_time(force_clear=self.force_clear)
                     elif self.current_display == 'weather':
-                        self.weather.display_weather(force_clear=self.force_clear)
+                        if self.weather_mode == 'current':
+                            self.weather.display_weather(force_clear=self.force_clear)
+                        elif self.weather_mode == 'hourly':
+                            self.weather.display_hourly_forecast(force_clear=self.force_clear)
+                        else:  # daily
+                            self.weather.display_daily_forecast(force_clear=self.force_clear)
                     else:  # stocks
                         self.stocks.display_stocks(force_clear=self.force_clear)
                 except Exception as e:
