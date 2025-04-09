@@ -21,6 +21,7 @@ class StockManager:
         self.last_update = 0
         self.stock_data = {}
         self.current_stock_index = 0
+        self.display_mode = 'info'  # 'info' or 'chart'
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
@@ -92,11 +93,15 @@ class StockManager:
     def _fetch_stock_data(self, symbol: str) -> Dict[str, Any]:
         """Fetch stock data from Yahoo Finance public API."""
         try:
-            # Use Yahoo Finance query1 API
+            # Use Yahoo Finance query1 API for chart data
             encoded_symbol = urllib.parse.quote(symbol)
             url = f"https://query1.finance.yahoo.com/v8/finance/chart/{encoded_symbol}"
+            params = {
+                'interval': '5m',  # 5-minute intervals
+                'range': '1d'      # 1 day of data
+            }
             
-            response = requests.get(url, headers=self.headers, timeout=5)
+            response = requests.get(url, headers=self.headers, params=params, timeout=5)
             if response.status_code != 200:
                 logger.error(f"Failed to fetch data for {symbol}: HTTP {response.status_code}")
                 return None
@@ -104,7 +109,8 @@ class StockManager:
             data = response.json()
             
             # Extract the relevant data from the response
-            meta = data.get('chart', {}).get('result', [{}])[0].get('meta', {})
+            chart_data = data.get('chart', {}).get('result', [{}])[0]
+            meta = chart_data.get('meta', {})
             
             if not meta:
                 logger.error(f"No meta data found for {symbol}")
@@ -112,6 +118,20 @@ class StockManager:
                 
             current_price = meta.get('regularMarketPrice', 0)
             prev_close = meta.get('previousClose', current_price)
+            
+            # Get price history
+            timestamps = chart_data.get('timestamp', [])
+            indicators = chart_data.get('indicators', {}).get('quote', [{}])[0]
+            close_prices = indicators.get('close', [])
+            
+            # Build price history
+            price_history = []
+            for i, ts in enumerate(timestamps):
+                if i < len(close_prices) and close_prices[i] is not None:
+                    price_history.append({
+                        'timestamp': datetime.fromtimestamp(ts),
+                        'price': close_prices[i]
+                    })
             
             # Calculate change percentage
             change_pct = ((current_price - prev_close) / prev_close) * 100 if prev_close > 0 else 0
@@ -126,7 +146,8 @@ class StockManager:
                 "name": name,
                 "price": current_price,
                 "change": change_pct,
-                "open": prev_close
+                "open": prev_close,
+                "price_history": price_history
             }
             
         except requests.exceptions.RequestException as e:
@@ -138,6 +159,63 @@ class StockManager:
         except Exception as e:
             logger.error(f"Unexpected error fetching data for {symbol}: {e}")
             return None
+
+    def _draw_chart(self, symbol: str, data: Dict[str, Any]):
+        """Draw a price chart for the stock."""
+        if not data.get('price_history'):
+            return
+            
+        # Clear the display
+        self.display_manager.clear()
+        
+        # Draw the symbol at the top
+        self.display_manager.draw_text(
+            symbol,
+            y=2,
+            color=(255, 255, 255)
+        )
+        
+        # Calculate chart dimensions
+        chart_height = 20  # Leave room for text above and below
+        chart_y = 8  # Start below the symbol
+        width = self.display_manager.matrix.width
+        
+        # Get min and max prices for scaling
+        prices = [p['price'] for p in data['price_history']]
+        if not prices:
+            return
+        min_price = min(prices)
+        max_price = max(prices)
+        price_range = max_price - min_price
+        
+        if price_range == 0:
+            return
+            
+        # Draw chart points
+        points = []
+        color = self._get_stock_color(symbol)
+        
+        for i, point in enumerate(data['price_history']):
+            x = int((i / len(data['price_history'])) * width)
+            y = chart_y + chart_height - int(((point['price'] - min_price) / price_range) * chart_height)
+            points.append((x, y))
+            
+        # Draw lines between points
+        for i in range(len(points) - 1):
+            x1, y1 = points[i]
+            x2, y2 = points[i + 1]
+            self.display_manager.draw.line([x1, y1, x2, y2], fill=color, width=1)
+            
+        # Draw current price at the bottom
+        price_text = f"${data['price']:.2f} ({data['change']:+.1f}%)"
+        self.display_manager.draw_text(
+            price_text,
+            y=30,  # Near bottom
+            color=color
+        )
+        
+        # Update the display
+        self.display_manager.update_display()
 
     def update_stock_data(self):
         """Update stock data if enough time has passed."""
@@ -185,9 +263,6 @@ class StockManager:
             logger.warning("No stock data available to display")
             return
             
-        # Clear the display for each update
-        self.display_manager.clear()
-            
         # Get the current stock to display
         symbols = list(self.stock_data.keys())
         if not symbols:
@@ -196,35 +271,45 @@ class StockManager:
         current_symbol = symbols[self.current_stock_index]
         data = self.stock_data[current_symbol]
         
-        # Format the display text
-        price_text = f"${data['price']:.2f}"
-        change_text = f"({data['change']:+.1f}%)"
+        # Toggle between info and chart display
+        if self.display_mode == 'info':
+            # Clear the display
+            self.display_manager.clear()
+            
+            # Draw the stock symbol at the top
+            self.display_manager.draw_text(
+                data['symbol'],
+                y=2,  # Near top
+                color=(255, 255, 255)  # White for symbol
+            )
+            
+            # Draw the price in the middle
+            price_text = f"${data['price']:.2f}"
+            self.display_manager.draw_text(
+                price_text,
+                y=12,  # Middle
+                color=(0, 255, 0) if data['change'] >= 0 else (255, 0, 0)  # Green for up, red for down
+            )
+            
+            # Draw the change percentage at the bottom
+            change_text = f"({data['change']:+.1f}%)"
+            self.display_manager.draw_text(
+                change_text,
+                y=22,  # Near bottom
+                color=(0, 255, 0) if data['change'] >= 0 else (255, 0, 0)  # Green for up, red for down
+            )
+            
+            # Update the display
+            self.display_manager.update_display()
+            
+            # Switch to chart mode next time
+            self.display_mode = 'chart'
+        else:  # chart mode
+            self._draw_chart(current_symbol, data)
+            # Switch back to info mode next time
+            self.display_mode = 'info'
         
-        # Draw the stock symbol at the top
-        self.display_manager.draw_text(
-            data['symbol'],
-            y=2,  # Near top
-            color=(255, 255, 255)  # White for symbol
-        )
-        
-        # Draw the price in the middle
-        self.display_manager.draw_text(
-            price_text,
-            y=12,  # Middle
-            color=(0, 255, 0) if data['change'] >= 0 else (255, 0, 0)  # Green for up, red for down
-        )
-        
-        # Draw the change percentage at the bottom
-        self.display_manager.draw_text(
-            change_text,
-            y=22,  # Near bottom
-            color=(0, 255, 0) if data['change'] >= 0 else (255, 0, 0)  # Green for up, red for down
-        )
-        
-        # Update the display
-        self.display_manager.update_display()
-        
-        # Add a delay to make each stock visible longer (3 seconds)
+        # Add a delay to make each display visible
         time.sleep(3)
         
         # Move to next stock for next update
