@@ -25,6 +25,8 @@ class StockManager:
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
+        # Initialize with first update
+        self.update_stock_data()
         
     def _get_stock_color(self, symbol: str) -> Tuple[int, int, int]:
         """Get color based on stock performance."""
@@ -222,7 +224,7 @@ class StockManager:
         current_time = time.time()
         update_interval = self.stocks_config.get('update_interval', 60)
         
-        # Add a small random delay to prevent exact timing matches
+        # If not enough time has passed, keep using existing data
         if current_time - self.last_update < update_interval + random.uniform(0, 2):
             return
             
@@ -236,18 +238,23 @@ class StockManager:
         if isinstance(symbols[0], str):
             symbols = [{"symbol": symbol} for symbol in symbols]
             
-        success = False  # Track if we got any successful updates
+        # Create temporary storage for new data
+        new_data = {}
+        success = False
+        
         for stock in symbols:
             symbol = stock['symbol']
             # Add a small delay between requests to avoid rate limiting
-            time.sleep(random.uniform(0.5, 1.5))
+            time.sleep(random.uniform(0.1, 0.3))  # Reduced delay
             data = self._fetch_stock_data(symbol)
             if data:
-                self.stock_data[symbol] = data
+                new_data[symbol] = data
                 success = True
                 logger.info(f"Updated {symbol}: ${data['price']:.2f} ({data['change']:+.2f}%)")
                 
         if success:
+            # Only update the displayed data when we have new data
+            self.stock_data.update(new_data)
             self.last_update = current_time
         else:
             logger.error("Failed to fetch data for any configured stocks")
@@ -257,7 +264,9 @@ class StockManager:
         if not self.stocks_config.get('enabled', False):
             return
             
-        self.update_stock_data()
+        # Start update in background if needed
+        if time.time() - self.last_update >= self.stocks_config.get('update_interval', 60):
+            self.update_stock_data()
         
         if not self.stock_data:
             logger.warning("No stock data available to display")
@@ -313,4 +322,7 @@ class StockManager:
         time.sleep(3)
         
         # Move to next stock for next update
-        self.current_stock_index = (self.current_stock_index + 1) % len(symbols) 
+        self.current_stock_index = (self.current_stock_index + 1) % len(symbols)
+        
+        # If we've shown all stocks, signal completion by returning True
+        return self.current_stock_index == 0 
