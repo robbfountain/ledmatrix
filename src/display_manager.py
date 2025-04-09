@@ -124,19 +124,19 @@ class DisplayManager:
     def _load_fonts(self):
         """Load fonts optimized for LED matrix display."""
         try:
-            # Use DejaVu Sans ExtraLight for thinnest possible characters
-            font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-ExtraLight.ttf"
+            # Use Press Start 2P font - perfect for LED matrix displays
+            font_path = "assets/fonts/PressStart2P-Regular.ttf"
             
-            # For 32px height matrix, optimized sizes for ExtraLight
-            large_size = 20  # Slightly larger since ExtraLight is very thin
-            small_size = 10  # Slightly larger for better visibility
+            # For 32px height matrix, optimized sizes for pixel-perfect display
+            large_size = 16  # Good size for time display
+            small_size = 8   # Perfect for secondary information
             
             try:
                 self.font = ImageFont.truetype(font_path, large_size)
                 self.small_font = ImageFont.truetype(font_path, small_size)
-                logger.info(f"Loaded ExtraLight font: {font_path} (large: {large_size}px, small: {small_size}px)")
+                logger.info(f"Loaded Press Start 2P font: {font_path} (large: {large_size}px, small: {small_size}px)")
             except Exception as e:
-                logger.warning(f"Failed to load ExtraLight font, falling back to default: {e}")
+                logger.warning(f"Failed to load Press Start 2P font, falling back to default: {e}")
                 self.font = ImageFont.load_default()
                 self.small_font = ImageFont.load_default()
                 
@@ -155,7 +155,7 @@ class DisplayManager:
         text_height = bbox[3] - bbox[1]
         
         # Add padding to prevent cutoff
-        padding = 2
+        padding = 1  # Reduced padding since Press Start 2P has built-in spacing
         
         # Center text horizontally if x not specified
         if x is None:
@@ -170,7 +170,7 @@ class DisplayManager:
             y = min(y, max_y)
             y = max(y, padding)  # Ensure text doesn't get cut off at top
         
-        # For Light font, we can use full brightness since the characters are thinner
+        # Press Start 2P is pixel-perfect, so we can draw directly without any adjustments
         self.draw.text((x, y), text, font=font, fill=color)
 
     def draw_sun(self, x: int, y: int, size: int = 16):
