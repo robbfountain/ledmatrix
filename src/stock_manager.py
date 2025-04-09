@@ -224,5 +224,8 @@ class StockManager:
         # Update the display
         self.display_manager.update_display()
         
+        # Add a delay to make each stock visible longer (3 seconds)
+        time.sleep(3)
+        
         # Move to next stock for next update
         self.current_stock_index = (self.current_stock_index + 1) % len(symbols) 
