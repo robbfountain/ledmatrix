@@ -89,9 +89,10 @@ class Clock:
         # Get AM/PM
         ampm = current.strftime('%p')
         
-        # Format date with ordinal suffix
+        # Format date with ordinal suffix - more compact format
         day_suffix = self._get_ordinal_suffix(current.day)
-        date_str = current.strftime(f'%A, %B %-d{day_suffix}')
+        # Use %b for abbreviated month name and remove extra spaces
+        date_str = current.strftime(f'%a,%b %-d{day_suffix}')
         
         return time_str, ampm, date_str
 

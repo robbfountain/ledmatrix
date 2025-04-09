@@ -170,16 +170,17 @@ class StockManager:
         # Clear the display
         self.display_manager.clear()
         
-        # Draw the symbol at the top
+        # Draw the symbol at the top with small font
         self.display_manager.draw_text(
             symbol,
-            y=2,
-            color=(255, 255, 255)
+            y=1,  # Moved up slightly
+            color=(255, 255, 255),
+            small_font=True  # Use small font
         )
         
         # Calculate chart dimensions
-        chart_height = 20  # Leave room for text above and below
-        chart_y = 8  # Start below the symbol
+        chart_height = 22  # Increased height since we're using smaller fonts
+        chart_y = 7  # Start closer to symbol due to smaller font
         width = self.display_manager.matrix.width
         
         # Get min and max prices for scaling
@@ -208,12 +209,13 @@ class StockManager:
             x2, y2 = points[i + 1]
             self.display_manager.draw.line([x1, y1, x2, y2], fill=color, width=1)
             
-        # Draw current price at the bottom
+        # Draw current price at the bottom with small font
         price_text = f"${data['price']:.2f} ({data['change']:+.1f}%)"
         self.display_manager.draw_text(
             price_text,
             y=30,  # Near bottom
-            color=color
+            color=color,
+            small_font=True  # Use small font
         )
         
         # Update the display
