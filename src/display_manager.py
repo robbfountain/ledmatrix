@@ -60,13 +60,13 @@ class DisplayManager:
         self.image = Image.new('RGB', (self.matrix.width, self.matrix.height))
         self.draw = ImageDraw.Draw(self.image)
         
-        # Initialize font
+        # Initialize font with Press Start 2P
         try:
-            self.font = ImageFont.truetype("DejaVuSans.ttf", 7)  # Reduced to match new size
-            logger.info("Font initialized successfully")
+            self.font = ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 10)
+            logger.info("Initial font loaded successfully")
         except Exception as e:
-            logger.error(f"Failed to load font: {e}")
-            raise
+            logger.error(f"Failed to load initial font: {e}")
+            self.font = ImageFont.load_default()
         
         # Draw a test pattern
         self._draw_test_pattern()
@@ -128,8 +128,8 @@ class DisplayManager:
             font_path = "assets/fonts/PressStart2P-Regular.ttf"
             
             # For 32px height matrix, optimized sizes for pixel-perfect display
-            large_size = 7  # Reduced from 16 for better fit
-            small_size = 5  # Reduced from 8 for better fit
+            large_size = 10  # Large text for time and main info
+            small_size = 8   # Small text for secondary information
             
             try:
                 self.font = ImageFont.truetype(font_path, large_size)
