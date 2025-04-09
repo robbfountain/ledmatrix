@@ -92,42 +92,32 @@ class StockManager:
     def _fetch_stock_data(self, symbol: str) -> Dict[str, Any]:
         """Fetch stock data from Yahoo Finance public API."""
         try:
-            # Use Yahoo Finance public API
+            # Use Yahoo Finance query1 API
             encoded_symbol = urllib.parse.quote(symbol)
-            url = f"https://finance.yahoo.com/quote/{encoded_symbol}"
+            url = f"https://query1.finance.yahoo.com/v8/finance/chart/{encoded_symbol}"
             
             response = requests.get(url, headers=self.headers, timeout=5)
             if response.status_code != 200:
                 logger.error(f"Failed to fetch data for {symbol}: HTTP {response.status_code}")
                 return None
                 
-            # Extract the embedded JSON data
-            quote_data = self._extract_json_from_html(response.text)
-            if not quote_data:
-                logger.error(f"Could not extract quote data for {symbol}")
+            data = response.json()
+            
+            # Extract the relevant data from the response
+            meta = data.get('chart', {}).get('result', [{}])[0].get('meta', {})
+            
+            if not meta:
+                logger.error(f"No meta data found for {symbol}")
                 return None
                 
-            # Get the price data
-            price = quote_data.get('price', {})
-            if not price:
-                logger.error(f"No price data found for {symbol}")
-                return None
-                
-            regular_market = price.get('regularMarketPrice', {})
-            previous_close = price.get('regularMarketPreviousClose', {})
-            change_percent = price.get('regularMarketChangePercent', {})
+            current_price = meta.get('regularMarketPrice', 0)
+            prev_close = meta.get('previousClose', current_price)
             
-            # Extract raw values with fallbacks
-            current_price = regular_market.get('raw', 0) if isinstance(regular_market, dict) else regular_market
-            prev_close = previous_close.get('raw', current_price) if isinstance(previous_close, dict) else previous_close
-            change_pct = change_percent.get('raw', 0) if isinstance(change_percent, dict) else change_percent
+            # Calculate change percentage
+            change_pct = ((current_price - prev_close) / prev_close) * 100 if prev_close > 0 else 0
             
-            # If we don't have a change percentage, calculate it
-            if change_pct == 0 and prev_close > 0:
-                change_pct = ((current_price - prev_close) / prev_close) * 100
-            
-            # Get company name
-            name = price.get('shortName', symbol)
+            # Get company name (symbol will be used if name not available)
+            name = meta.get('symbol', symbol)
             
             logger.debug(f"Processed data for {symbol}: price={current_price}, change={change_pct}%")
             
@@ -142,7 +132,7 @@ class StockManager:
         except requests.exceptions.RequestException as e:
             logger.error(f"Network error fetching data for {symbol}: {e}")
             return None
-        except (ValueError, IndexError) as e:
+        except (ValueError, IndexError, KeyError) as e:
             logger.error(f"Error parsing data for {symbol}: {e}")
             return None
         except Exception as e:
@@ -195,9 +185,8 @@ class StockManager:
             logger.warning("No stock data available to display")
             return
             
-        # Clear the display if forced or if this is the first stock
-        if force_clear or self.current_stock_index == 0:
-            self.display_manager.clear()
+        # Clear the display for each update
+        self.display_manager.clear()
             
         # Get the current stock to display
         symbols = list(self.stock_data.keys())
@@ -208,16 +197,31 @@ class StockManager:
         data = self.stock_data[current_symbol]
         
         # Format the display text
-        display_format = self.stocks_config.get('display_format', "{symbol}: ${price} ({change}%)")
-        display_text = display_format.format(
-            symbol=data['symbol'],
-            price=f"{data['price']:.2f}",
-            change=f"{data['change']:+.2f}"
+        price_text = f"${data['price']:.2f}"
+        change_text = f"({data['change']:+.1f}%)"
+        
+        # Draw the stock symbol at the top
+        self.display_manager.draw_text(
+            data['symbol'],
+            y=2,  # Near top
+            color=(255, 255, 255)  # White for symbol
         )
         
-        # Draw the stock information
-        color = (0, 255, 0) if data['change'] >= 0 else (255, 0, 0)  # Green for up, red for down
-        self.display_manager.draw_text(display_text, color=color)
+        # Draw the price in the middle
+        self.display_manager.draw_text(
+            price_text,
+            y=12,  # Middle
+            color=(0, 255, 0) if data['change'] >= 0 else (255, 0, 0)  # Green for up, red for down
+        )
+        
+        # Draw the change percentage at the bottom
+        self.display_manager.draw_text(
+            change_text,
+            y=22,  # Near bottom
+            color=(0, 255, 0) if data['change'] >= 0 else (255, 0, 0)  # Green for up, red for down
+        )
+        
+        # Update the display
         self.display_manager.update_display()
         
         # Move to next stock for next update
