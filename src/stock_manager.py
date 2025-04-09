@@ -8,6 +8,7 @@ from datetime import datetime
 import os
 import urllib.parse
 import re
+from src.config_manager import ConfigManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
