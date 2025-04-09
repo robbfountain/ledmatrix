@@ -25,7 +25,13 @@
         "runtime": {
             "gpio_slowdown": 2
         },
-        "rotation_interval": 15
+        "display_durations": {
+            "clock": 15,
+            "weather": 15,
+            "stocks": 45,
+            "hourly_forecast": 15,
+            "daily_forecast": 15
+        }
     },
     "clock": {
         "format": "%H:%M:%S",

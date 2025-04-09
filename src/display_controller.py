@@ -24,7 +24,24 @@ class DisplayController:
         self.last_switch = time.time()
         self.force_clear = True  # Start with a clear screen
         self.update_interval = 0.5  # Slower updates for better stability
+        self.display_durations = self.config['display'].get('display_durations', {
+            'clock': 15,
+            'weather': 15,
+            'stocks': 45,
+            'hourly_forecast': 15,
+            'daily_forecast': 15
+        })
         logger.info("DisplayController initialized with display_manager: %s", id(self.display_manager))
+
+    def get_current_duration(self) -> int:
+        """Get the duration for the current display mode."""
+        if self.current_display == 'weather':
+            if self.weather_mode == 'hourly':
+                return self.display_durations.get('hourly_forecast', 15)
+            elif self.weather_mode == 'daily':
+                return self.display_durations.get('daily_forecast', 15)
+            return self.display_durations.get('weather', 15)
+        return self.display_durations.get(self.current_display, 15)
 
     def run(self):
         """Run the display controller, switching between displays."""
@@ -33,7 +50,7 @@ class DisplayController:
                 current_time = time.time()
                 
                 # Check if we need to switch display mode
-                if current_time - self.last_switch > self.config['display'].get('rotation_interval', 15):
+                if current_time - self.last_switch > self.get_current_duration():
                     # Cycle through: clock -> weather (current) -> weather (hourly) -> weather (daily) -> stocks
                     if self.current_display == 'clock':
                         self.current_display = 'weather'
