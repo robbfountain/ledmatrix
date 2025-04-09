@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 class StockManager:
     def __init__(self, config: Dict[str, Any], display_manager):
         self.config = config
+        self.config_manager = ConfigManager()  # Add config manager
         self.display_manager = display_manager
         self.stocks_config = config.get('stocks', {})
         self.last_update = 0
@@ -221,6 +222,19 @@ class StockManager:
         # Update the display
         self.display_manager.update_display()
 
+    def _reload_config(self):
+        """Reload configuration from file."""
+        self.config = self.config_manager.config
+        self.stocks_config = self.config.get('stocks', {})
+        # Reset stock data if symbols have changed
+        new_symbols = set(self.stocks_config.get('symbols', []))
+        current_symbols = set(self.stock_data.keys())
+        if new_symbols != current_symbols:
+            self.stock_data = {}
+            self.current_stock_index = 0
+            self.last_update = 0  # Force immediate update
+            logger.info(f"Stock symbols changed. New symbols: {new_symbols}")
+
     def update_stock_data(self):
         """Update stock data if enough time has passed."""
         current_time = time.time()
@@ -229,6 +243,9 @@ class StockManager:
         # If not enough time has passed, keep using existing data
         if current_time - self.last_update < update_interval + random.uniform(0, 2):
             return
+
+        # Reload config to check for symbol changes
+        self._reload_config()
             
         # Get symbols from config
         symbols = self.stocks_config.get('symbols', [])
