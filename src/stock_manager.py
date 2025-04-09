@@ -285,27 +285,29 @@ class StockManager:
             # Clear the display
             self.display_manager.clear()
             
-            # Draw the stock symbol at the top
+            # Draw the stock symbol at the top with regular font
             self.display_manager.draw_text(
                 data['symbol'],
                 y=2,  # Near top
                 color=(255, 255, 255)  # White for symbol
             )
             
-            # Draw the price in the middle
+            # Draw the price in the middle with small font
             price_text = f"${data['price']:.2f}"
             self.display_manager.draw_text(
                 price_text,
-                y=12,  # Middle
-                color=(0, 255, 0) if data['change'] >= 0 else (255, 0, 0)  # Green for up, red for down
+                y=14,  # Middle
+                color=(0, 255, 0) if data['change'] >= 0 else (255, 0, 0),  # Green for up, red for down
+                small_font=True  # Use small font
             )
             
-            # Draw the change percentage at the bottom
+            # Draw the change percentage at the bottom with small font
             change_text = f"({data['change']:+.1f}%)"
             self.display_manager.draw_text(
                 change_text,
-                y=22,  # Near bottom
-                color=(0, 255, 0) if data['change'] >= 0 else (255, 0, 0)  # Green for up, red for down
+                y=24,  # Near bottom
+                color=(0, 255, 0) if data['change'] >= 0 else (255, 0, 0),  # Green for up, red for down
+                small_font=True  # Use small font
             )
             
             # Update the display
