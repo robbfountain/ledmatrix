@@ -62,7 +62,7 @@ class DisplayManager:
         
         # Initialize font
         try:
-            self.font = ImageFont.truetype("DejaVuSans.ttf", 14)
+            self.font = ImageFont.truetype("DejaVuSans.ttf", 7)  # Reduced to match new size
             logger.info("Font initialized successfully")
         except Exception as e:
             logger.error(f"Failed to load font: {e}")
@@ -128,8 +128,8 @@ class DisplayManager:
             font_path = "assets/fonts/PressStart2P-Regular.ttf"
             
             # For 32px height matrix, optimized sizes for pixel-perfect display
-            large_size = 16  # Good size for time display
-            small_size = 8   # Perfect for secondary information
+            large_size = 7  # Reduced from 16 for better fit
+            small_size = 5  # Reduced from 8 for better fit
             
             try:
                 self.font = ImageFont.truetype(font_path, large_size)
