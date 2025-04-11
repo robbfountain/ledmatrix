@@ -46,7 +46,7 @@
         "enabled": true,
         "update_interval": 60,
         "symbols": [
-            "AAPL", "MSFT", "GOOGL", "AMZN", "META", "TSLA", "NVDA", "JPM", "V", "WMT"
+            "ASTS", "SCHD", "INTC", "NVDA", "T", "VOO", "SPYG", "SMCI"
         ],
         "display_format": "{symbol}: ${price} ({change}%)"
     }
