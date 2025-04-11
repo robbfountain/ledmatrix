@@ -205,36 +205,40 @@ class StockNewsManager:
         separator = "   -   "  # Visual separator between news items
         news_text = separator.join(news_texts)
         
-        # Create and display the scrolling text image
-        text_image = self._create_text_image(news_text)
+        # Clear the display
+        self.display_manager.clear()
         
-        # Calculate total scroll width
-        total_width = text_image.width + self.display_manager.matrix.width
+        # Calculate text width for scrolling
+        bbox = self.display_manager.draw.textbbox((0, 0), news_text, font=self.display_manager.small_font)
+        text_width = bbox[2] - bbox[0]
+        
+        # Calculate scroll position
+        display_width = self.display_manager.matrix.width
+        total_width = text_width + display_width
         
         # Update scroll position
         self.scroll_position = (self.scroll_position + self.scroll_speed) % total_width
         
-        # Create a new black image for the display
-        display_image = Image.new('RGB', (self.display_manager.matrix.width, self.display_manager.matrix.height))
+        # Draw the text at the current scroll position
+        self.display_manager.draw_text(
+            news_text,
+            x=display_width - self.scroll_position,
+            y=None,  # Center vertically
+            color=(255, 255, 255),
+            small_font=True
+        )
         
-        # Paste the appropriate portion of the text image
-        display_image.paste(text_image, (-self.scroll_position, 0))
-        
-        # If we've wrapped around, paste the beginning of the text again
-        if self.scroll_position + self.display_manager.matrix.width > text_image.width:
-            display_image.paste(text_image, (text_image.width - self.scroll_position, 0))
-        
-        # Display the image
-        self.display_manager.display_image(display_image)
+        # Update the display
+        self.display_manager.update_display()
         
         # If we've completed a full scroll, move to the next group
         if self.scroll_position == 0:
             self.current_news_group = (self.current_news_group + 1) % ((total_headlines + headlines_per_rotation - 1) // headlines_per_rotation)
         
-        # Log frame rate
-        self._log_frame_rate()
-        
         # Small delay to control scroll speed
         time.sleep(self.scroll_delay)
+        
+        # Log frame rate
+        self._log_frame_rate()
         
         return True 

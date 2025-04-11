@@ -54,28 +54,62 @@ class DisplayController:
                 
                 # Check if we need to switch display mode
                 if current_time - self.last_switch > self.get_current_duration():
-                    # Cycle through: clock -> weather (current) -> weather (hourly) -> weather (daily) -> stocks -> stock_news
+                    # Find next enabled display mode
+                    next_display = None
+                    
                     if self.current_display == 'clock':
-                        self.current_display = 'weather'
-                        self.weather_mode = 'current'
+                        if self.config.get('weather', {}).get('enabled', False):
+                            next_display = 'weather'
+                            self.weather_mode = 'current'
+                        elif self.config.get('stocks', {}).get('enabled', False):
+                            next_display = 'stocks'
+                        elif self.config.get('stock_news', {}).get('enabled', False):
+                            next_display = 'stock_news'
+                        else:
+                            next_display = 'clock'
+                            
                     elif self.current_display == 'weather':
                         if self.weather_mode == 'current':
+                            next_display = 'weather'
                             self.weather_mode = 'hourly'
                         elif self.weather_mode == 'hourly':
+                            next_display = 'weather'
                             self.weather_mode = 'daily'
                         else:  # daily
                             if self.config.get('stocks', {}).get('enabled', False):
-                                self.current_display = 'stocks'
+                                next_display = 'stocks'
+                            elif self.config.get('stock_news', {}).get('enabled', False):
+                                next_display = 'stock_news'
+                            elif self.config.get('clock', {}).get('enabled', False):
+                                next_display = 'clock'
                             else:
-                                self.current_display = 'clock'
+                                next_display = 'weather'
+                                self.weather_mode = 'current'
+                                
                     elif self.current_display == 'stocks':
                         if self.config.get('stock_news', {}).get('enabled', False):
-                            self.current_display = 'stock_news'
+                            next_display = 'stock_news'
+                        elif self.config.get('clock', {}).get('enabled', False):
+                            next_display = 'clock'
+                        elif self.config.get('weather', {}).get('enabled', False):
+                            next_display = 'weather'
+                            self.weather_mode = 'current'
                         else:
-                            self.current_display = 'clock'
+                            next_display = 'stocks'
+                            
                     else:  # stock_news
-                        self.current_display = 'clock'
+                        if self.config.get('clock', {}).get('enabled', False):
+                            next_display = 'clock'
+                        elif self.config.get('weather', {}).get('enabled', False):
+                            next_display = 'weather'
+                            self.weather_mode = 'current'
+                        elif self.config.get('stocks', {}).get('enabled', False):
+                            next_display = 'stocks'
+                        else:
+                            next_display = 'stock_news'
                     
+                    # Update current display
+                    self.current_display = next_display
                     logger.info(f"Switching display to: {self.current_display} {self.weather_mode if self.current_display == 'weather' else ''}")
                     self.last_switch = current_time
                     self.force_clear = True
@@ -83,18 +117,18 @@ class DisplayController:
 
                 # Display current screen
                 try:
-                    if self.current_display == 'clock':
+                    if self.current_display == 'clock' and self.config.get('clock', {}).get('enabled', False):
                         self.clock.display_time(force_clear=self.force_clear)
-                    elif self.current_display == 'weather':
+                    elif self.current_display == 'weather' and self.config.get('weather', {}).get('enabled', False):
                         if self.weather_mode == 'current':
                             self.weather.display_weather(force_clear=self.force_clear)
                         elif self.weather_mode == 'hourly':
                             self.weather.display_hourly_forecast(force_clear=self.force_clear)
                         else:  # daily
                             self.weather.display_daily_forecast(force_clear=self.force_clear)
-                    elif self.current_display == 'stocks':
+                    elif self.current_display == 'stocks' and self.config.get('stocks', {}).get('enabled', False):
                         self.stocks.display_stocks(force_clear=self.force_clear)
-                    else:  # stock_news
+                    elif self.current_display == 'stock_news' and self.config.get('stock_news', {}).get('enabled', False):
                         self.news.display_news()
                 except Exception as e:
                     logger.error(f"Error updating display: {e}")
