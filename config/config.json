@@ -54,8 +54,8 @@
     "news": {
         "enabled": true,
         "update_interval": 300,
-        "scroll_speed": 1,
-        "scroll_delay": 0.02,
+        "scroll_speed": 2,
+        "scroll_delay": 0.01,
         "max_headlines_per_symbol": 1
     }
 } 
