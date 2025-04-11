@@ -94,14 +94,11 @@ class DisplayManager:
             # Copy the current image to the offscreen canvas
             self.offscreen_canvas.SetImage(self.image)
             
-            # Wait for the next vsync before swapping
-            self.matrix.SwapOnVSync(self.offscreen_canvas)
+            # Swap buffers immediately
+            self.matrix.SwapOnVSync(self.offscreen_canvas, False)
             
             # Swap our canvas references
             self.offscreen_canvas, self.current_canvas = self.current_canvas, self.offscreen_canvas
-            
-            # Small delay to ensure stable refresh
-            time.sleep(0.001)
         except Exception as e:
             logger.error(f"Error updating display: {e}")
 
