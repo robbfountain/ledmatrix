@@ -8,7 +8,6 @@ from datetime import datetime
 import os
 import urllib.parse
 import re
-from src.config_manager import ConfigManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -17,7 +16,6 @@ logger = logging.getLogger(__name__)
 class StockManager:
     def __init__(self, config: Dict[str, Any], display_manager):
         self.config = config
-        self.config_manager = ConfigManager()  # Add config manager
         self.display_manager = display_manager
         self.stocks_config = config.get('stocks', {})
         self.last_update = 0
@@ -225,8 +223,6 @@ class StockManager:
 
     def _reload_config(self):
         """Reload configuration from file."""
-        self.config = self.config_manager.config
-        self.stocks_config = self.config.get('stocks', {})
         # Reset stock data if symbols have changed
         new_symbols = set(self.stocks_config.get('symbols', []))
         current_symbols = set(self.stock_data.keys())
