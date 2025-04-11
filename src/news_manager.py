@@ -194,7 +194,7 @@ class NewsManager:
         next_news = all_news[(self.current_news_index + 1) % len(all_news)]
         
         # Format the news text with proper spacing and separator
-        separator = "   ●   "  # Visual separator between news items
+        separator = "   -   "  # Visual separator between news items
         current_text = f"{current_news['symbol']}: {current_news['title']}"
         next_text = f"{next_news['symbol']}: {next_news['title']}"
         news_text = f"{current_text}{separator}{next_text}"
