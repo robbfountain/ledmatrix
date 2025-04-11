@@ -4,7 +4,7 @@ import sys
 import os
 from src.config_manager import ConfigManager
 from src.display_manager import DisplayManager
-from src.news_manager import NewsManager
+from src.stock_news_manager import StockNewsManager
 from src.stock_manager import StockManager
 
 def main():
@@ -21,7 +21,7 @@ def main():
         stock_manager = StockManager(config, display_manager)
         
         # Initialize news manager
-        news_manager = NewsManager(config, display_manager)
+        news_manager = StockNewsManager(config, display_manager)
         
         print("News ticker integration test started. Press Ctrl+C to exit.")
         print("Displaying stock data and news headlines...")

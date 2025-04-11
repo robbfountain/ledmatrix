@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class NewsManager:
+class StockNewsManager:
     def __init__(self, config: Dict[str, Any], display_manager):
         self.config = config
         self.config_manager = ConfigManager()

@@ -4,12 +4,12 @@ import sys
 import os
 from src.config_manager import ConfigManager
 from src.display_manager import DisplayManager
-from src.news_manager import NewsManager
+from src.stock_news_manager import StockNewsManager
 
 print(f"Current working directory: {os.getcwd()}")
 
 def main():
-    """Test the NewsManager class directly."""
+    """Test the StockNewsManager class directly."""
     try:
         # Load configuration
         config_manager = ConfigManager()
@@ -28,7 +28,7 @@ def main():
         display_manager = DisplayManager(display_config)
         
         # Initialize news manager with the loaded config
-        news_manager = NewsManager(config, display_manager)
+        news_manager = StockNewsManager(config, display_manager)
         
         print("Testing news display. Press Ctrl+C to exit.")
         
