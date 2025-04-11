@@ -205,33 +205,30 @@ class StockNewsManager:
         separator = "   -   "  # Visual separator between news items
         news_text = separator.join(news_texts)
         
-        # Get text dimensions
-        bbox = self.display_manager.draw.textbbox((0, 0), news_text, font=self.display_manager.small_font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
+        # Create a text image for efficient scrolling
+        text_image = self._create_text_image(news_text)
+        text_width = text_image.width
+        text_height = text_image.height
         
         # Calculate display position
         display_width = self.display_manager.matrix.width
         total_width = text_width + display_width
         
         # Update scroll position
-        self.scroll_position = (self.scroll_position + 1) % total_width
+        self.scroll_position = (self.scroll_position + self.scroll_speed) % total_width
         
         # Clear the display
         self.display_manager.clear()
         
-        # Draw text at current scroll position
-        x_pos = display_width - self.scroll_position
-        y_pos = (self.display_manager.matrix.height - text_height) // 2
-        
-        # Draw the text
-        self.display_manager.draw_text(
-            news_text,
-            x=x_pos,
-            y=y_pos,
-            color=(255, 255, 255),
-            small_font=True
-        )
+        # Calculate the visible portion of the text
+        visible_width = min(display_width, text_width - self.scroll_position)
+        if visible_width > 0:
+            # Crop the text image to show only the visible portion
+            visible_portion = text_image.crop((self.scroll_position, 0, 
+                                              self.scroll_position + visible_width, text_height))
+            
+            # Paste the visible portion onto the display
+            self.display_manager.image.paste(visible_portion, (0, 0))
         
         # Update the display
         self.display_manager.update_display()

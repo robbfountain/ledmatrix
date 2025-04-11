@@ -46,9 +46,6 @@ def main():
             if current_time - last_update >= 0.001:  # 1ms minimum between updates
                 news_manager.display_news()
                 last_update = current_time
-            else:
-                # Small sleep to prevent CPU hogging
-                time.sleep(0.0001)
             
     except KeyboardInterrupt:
         print("\nTest interrupted by user")
