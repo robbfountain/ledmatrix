@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class DisplayController:
     def __init__(self):
         self.config_manager = ConfigManager()
-        self.config = self.config_manager.config
+        self.config = self.config_manager.load_config()
         self.display_manager = DisplayManager(self.config.get('display', {}))
         self.clock = Clock(display_manager=self.display_manager)
         self.weather = WeatherManager(self.config, self.display_manager)
