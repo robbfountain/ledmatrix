@@ -26,6 +26,8 @@ class StockNewsManager:
         self.news_data = {}
         self.current_news_group = 0  # Track which group of headlines we're showing
         self.scroll_position = 0
+        self.cached_text_image = None  # Cache for the text image
+        self.cached_text = None  # Cache for the text string
         
         # Get scroll settings from config with faster defaults
         self.scroll_speed = self.stock_news_config.get('scroll_speed', 1)
@@ -205,33 +207,54 @@ class StockNewsManager:
         separator = "   -   "  # Visual separator between news items
         news_text = separator.join(news_texts)
         
-        # Create a text image for efficient scrolling
-        text_image = self._create_text_image(news_text)
-        text_width = text_image.width
-        text_height = text_image.height
+        # Only create new text image if the text has changed
+        if news_text != self.cached_text:
+            self.cached_text = news_text
+            self.cached_text_image = self._create_text_image(news_text)
+            self.scroll_position = 0  # Reset scroll position for new text
         
-        # Calculate display position
+        if not self.cached_text_image:
+            return
+            
+        text_width = self.cached_text_image.width
+        text_height = self.cached_text_image.height
         display_width = self.display_manager.matrix.width
         total_width = text_width + display_width
         
         # Update scroll position
         self.scroll_position = (self.scroll_position + self.scroll_speed) % total_width
         
-        # Clear the display
-        self.display_manager.clear()
-        
         # Calculate the visible portion of the text
         visible_width = min(display_width, text_width - self.scroll_position)
         if visible_width > 0:
-            # Crop the text image to show only the visible portion
-            visible_portion = text_image.crop((self.scroll_position, 0, 
-                                              self.scroll_position + visible_width, text_height))
+            # Create a new blank image for this frame
+            frame_image = Image.new('RGB', (display_width, text_height), (0, 0, 0))
             
-            # Paste the visible portion onto the display
-            self.display_manager.image.paste(visible_portion, (0, 0))
-        
-        # Update the display
-        self.display_manager.update_display()
+            # Crop and paste in one operation
+            if self.scroll_position + visible_width <= text_width:
+                # Normal case - text is still scrolling in
+                visible_portion = self.cached_text_image.crop((
+                    self.scroll_position, 0,
+                    self.scroll_position + visible_width, text_height
+                ))
+                frame_image.paste(visible_portion, (0, 0))
+            else:
+                # Wrapping case - text is wrapping around
+                first_part_width = text_width - self.scroll_position
+                first_part = self.cached_text_image.crop((
+                    self.scroll_position, 0,
+                    text_width, text_height
+                ))
+                second_part = self.cached_text_image.crop((
+                    0, 0,
+                    visible_width - first_part_width, text_height
+                ))
+                frame_image.paste(first_part, (0, 0))
+                frame_image.paste(second_part, (first_part_width, 0))
+            
+            # Update the display with the new frame
+            self.display_manager.image = frame_image
+            self.display_manager.update_display()
         
         # If we've completed a full scroll, move to the next group
         if self.scroll_position == 0:

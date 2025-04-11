@@ -38,14 +38,9 @@ def main():
         
         print("Testing news display. Press Ctrl+C to exit.")
         
-        # Run the news display in a loop with proper timing
-        last_update = time.time()
+        # Run the news display in a loop
         while True:
-            current_time = time.time()
-            # Ensure we're not updating too frequently
-            if current_time - last_update >= 0.001:  # 1ms minimum between updates
-                news_manager.display_news()
-                last_update = current_time
+            news_manager.display_news()
             
     except KeyboardInterrupt:
         print("\nTest interrupted by user")
