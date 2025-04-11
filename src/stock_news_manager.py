@@ -205,28 +205,40 @@ class StockNewsManager:
         separator = "   -   "  # Visual separator between news items
         news_text = separator.join(news_texts)
         
+        # Pre-render the text image for efficient scrolling
+        text_image = self._create_text_image(news_text)
+        text_width = text_image.width
+        display_width = self.display_manager.matrix.width
+        
+        # Calculate total width for scrolling
+        total_width = text_width + display_width
+        
+        # Update scroll position with smooth acceleration
+        scroll_speed = min(self.scroll_speed * 1.1, 3)  # Gradually increase speed up to max
+        self.scroll_position = (self.scroll_position + scroll_speed) % total_width
+        
         # Clear the display
         self.display_manager.clear()
         
-        # Calculate text width for scrolling
-        bbox = self.display_manager.draw.textbbox((0, 0), news_text, font=self.display_manager.small_font)
-        text_width = bbox[2] - bbox[0]
-        
-        # Calculate scroll position
-        display_width = self.display_manager.matrix.width
-        total_width = text_width + display_width
-        
-        # Update scroll position
-        self.scroll_position = (self.scroll_position + self.scroll_speed) % total_width
-        
-        # Draw the text at the current scroll position
-        self.display_manager.draw_text(
-            news_text,
-            x=display_width - self.scroll_position,
-            y=None,  # Center vertically
-            color=(255, 255, 255),
-            small_font=True
-        )
+        # Calculate source and destination regions for efficient blitting
+        if self.scroll_position < display_width:
+            # Text is entering from the right
+            src_x = text_width - (display_width - self.scroll_position)
+            src_width = display_width - self.scroll_position
+            dst_x = self.scroll_position
+            self.display_manager.image.paste(
+                text_image.crop((src_x, 0, src_x + src_width, text_image.height)),
+                (dst_x, 0)
+            )
+        else:
+            # Text is scrolling off the left
+            src_x = 0
+            src_width = text_width
+            dst_x = self.scroll_position - display_width
+            self.display_manager.image.paste(
+                text_image.crop((src_x, 0, src_x + src_width, text_image.height)),
+                (dst_x, 0)
+            )
         
         # Update the display
         self.display_manager.update_display()
@@ -234,9 +246,10 @@ class StockNewsManager:
         # If we've completed a full scroll, move to the next group
         if self.scroll_position == 0:
             self.current_news_group = (self.current_news_group + 1) % ((total_headlines + headlines_per_rotation - 1) // headlines_per_rotation)
+            self.scroll_speed = 1  # Reset speed for next group
         
-        # Small delay to control scroll speed
-        time.sleep(self.scroll_delay)
+        # Minimal delay to control scroll speed while maintaining smoothness
+        time.sleep(0.001)
         
         # Log frame rate
         self._log_frame_rate()
