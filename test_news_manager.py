@@ -6,6 +6,8 @@ from src.config_manager import ConfigManager
 from src.display_manager import DisplayManager
 from src.news_manager import NewsManager
 
+print(f"Current working directory: {os.getcwd()}")
+
 def main():
     """Test the NewsManager class directly."""
     try:
