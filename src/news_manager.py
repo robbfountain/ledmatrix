@@ -193,10 +193,11 @@ class NewsManager:
         current_news = all_news[self.current_news_index]
         next_news = all_news[(self.current_news_index + 1) % len(all_news)]
         
-        # Format the news text with spacing between items
+        # Format the news text with proper spacing and separator
+        separator = "   ●   "  # Visual separator between news items
         current_text = f"{current_news['symbol']}: {current_news['title']}"
         next_text = f"{next_news['symbol']}: {next_news['title']}"
-        news_text = f"{current_text}     {next_text}"
+        news_text = f"{current_text}{separator}{next_text}"
         
         # Create a text image for efficient scrolling (only if needed)
         if not hasattr(self, '_current_text_image') or self._current_text != news_text:
