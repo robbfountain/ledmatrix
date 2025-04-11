@@ -36,18 +36,18 @@ class DisplayManager:
         options.parallel = hardware_config.get('parallel', 1)
         options.hardware_mapping = hardware_config.get('hardware_mapping', 'adafruit-hat-pwm')
         
-        # Optimize display settings for performance
+        # Balance performance and stability
         options.brightness = 100
-        options.pwm_bits = 8  # Reduced for better performance
-        options.pwm_lsb_nanoseconds = 100  # Reduced for faster updates
+        options.pwm_bits = 10  # Increased from 8 for better color depth
+        options.pwm_lsb_nanoseconds = 150  # Increased for better stability
         options.led_rgb_sequence = 'RGB'
         options.pixel_mapper_config = ''
         options.row_address_type = 0
         options.multiplexing = 0
-        options.disable_hardware_pulsing = True  # Disable pulsing for better performance
+        options.disable_hardware_pulsing = False  # Re-enable hardware pulsing for stability
         options.show_refresh_rate = False
-        options.limit_refresh_rate_hz = 120  # Increased refresh rate
-        options.gpio_slowdown = 1  # Reduced slowdown for better performance
+        options.limit_refresh_rate_hz = 90  # Reduced from 120Hz for better stability
+        options.gpio_slowdown = 2  # Increased for better stability
         
         # Initialize the matrix
         self.matrix = RGBMatrix(options=options)
@@ -94,13 +94,14 @@ class DisplayManager:
             # Copy the current image to the offscreen canvas
             self.offscreen_canvas.SetImage(self.image)
             
-            # Swap buffers immediately without waiting for vsync
-            self.matrix.SwapOnVSync(self.offscreen_canvas, False)
+            # Wait for the next vsync before swapping
+            self.matrix.SwapOnVSync(self.offscreen_canvas)
             
             # Swap our canvas references
             self.offscreen_canvas, self.current_canvas = self.current_canvas, self.offscreen_canvas
             
-            # No delay needed since we're not waiting for vsync
+            # Small delay to ensure stable refresh
+            time.sleep(0.001)
         except Exception as e:
             logger.error(f"Error updating display: {e}")
 
