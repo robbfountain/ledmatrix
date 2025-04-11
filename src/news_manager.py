@@ -174,7 +174,8 @@ class NewsManager:
         frame_image = Image.new('RGB', (self.display_manager.matrix.width, self.display_manager.matrix.height), (0, 0, 0))
         
         # Calculate the source and destination regions for the visible portion
-        src_x = max(0, text_width - self.scroll_position - visible_width)
+        # For left-to-right scrolling, we start from the left side of the text
+        src_x = self.scroll_position
         src_width = min(visible_width, text_width - src_x)
         
         # Copy the visible portion of the text to the frame
@@ -183,7 +184,7 @@ class NewsManager:
             frame_image.paste(src_region, (0, 0))
         
         # If we need to wrap around to the beginning of the text
-        if src_x == 0 and self.scroll_position > text_width:
+        if src_x + src_width >= text_width:
             remaining_width = self.display_manager.matrix.width - src_width
             if remaining_width > 0:
                 wrap_src_width = min(remaining_width, text_width)
