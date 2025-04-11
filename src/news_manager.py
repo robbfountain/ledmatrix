@@ -154,9 +154,12 @@ class NewsManager:
             
         # Get the current news item to display
         current_news = all_news[self.current_news_index]
+        next_news = all_news[(self.current_news_index + 1) % len(all_news)]
         
-        # Format the news text
-        news_text = f"{current_news['symbol']}: {current_news['title']}"
+        # Format the news text with spacing between items
+        current_text = f"{current_news['symbol']}: {current_news['title']}"
+        next_text = f"{next_news['symbol']}: {next_news['title']}"
+        news_text = f"{current_text}     {next_text}"
         
         # Create a text image for efficient scrolling
         text_image = self._create_text_image(news_text)
@@ -165,17 +168,11 @@ class NewsManager:
         # Calculate the visible portion of the text
         visible_width = min(self.display_manager.matrix.width, text_width)
         
-        # If this is the first time displaying this news item, clear the screen
-        if self.scroll_position == 0:
-            self.display_manager.clear()
-            self.display_manager.update_display()
-        
         # Create a new image for the current frame
         frame_image = Image.new('RGB', (self.display_manager.matrix.width, self.display_manager.matrix.height), (0, 0, 0))
         
         # Calculate the source and destination regions for the visible portion
-        # For left-to-right scrolling, we start from the left side of the text
-        src_x = self.scroll_position
+        src_x = self.scroll_position % text_width  # Use modulo to wrap around smoothly
         src_width = min(visible_width, text_width - src_x)
         
         # Copy the visible portion of the text to the frame
@@ -199,13 +196,12 @@ class NewsManager:
         # Update scroll position
         self.scroll_position += self.scroll_speed
         
-        # If we've scrolled past the end of the text, move to the next news item
-        if self.scroll_position > text_width + self.display_manager.matrix.width:
+        # If we've scrolled past the current text, move to the next news item
+        if self.scroll_position >= text_width:
             self.scroll_position = 0
             self.current_news_index = (self.current_news_index + 1) % len(all_news)
-            
+        
         # Add a small delay to control scroll speed
         time.sleep(self.scroll_delay)
         
-        # Return True if we've displayed all news items
-        return self.current_news_index == 0 and self.scroll_position == 0 
+        return True 
