@@ -214,8 +214,8 @@ class StockNewsManager:
         total_width = text_width + display_width
         
         # Update scroll position with smooth acceleration
-        scroll_speed = min(self.scroll_speed * 1.1, 3)  # Gradually increase speed up to max
-        self.scroll_position = (self.scroll_position + scroll_speed) % total_width
+        scroll_speed = min(int(self.scroll_speed * 1.1), 3)  # Convert to integer
+        self.scroll_position = int(self.scroll_position + scroll_speed) % total_width
         
         # Clear the display
         self.display_manager.clear()
@@ -223,9 +223,9 @@ class StockNewsManager:
         # Calculate source and destination regions for efficient blitting
         if self.scroll_position < display_width:
             # Text is entering from the right
-            src_x = text_width - (display_width - self.scroll_position)
-            src_width = display_width - self.scroll_position
-            dst_x = self.scroll_position
+            src_x = int(text_width - (display_width - self.scroll_position))
+            src_width = int(display_width - self.scroll_position)
+            dst_x = int(self.scroll_position)
             self.display_manager.image.paste(
                 text_image.crop((src_x, 0, src_x + src_width, text_image.height)),
                 (dst_x, 0)
@@ -234,7 +234,7 @@ class StockNewsManager:
             # Text is scrolling off the left
             src_x = 0
             src_width = text_width
-            dst_x = self.scroll_position - display_width
+            dst_x = int(self.scroll_position - display_width)
             self.display_manager.image.paste(
                 text_image.crop((src_x, 0, src_x + src_width, text_image.height)),
                 (dst_x, 0)
