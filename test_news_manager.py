@@ -35,7 +35,6 @@ def main():
         # Run the news display in a loop
         while True:
             news_manager.display_news()
-            time.sleep(0.05)  # Small delay between updates
             
     except KeyboardInterrupt:
         print("\nTest interrupted by user")
