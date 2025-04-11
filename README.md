@@ -1,4 +1,4 @@
-# LEDSportsMatrix
+# LEDMatrix
 
 A modular LED matrix display system for sports information using Raspberry Pi and RGB LED matrices.
 
@@ -11,14 +11,15 @@ A modular LED matrix display system for sports information using Raspberry Pi an
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/yourusername/LEDSportsMatrix.git
-cd LEDSportsMatrix
+git clone https://github.com/ChuckBuilds/LEDMatrix.git
+cd LEDMatrix
 ```
 
 2. Install dependencies:
 ```bash
-pip3 install -r requirements.txt
+pip3 install --break-system-packages -r requirements.txt
 ```
+--break-system-packages allows us to install without a virtual environment
 
 ## Configuration
 
@@ -28,6 +29,16 @@ cp config/config.example.json config/config.json
 ```
 
 2. Edit `config/config.json` with your preferences
+
+## API Keys
+
+For sensitive settings like API keys:
+1. Copy the template: `cp config/config_secrets.template.json config/config_secrets.json`
+
+2. Edit `config/config_secrets.json` with your API keys via `sudo nano config/config_secrets.json`
+
+3. Ctrl + X to exit, Y to overwrite, Enter to save 
+
 
 ## Important: Sound Module Configuration
 
@@ -49,6 +60,27 @@ sudo update-initramfs -u
 ```bash
 sudo reboot
 ```
+
+## Performance Optimization
+
+To reduce flickering and improve display quality:
+
+1. Edit `/boot/firmware/cmdline.txt`:
+```bash
+sudo nano /boot/firmware/cmdline.txt
+```
+
+2. Add `isolcpus=3` at the end of the line
+
+3. Add `dtparam=audio=off` at the end of the line
+
+4. Ctrl + X to exit, Y to save 
+
+5. Save and reboot:
+```bash
+sudo reboot
+```
+
 
 ## Running the Display
 
@@ -76,38 +108,6 @@ LEDSportsMatrix/
 └── display_controller.py  # Main entry point
 ```
 
-## Performance Optimization
-
-To reduce flickering and improve display quality:
-
-1. Edit `/boot/firmware/cmdline.txt`:
-```bash
-sudo nano /boot/firmware/cmdline.txt
-```
-
-2. Add `isolcpus=3` at the end of the line
-
-3. Save and reboot:
-```bash
-sudo reboot
-```
-
-For sensitive settings like API keys:
-1. Copy the template: `cp config/config_secrets.template.json config/config_secrets.json`
-2. Edit `config/config_secrets.json` with your API keys
-
-Note: If you still experience issues, you can additionally disable the audio hardware by editing `/boot/firmware/config.txt`:
-```bash
-sudo nano /boot/firmware/config.txt
-```
-And adding:
-```
-dtparam=audio=off
-```
-
-Alternatively, you can:
-- Use external USB sound adapters if you need audio
-- Run the program with `--led-no-hardware-pulse` flag (may cause more flicker)
 
 ## Project Structure
 
