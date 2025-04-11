@@ -9,6 +9,7 @@ import os
 import urllib.parse
 import re
 from src.config_manager import ConfigManager
+from PIL import Image, ImageDraw
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -108,6 +109,23 @@ class NewsManager:
         else:
             logger.error("Failed to fetch news for any configured stocks")
             
+    def _create_text_image(self, text: str, color: Tuple[int, int, int] = (255, 255, 255)) -> Image.Image:
+        """Create an image containing the text for efficient scrolling."""
+        # Get text dimensions
+        bbox = self.display_manager.draw.textbbox((0, 0), text, font=self.display_manager.small_font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        # Create a new image with the text
+        text_image = Image.new('RGB', (text_width, self.display_manager.matrix.height), (0, 0, 0))
+        text_draw = ImageDraw.Draw(text_image)
+        
+        # Draw the text centered vertically
+        y = (self.display_manager.matrix.height - text_height) // 2
+        text_draw.text((0, y), text, font=self.display_manager.small_font, fill=color)
+        
+        return text_image
+            
     def display_news(self):
         """Display news headlines by scrolling them across the screen."""
         if not self.news_config.get('enabled', False):
@@ -140,23 +158,41 @@ class NewsManager:
         # Format the news text
         news_text = f"{current_news['symbol']}: {current_news['title']}"
         
-        # Get text dimensions
-        bbox = self.display_manager.draw.textbbox((0, 0), news_text, font=self.display_manager.small_font)
-        text_width = bbox[2] - bbox[0]
+        # Create a text image for efficient scrolling
+        text_image = self._create_text_image(news_text)
+        text_width = text_image.width
         
-        # Clear the display
-        self.display_manager.clear()
+        # Calculate the visible portion of the text
+        visible_width = min(self.display_manager.matrix.width, text_width)
         
-        # Draw the news text at the current scroll position
-        self.display_manager.draw_text(
-            news_text,
-            x=self.display_manager.matrix.width - self.scroll_position,
-            y=16,  # Center vertically
-            color=(255, 255, 255),  # White
-            small_font=True
-        )
+        # If this is the first time displaying this news item, clear the screen
+        if self.scroll_position == 0:
+            self.display_manager.clear()
+            self.display_manager.update_display()
         
-        # Update the display
+        # Create a new image for the current frame
+        frame_image = Image.new('RGB', (self.display_manager.matrix.width, self.display_manager.matrix.height), (0, 0, 0))
+        
+        # Calculate the source and destination regions for the visible portion
+        src_x = max(0, text_width - self.scroll_position - visible_width)
+        src_width = min(visible_width, text_width - src_x)
+        
+        # Copy the visible portion of the text to the frame
+        if src_width > 0:
+            src_region = text_image.crop((src_x, 0, src_x + src_width, self.display_manager.matrix.height))
+            frame_image.paste(src_region, (0, 0))
+        
+        # If we need to wrap around to the beginning of the text
+        if src_x == 0 and self.scroll_position > text_width:
+            remaining_width = self.display_manager.matrix.width - src_width
+            if remaining_width > 0:
+                wrap_src_width = min(remaining_width, text_width)
+                wrap_region = text_image.crop((0, 0, wrap_src_width, self.display_manager.matrix.height))
+                frame_image.paste(wrap_region, (src_width, 0))
+        
+        # Update the display with the new frame
+        self.display_manager.image = frame_image
+        self.display_manager.draw = ImageDraw.Draw(frame_image)
         self.display_manager.update_display()
         
         # Update scroll position
