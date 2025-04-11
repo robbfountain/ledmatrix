@@ -35,12 +35,12 @@
         }
     },
     "clock": {
-        "enabled": true,
+        "enabled": false,
         "format": "%H:%M:%S",
         "update_interval": 1
     },
     "weather": {
-        "enabled": true,
+        "enabled": false,
         "update_interval": 300,
         "units": "imperial",
         "display_format": "{temp}°F\n{condition}"

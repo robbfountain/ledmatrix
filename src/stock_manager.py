@@ -179,8 +179,8 @@ class StockManager:
         )
         
         # Calculate chart dimensions
-        chart_height = 22  # Increased height since we're using smaller fonts
-        chart_y = 7  # Start closer to symbol due to smaller font
+        chart_height = 16  # Reduced from 22 to make chart smaller
+        chart_y = 8  # Slightly adjusted starting position
         width = self.display_manager.matrix.width
         
         # Get min and max prices for scaling
@@ -213,7 +213,7 @@ class StockManager:
         price_text = f"${data['price']:.2f} ({data['change']:+.1f}%)"
         self.display_manager.draw_text(
             price_text,
-            y=30,  # Near bottom
+            y=28,  # Moved down slightly from 30 to give more space
             color=color,
             small_font=True  # Use small font
         )
