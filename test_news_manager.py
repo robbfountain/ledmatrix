@@ -15,10 +15,19 @@ def main():
         config_manager = ConfigManager()
         config = config_manager.load_config()
         
-        # Initialize display manager
-        display_manager = DisplayManager(config.get('display', {}))
+        if not config:
+            print("Error: Failed to load configuration")
+            return
+            
+        display_config = config.get('display')
+        if not display_config:
+            print("Error: No display configuration found")
+            return
         
-        # Initialize news manager
+        # Initialize display manager
+        display_manager = DisplayManager(display_config)
+        
+        # Initialize news manager with the loaded config
         news_manager = NewsManager(config, display_manager)
         
         # Test the scrolling behavior
@@ -38,6 +47,8 @@ def main():
         print("\nTest interrupted by user")
     except Exception as e:
         print(f"Error during test: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         print("Test completed")
 
