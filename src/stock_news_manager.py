@@ -21,15 +21,15 @@ class StockNewsManager:
         self.config_manager = ConfigManager()
         self.display_manager = display_manager
         self.stocks_config = config.get('stocks', {})
-        self.news_config = config.get('news', {})
+        self.stock_news_config = config.get('stock_news', {})
         self.last_update = 0
         self.news_data = {}
-        self.current_news_index = 0
+        self.current_news_group = 0  # Track which group of headlines we're showing
         self.scroll_position = 0
         
         # Get scroll settings from config with faster defaults
-        self.scroll_speed = self.news_config.get('scroll_speed', 1)
-        self.scroll_delay = self.news_config.get('scroll_delay', 0.001)  # Default to 1ms instead of 50ms
+        self.scroll_speed = self.stock_news_config.get('scroll_speed', 1)
+        self.scroll_delay = self.stock_news_config.get('scroll_delay', 0.001)  # Default to 1ms instead of 50ms
         
         # Log the actual values being used
         logger.info(f"Scroll settings - Speed: {self.scroll_speed} pixels/frame, Delay: {self.scroll_delay*1000:.2f}ms")
@@ -51,7 +51,7 @@ class StockNewsManager:
         try:
             # Using Yahoo Finance API to get news
             encoded_symbol = urllib.parse.quote(symbol)
-            url = f"https://query1.finance.yahoo.com/v1/finance/search?q={encoded_symbol}&lang=en-US&region=US&quotesCount=0&newsCount={self.news_config.get('max_headlines_per_symbol', 5)}"
+            url = f"https://query1.finance.yahoo.com/v1/finance/search?q={encoded_symbol}&lang=en-US&region=US&quotesCount=0&newsCount={self.stock_news_config.get('max_headlines_per_symbol', 5)}"
             
             response = requests.get(url, headers=self.headers, timeout=5)
             if response.status_code != 200:
@@ -87,7 +87,7 @@ class StockNewsManager:
     def update_news_data(self):
         """Update news data for all configured stock symbols."""
         current_time = time.time()
-        update_interval = self.news_config.get('update_interval', 300)  # Default to 5 minutes
+        update_interval = self.stock_news_config.get('update_interval', 300)  # Default to 5 minutes
         
         # If not enough time has passed, keep using existing data
         if current_time - self.last_update < update_interval:
@@ -115,8 +115,6 @@ class StockNewsManager:
             # Only update the displayed data when we have new data
             self.news_data = new_data
             self.last_update = current_time
-            self.current_news_index = 0
-            self.scroll_position = 0
             logger.info(f"Updated news data for {len(new_data)} symbols")
         else:
             logger.error("Failed to fetch news for any configured stocks")
@@ -165,11 +163,11 @@ class StockNewsManager:
 
     def display_news(self):
         """Display news headlines by scrolling them across the screen."""
-        if not self.news_config.get('enabled', False):
+        if not self.stock_news_config.get('enabled', False):
             return
             
         # Start update in background if needed
-        if time.time() - self.last_update >= self.news_config.get('update_interval', 300):
+        if time.time() - self.last_update >= self.stock_news_config.get('update_interval', 300):
             self.update_news_data()
             
         if not self.news_data:
@@ -188,67 +186,55 @@ class StockNewsManager:
                 
         if not all_news:
             return
-            
-        # Get the current news item to display
-        current_news = all_news[self.current_news_index]
-        next_news = all_news[(self.current_news_index + 1) % len(all_news)]
+
+        # Get the number of headlines to show per rotation
+        headlines_per_rotation = self.stock_news_config.get('headlines_per_rotation', 2)
+        total_headlines = len(all_news)
         
-        # Format the news text with proper spacing and separator
+        # Calculate the starting index for the current group
+        start_idx = (self.current_news_group * headlines_per_rotation) % total_headlines
+        
+        # Build the text for all headlines in this group
+        news_texts = []
+        for i in range(headlines_per_rotation):
+            idx = (start_idx + i) % total_headlines
+            news = all_news[idx]
+            news_texts.append(f"{news['symbol']}: {news['title']}")
+        
+        # Join all headlines with a separator
         separator = "   -   "  # Visual separator between news items
-        current_text = f"{current_news['symbol']}: {current_news['title']}"
-        next_text = f"{next_news['symbol']}: {next_news['title']}"
-        news_text = f"{current_text}{separator}{next_text}"
+        news_text = separator.join(news_texts)
         
-        # Create a text image for efficient scrolling (only if needed)
-        if not hasattr(self, '_current_text_image') or self._current_text != news_text:
-            self._current_text_image = self._create_text_image(news_text)
-            self._current_text = news_text
-            text_width = self._current_text_image.width
-            self._text_width = text_width
-        else:
-            text_width = self._text_width
+        # Create and display the scrolling text image
+        text_image = self._create_text_image(news_text)
         
-        # Calculate the visible portion of the text
-        visible_width = min(self.display_manager.matrix.width, text_width)
+        # Calculate total scroll width
+        total_width = text_image.width + self.display_manager.matrix.width
         
-        # Create a new image for the current frame
-        frame_image = Image.new('RGB', (self.display_manager.matrix.width, self.display_manager.matrix.height), (0, 0, 0))
+        # Update scroll position
+        self.scroll_position = (self.scroll_position + self.scroll_speed) % total_width
         
-        # Calculate the source and destination regions for the visible portion
-        src_x = self.scroll_position % text_width  # Use modulo to wrap around smoothly
-        src_width = min(visible_width, text_width - src_x)
+        # Create a new black image for the display
+        display_image = Image.new('RGB', (self.display_manager.matrix.width, self.display_manager.matrix.height))
         
-        # Copy the visible portion of the text to the frame
-        if src_width > 0:
-            src_region = self._current_text_image.crop((src_x, 0, src_x + src_width, self.display_manager.matrix.height))
-            frame_image.paste(src_region, (0, 0))
+        # Paste the appropriate portion of the text image
+        display_image.paste(text_image, (-self.scroll_position, 0))
         
-        # If we need to wrap around to the beginning of the text
-        if src_x + src_width >= text_width:
-            remaining_width = self.display_manager.matrix.width - src_width
-            if remaining_width > 0:
-                wrap_src_width = min(remaining_width, text_width)
-                wrap_region = self._current_text_image.crop((0, 0, wrap_src_width, self.display_manager.matrix.height))
-                frame_image.paste(wrap_region, (src_width, 0))
+        # If we've wrapped around, paste the beginning of the text again
+        if self.scroll_position + self.display_manager.matrix.width > text_image.width:
+            display_image.paste(text_image, (text_image.width - self.scroll_position, 0))
         
-        # Update the display with the new frame
-        self.display_manager.image = frame_image
-        self.display_manager.draw = ImageDraw.Draw(frame_image)
-        self.display_manager.update_display()
+        # Display the image
+        self.display_manager.display_image(display_image)
+        
+        # If we've completed a full scroll, move to the next group
+        if self.scroll_position == 0:
+            self.current_news_group = (self.current_news_group + 1) % ((total_headlines + headlines_per_rotation - 1) // headlines_per_rotation)
         
         # Log frame rate
         self._log_frame_rate()
         
-        # Update scroll position
-        self.scroll_position += self.scroll_speed
-        
-        # If we've scrolled past the current text, move to the next news item
-        if self.scroll_position >= text_width:
-            self.scroll_position = 0
-            self.current_news_index = (self.current_news_index + 1) % len(all_news)
-        
-        # Add a small delay to control scroll speed
-        if self.scroll_delay > 0:
-            time.sleep(self.scroll_delay)
+        # Small delay to control scroll speed
+        time.sleep(self.scroll_delay)
         
         return True 

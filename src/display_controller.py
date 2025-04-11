@@ -6,6 +6,7 @@ from src.weather_manager import WeatherManager
 from src.display_manager import DisplayManager
 from src.config_manager import ConfigManager
 from src.stock_manager import StockManager
+from src.stock_news_manager import StockNewsManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +20,7 @@ class DisplayController:
         self.clock = Clock(display_manager=self.display_manager)
         self.weather = WeatherManager(self.config, self.display_manager)
         self.stocks = StockManager(self.config, self.display_manager)
+        self.news = StockNewsManager(self.config, self.display_manager)
         self.current_display = 'clock'
         self.weather_mode = 'current'  # current, hourly, or daily
         self.last_switch = time.time()
@@ -29,7 +31,8 @@ class DisplayController:
             'weather': 15,
             'stocks': 45,
             'hourly_forecast': 15,
-            'daily_forecast': 15
+            'daily_forecast': 15,
+            'stock_news': 30
         })
         logger.info("DisplayController initialized with display_manager: %s", id(self.display_manager))
 
@@ -51,7 +54,7 @@ class DisplayController:
                 
                 # Check if we need to switch display mode
                 if current_time - self.last_switch > self.get_current_duration():
-                    # Cycle through: clock -> weather (current) -> weather (hourly) -> weather (daily) -> stocks
+                    # Cycle through: clock -> weather (current) -> weather (hourly) -> weather (daily) -> stocks -> stock_news
                     if self.current_display == 'clock':
                         self.current_display = 'weather'
                         self.weather_mode = 'current'
@@ -65,7 +68,12 @@ class DisplayController:
                                 self.current_display = 'stocks'
                             else:
                                 self.current_display = 'clock'
-                    else:  # stocks
+                    elif self.current_display == 'stocks':
+                        if self.config.get('stock_news', {}).get('enabled', False):
+                            self.current_display = 'stock_news'
+                        else:
+                            self.current_display = 'clock'
+                    else:  # stock_news
                         self.current_display = 'clock'
                     
                     logger.info(f"Switching display to: {self.current_display} {self.weather_mode if self.current_display == 'weather' else ''}")
@@ -84,8 +92,10 @@ class DisplayController:
                             self.weather.display_hourly_forecast(force_clear=self.force_clear)
                         else:  # daily
                             self.weather.display_daily_forecast(force_clear=self.force_clear)
-                    else:  # stocks
+                    elif self.current_display == 'stocks':
                         self.stocks.display_stocks(force_clear=self.force_clear)
+                    else:  # stock_news
+                        self.news.display_news()
                 except Exception as e:
                     logger.error(f"Error updating display: {e}")
                     time.sleep(1)  # Wait a bit before retrying

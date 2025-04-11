@@ -31,7 +31,7 @@
             "stocks": 45,
             "hourly_forecast": 15,
             "daily_forecast": 15,
-            "news": 30
+            "stock_news": 30
         }
     },
     "clock": {
@@ -51,11 +51,12 @@
         ],
         "display_format": "{symbol}: ${price} ({change}%)"
     },
-    "news": {
+    "stock_news": {
         "enabled": true,
         "update_interval": 300,
         "scroll_speed": 1,
         "scroll_delay": 0.0001,
-        "max_headlines_per_symbol": 1
+        "max_headlines_per_symbol": 1,
+        "headlines_per_rotation": 2
     }
 } 
