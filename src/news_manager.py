@@ -26,8 +26,20 @@ class NewsManager:
         self.news_data = {}
         self.current_news_index = 0
         self.scroll_position = 0
-        self.scroll_speed = self.news_config.get('scroll_speed', 1)  # Pixels to move per frame
-        self.scroll_delay = self.news_config.get('scroll_delay', 0.05)  # Delay between scroll updates
+        
+        # Get scroll settings from config with faster defaults
+        self.scroll_speed = self.news_config.get('scroll_speed', 1)
+        self.scroll_delay = self.news_config.get('scroll_delay', 0.001)  # Default to 1ms instead of 50ms
+        
+        # Log the actual values being used
+        logger.info(f"Scroll settings - Speed: {self.scroll_speed} pixels/frame, Delay: {self.scroll_delay*1000:.2f}ms")
+        
+        # Initialize frame rate tracking
+        self.frame_count = 0
+        self.last_frame_time = time.time()
+        self.last_fps_log_time = time.time()
+        self.frame_times = []  # Keep track of recent frame times for average FPS
+        
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
@@ -126,6 +138,31 @@ class NewsManager:
         
         return text_image
             
+    def _log_frame_rate(self):
+        """Log frame rate statistics."""
+        current_time = time.time()
+        
+        # Calculate instantaneous frame time
+        frame_time = current_time - self.last_frame_time
+        self.frame_times.append(frame_time)
+        
+        # Keep only last 100 frames for average
+        if len(self.frame_times) > 100:
+            self.frame_times.pop(0)
+        
+        # Log FPS every second
+        if current_time - self.last_fps_log_time >= 1.0:
+            avg_frame_time = sum(self.frame_times) / len(self.frame_times)
+            avg_fps = 1.0 / avg_frame_time if avg_frame_time > 0 else 0
+            instant_fps = 1.0 / frame_time if frame_time > 0 else 0
+            
+            logger.info(f"Frame stats - Avg FPS: {avg_fps:.1f}, Current FPS: {instant_fps:.1f}, Frame time: {frame_time*1000:.2f}ms")
+            self.last_fps_log_time = current_time
+            self.frame_count = 0
+        
+        self.last_frame_time = current_time
+        self.frame_count += 1
+
     def display_news(self):
         """Display news headlines by scrolling them across the screen."""
         if not self.news_config.get('enabled', False):
@@ -161,9 +198,14 @@ class NewsManager:
         next_text = f"{next_news['symbol']}: {next_news['title']}"
         news_text = f"{current_text}     {next_text}"
         
-        # Create a text image for efficient scrolling
-        text_image = self._create_text_image(news_text)
-        text_width = text_image.width
+        # Create a text image for efficient scrolling (only if needed)
+        if not hasattr(self, '_current_text_image') or self._current_text != news_text:
+            self._current_text_image = self._create_text_image(news_text)
+            self._current_text = news_text
+            text_width = self._current_text_image.width
+            self._text_width = text_width
+        else:
+            text_width = self._text_width
         
         # Calculate the visible portion of the text
         visible_width = min(self.display_manager.matrix.width, text_width)
@@ -177,7 +219,7 @@ class NewsManager:
         
         # Copy the visible portion of the text to the frame
         if src_width > 0:
-            src_region = text_image.crop((src_x, 0, src_x + src_width, self.display_manager.matrix.height))
+            src_region = self._current_text_image.crop((src_x, 0, src_x + src_width, self.display_manager.matrix.height))
             frame_image.paste(src_region, (0, 0))
         
         # If we need to wrap around to the beginning of the text
@@ -185,13 +227,16 @@ class NewsManager:
             remaining_width = self.display_manager.matrix.width - src_width
             if remaining_width > 0:
                 wrap_src_width = min(remaining_width, text_width)
-                wrap_region = text_image.crop((0, 0, wrap_src_width, self.display_manager.matrix.height))
+                wrap_region = self._current_text_image.crop((0, 0, wrap_src_width, self.display_manager.matrix.height))
                 frame_image.paste(wrap_region, (src_width, 0))
         
         # Update the display with the new frame
         self.display_manager.image = frame_image
         self.display_manager.draw = ImageDraw.Draw(frame_image)
         self.display_manager.update_display()
+        
+        # Log frame rate
+        self._log_frame_rate()
         
         # Update scroll position
         self.scroll_position += self.scroll_speed
@@ -202,6 +247,7 @@ class NewsManager:
             self.current_news_index = (self.current_news_index + 1) % len(all_news)
         
         # Add a small delay to control scroll speed
-        time.sleep(self.scroll_delay)
+        if self.scroll_delay > 0:
+            time.sleep(self.scroll_delay)
         
         return True 
