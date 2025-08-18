@@ -937,6 +937,16 @@ class OddsTickerManager:
             logger.debug("Odds ticker is disabled, skipping update")
             return
             
+        # Check if we're currently scrolling and defer the update if so
+        if self.display_manager.is_currently_scrolling():
+            logger.debug("Odds ticker is currently scrolling, deferring update")
+            self.display_manager.defer_update(self._perform_update, priority=1)
+            return
+            
+        self._perform_update()
+
+    def _perform_update(self):
+        """Internal method to perform the actual update."""
         current_time = time.time()
         if current_time - self.last_update < self.update_interval:
             logger.debug(f"Odds ticker update interval not reached. Next update in {self.update_interval - (current_time - self.last_update)} seconds")
@@ -992,8 +1002,18 @@ class OddsTickerManager:
         try:
             current_time = time.time()
             
+            # Check if we should be scrolling
+            should_scroll = current_time - self.last_scroll_time >= self.scroll_delay
+            
+            # Signal scrolling state to display manager
+            if should_scroll:
+                self.display_manager.set_scrolling_state(True)
+            else:
+                # If we're not scrolling, check if we should process deferred updates
+                self.display_manager.process_deferred_updates()
+            
             # Scroll the image
-            if current_time - self.last_scroll_time >= self.scroll_delay:
+            if should_scroll:
                 self.scroll_position += self.scroll_speed
                 self.last_scroll_time = current_time
             
@@ -1010,6 +1030,8 @@ class OddsTickerManager:
                 # Stop scrolling when we reach the end
                 if self.scroll_position >= self.ticker_image.width - width:
                     self.scroll_position = self.ticker_image.width - width
+                    # Signal that scrolling has stopped
+                    self.display_manager.set_scrolling_state(False)
             
             # Create the visible part of the image by pasting from the ticker_image
             visible_image = Image.new('RGB', (width, height))

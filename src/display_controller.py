@@ -530,14 +530,33 @@ class DisplayController:
 
     def _update_modules(self):
         """Call update methods on active managers."""
-        if self.weather: self.weather.get_weather()
-        if self.stocks: self.stocks.update_stock_data()
-        if self.news: self.news.update_news_data()
-        if self.odds_ticker: self.odds_ticker.update()
-        if self.calendar: self.calendar.update(time.time())
-        if self.youtube: self.youtube.update()
-        if self.text_display: self.text_display.update()
-        if self.of_the_day: self.of_the_day.update(time.time())
+        # Check if we're currently scrolling and defer updates if so
+        if self.display_manager.is_currently_scrolling():
+            logger.debug("Display is currently scrolling, deferring module updates")
+            # Defer updates for modules that might cause lag during scrolling
+            if self.odds_ticker: 
+                self.display_manager.defer_update(self.odds_ticker.update, priority=1)
+            if self.stocks: 
+                self.display_manager.defer_update(self.stocks.update_stock_data, priority=2)
+            if self.news: 
+                self.display_manager.defer_update(self.news.update_news_data, priority=2)
+            # Continue with non-scrolling-sensitive updates
+            if self.weather: self.weather.get_weather()
+            if self.calendar: self.calendar.update(time.time())
+            if self.youtube: self.youtube.update()
+            if self.text_display: self.text_display.update()
+            if self.of_the_day: self.of_the_day.update(time.time())
+        else:
+            # Not scrolling, perform all updates normally
+            if self.weather: self.weather.get_weather()
+            if self.stocks: self.stocks.update_stock_data()
+            if self.news: self.news.update_news_data()
+            if self.odds_ticker: self.odds_ticker.update()
+            if self.calendar: self.calendar.update(time.time())
+            if self.youtube: self.youtube.update()
+            if self.text_display: self.text_display.update()
+            if self.of_the_day: self.of_the_day.update(time.time())
+        
         # News manager fetches data when displayed, not during updates
         # if self.news_manager: self.news_manager.fetch_news_data()
         
@@ -939,6 +958,9 @@ class DisplayController:
                 
                 # Update data for all modules first
                 self._update_modules()
+                
+                # Process any deferred updates that may have accumulated
+                self.display_manager.process_deferred_updates()
                 
                 # Update live modes in rotation if needed
                 self._update_live_modes_in_rotation()
