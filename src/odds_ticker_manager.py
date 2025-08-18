@@ -359,7 +359,7 @@ class OddsTickerManager:
                     if request_date_obj < current_date_obj:
                         ttl = 86400 * 30  # 30 days for past dates
                     elif request_date_obj == current_date_obj:
-                        ttl = 3600  # 1 hour for today
+                        ttl = 300  # 5 minutes for today (shorter to catch live games)
                     else:
                         ttl = 43200  # 12 hours for future dates
                     
@@ -382,9 +382,15 @@ class OddsTickerManager:
                             break
                         game_id = event['id']
                         status = event['status']['type']['name'].lower()
-                        if status in ['scheduled', 'pre-game', 'status_scheduled']:
+                        status_state = event['status']['type']['state'].lower()
+                        
+                        # Include both scheduled and live games
+                        if status in ['scheduled', 'pre-game', 'status_scheduled'] or status_state == 'in':
                             game_time = datetime.fromisoformat(event['date'].replace('Z', '+00:00'))
-                            if now <= game_time <= future_window:
+                            
+                            # For live games, include them regardless of time window
+                            # For scheduled games, check if they're within the future window
+                            if status_state == 'in' or (now <= game_time <= future_window):
                                 competitors = event['competitions'][0]['competitors']
                                 home_team = next(c for c in competitors if c['homeAway'] == 'home')
                                 away_team = next(c for c in competitors if c['homeAway'] == 'away')
@@ -437,7 +443,10 @@ class OddsTickerManager:
                                 
                                 # Dynamically set update interval based on game start time
                                 time_until_game = game_time - now
-                                if time_until_game > timedelta(hours=48):
+                                if status_state == 'in':
+                                    # Live games need more frequent updates
+                                    update_interval_seconds = 300  # 5 minutes for live games
+                                elif time_until_game > timedelta(hours=48):
                                     update_interval_seconds = 86400  # 24 hours
                                 else:
                                     update_interval_seconds = 3600   # 1 hour
@@ -461,6 +470,12 @@ class OddsTickerManager:
                                         has_odds = True
                                     if odds_data.get('over_under') is not None:
                                         has_odds = True
+                                
+                                # Extract live game information if the game is in progress
+                                live_info = None
+                                if status_state == 'in':
+                                    live_info = self._extract_live_game_info(event, sport)
+                                
                                 game = {
                                     'id': game_id,
                                     'home_team': home_abbr,
@@ -472,7 +487,10 @@ class OddsTickerManager:
                                     'away_record': away_record,
                                     'odds': odds_data if has_odds else None,
                                     'broadcast_info': broadcast_info,
-                                    'logo_dir': league_config.get('logo_dir', f'assets/sports/{league.lower()}_logos')
+                                    'logo_dir': league_config.get('logo_dir', f'assets/sports/{league.lower()}_logos'),
+                                    'status': status,
+                                    'status_state': status_state,
+                                    'live_info': live_info
                                 }
                                 all_games.append(game)
                                 games_found += 1
@@ -492,8 +510,145 @@ class OddsTickerManager:
                 break
         return all_games
 
+    def _extract_live_game_info(self, event: Dict[str, Any], sport: str) -> Dict[str, Any]:
+        """Extract live game information from ESPN API event data."""
+        try:
+            status = event['status']
+            competitions = event['competitions'][0]
+            competitors = competitions['competitors']
+            
+            # Get scores
+            home_score = next(c['score'] for c in competitors if c['homeAway'] == 'home')
+            away_score = next(c['score'] for c in competitors if c['homeAway'] == 'away')
+            
+            live_info = {
+                'home_score': home_score,
+                'away_score': away_score,
+                'period': status.get('period', 1),
+                'clock': status.get('displayClock', ''),
+                'detail': status['type'].get('detail', ''),
+                'short_detail': status['type'].get('shortDetail', '')
+            }
+            
+            # Sport-specific information
+            if sport == 'baseball':
+                # Extract inning information
+                situation = competitions.get('situation', {})
+                count = situation.get('count', {})
+                
+                live_info.update({
+                    'inning': status.get('period', 1),
+                    'inning_half': 'top',  # Default
+                    'balls': count.get('balls', 0),
+                    'strikes': count.get('strikes', 0),
+                    'outs': situation.get('outs', 0),
+                    'bases_occupied': [
+                        situation.get('onFirst', False),
+                        situation.get('onSecond', False),
+                        situation.get('onThird', False)
+                    ]
+                })
+                
+                # Determine inning half from status detail
+                status_detail = status['type'].get('detail', '').lower()
+                status_short = status['type'].get('shortDetail', '').lower()
+                
+                if 'bottom' in status_detail or 'bot' in status_detail or 'bottom' in status_short or 'bot' in status_short:
+                    live_info['inning_half'] = 'bottom'
+                elif 'top' in status_detail or 'mid' in status_detail or 'top' in status_short or 'mid' in status_short:
+                    live_info['inning_half'] = 'top'
+                    
+            elif sport == 'football':
+                # Extract football-specific information
+                situation = competitions.get('situation', {})
+                
+                live_info.update({
+                    'quarter': status.get('period', 1),
+                    'down': situation.get('down', 0),
+                    'distance': situation.get('distance', 0),
+                    'yard_line': situation.get('yardLine', 0),
+                    'possession': situation.get('possession', '')
+                })
+                
+            elif sport == 'basketball':
+                # Extract basketball-specific information
+                situation = competitions.get('situation', {})
+                
+                live_info.update({
+                    'quarter': status.get('period', 1),
+                    'time_remaining': status.get('displayClock', ''),
+                    'possession': situation.get('possession', '')
+                })
+                
+            elif sport == 'hockey':
+                # Extract hockey-specific information
+                situation = competitions.get('situation', {})
+                
+                live_info.update({
+                    'period': status.get('period', 1),
+                    'time_remaining': status.get('displayClock', ''),
+                    'power_play': situation.get('powerPlay', False)
+                })
+                
+            elif sport == 'soccer':
+                # Extract soccer-specific information
+                live_info.update({
+                    'period': status.get('period', 1),
+                    'time_remaining': status.get('displayClock', ''),
+                    'extra_time': status.get('displayClock', '').endswith('+')
+                })
+            
+            return live_info
+            
+        except Exception as e:
+            logger.error(f"Error extracting live game info: {e}")
+            return None
+
     def _format_odds_text(self, game: Dict[str, Any]) -> str:
         """Format the odds text for display."""
+        # Check if this is a live game
+        is_live = game.get('status_state') == 'in'
+        live_info = game.get('live_info')
+        
+        if is_live and live_info:
+            # Format live game information
+            home_score = live_info.get('home_score', 0)
+            away_score = live_info.get('away_score', 0)
+            
+            # Determine sport for sport-specific formatting
+            sport = None
+            for league_key, config in self.league_configs.items():
+                if config.get('logo_dir') == game.get('logo_dir'):
+                    sport = config.get('sport')
+                    break
+            
+            if sport == 'baseball':
+                inning_half_indicator = "▲" if live_info.get('inning_half') == 'top' else "▼"
+                inning_text = f"{inning_half_indicator}{live_info.get('inning', 1)}"
+                count_text = f"{live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
+                outs_text = f"{live_info.get('outs', 0)} out"
+                return f"[LIVE] {game.get('away_team_name', game['away_team'])} {away_score} vs {game.get('home_team_name', game['home_team'])} {home_score} - {inning_text} {count_text} {outs_text}"
+                
+            elif sport == 'football':
+                quarter_text = f"Q{live_info.get('quarter', 1)}"
+                down_text = f"{live_info.get('down', 0)}&{live_info.get('distance', 0)}"
+                clock_text = live_info.get('clock', '')
+                return f"[LIVE] {game.get('away_team_name', game['away_team'])} {away_score} vs {game.get('home_team_name', game['home_team'])} {home_score} - {quarter_text} {down_text} {clock_text}"
+                
+            elif sport == 'basketball':
+                quarter_text = f"Q{live_info.get('quarter', 1)}"
+                clock_text = live_info.get('time_remaining', '')
+                return f"[LIVE] {game.get('away_team_name', game['away_team'])} {away_score} vs {game.get('home_team_name', game['home_team'])} {home_score} - {quarter_text} {clock_text}"
+                
+            elif sport == 'hockey':
+                period_text = f"P{live_info.get('period', 1)}"
+                clock_text = live_info.get('time_remaining', '')
+                return f"[LIVE] {game.get('away_team_name', game['away_team'])} {away_score} vs {game.get('home_team_name', game['home_team'])} {home_score} - {period_text} {clock_text}"
+                
+            else:
+                return f"[LIVE] {game.get('away_team_name', game['away_team'])} {away_score} vs {game.get('home_team_name', game['home_team'])} {home_score}"
+        
+        # Original odds formatting for non-live games
         odds = game.get('odds', {})
         if not odds:
             # Show just the game info without odds
@@ -657,10 +812,80 @@ class OddsTickerManager:
             game_time = game_time.replace(tzinfo=pytz.UTC)
         local_time = game_time.astimezone(tz)
         
-        # Capitalize full day name, e.g., 'Tuesday'
-        day_text = local_time.strftime("%A")
-        date_text = local_time.strftime("%-m/%d")
-        time_text = local_time.strftime("%I:%M%p").lstrip('0')
+        # Check if this is a live game
+        is_live = game.get('status_state') == 'in'
+        live_info = game.get('live_info')
+        
+        if is_live and live_info:
+            # Show live game information instead of date/time
+            sport = None
+            for league_key, config in self.league_configs.items():
+                if config.get('logo_dir') == game.get('logo_dir'):
+                    sport = config.get('sport')
+                    break
+            
+            if sport == 'baseball':
+                # Baseball: Show inning and count
+                inning_half_indicator = "▲" if live_info.get('inning_half') == 'top' else "▼"
+                inning_text = f"{inning_half_indicator}{live_info.get('inning', 1)}"
+                count_text = f"{live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
+                outs_text = f"{live_info.get('outs', 0)} out"
+                
+                day_text = inning_text
+                date_text = count_text
+                time_text = outs_text
+                
+            elif sport == 'football':
+                # Football: Show quarter and down/distance
+                quarter_text = f"Q{live_info.get('quarter', 1)}"
+                down_text = f"{live_info.get('down', 0)}&{live_info.get('distance', 0)}"
+                clock_text = live_info.get('clock', '')
+                
+                day_text = quarter_text
+                date_text = down_text
+                time_text = clock_text
+                
+            elif sport == 'basketball':
+                # Basketball: Show quarter and time remaining
+                quarter_text = f"Q{live_info.get('quarter', 1)}"
+                clock_text = live_info.get('time_remaining', '')
+                possession_text = live_info.get('possession', '')
+                
+                day_text = quarter_text
+                date_text = clock_text
+                time_text = possession_text
+                
+            elif sport == 'hockey':
+                # Hockey: Show period and time remaining
+                period_text = f"P{live_info.get('period', 1)}"
+                clock_text = live_info.get('time_remaining', '')
+                power_play_text = "PP" if live_info.get('power_play') else ""
+                
+                day_text = period_text
+                date_text = clock_text
+                time_text = power_play_text
+                
+            elif sport == 'soccer':
+                # Soccer: Show period and time remaining
+                period_text = f"P{live_info.get('period', 1)}"
+                clock_text = live_info.get('time_remaining', '')
+                extra_time_text = "+" if live_info.get('extra_time') else ""
+                
+                day_text = period_text
+                date_text = clock_text
+                time_text = extra_time_text
+                
+            else:
+                # Fallback: Show generic live info
+                day_text = "LIVE"
+                date_text = f"{live_info.get('home_score', 0)}-{live_info.get('away_score', 0)}"
+                time_text = live_info.get('clock', '')
+        else:
+            # Show regular date/time for non-live games
+            # Capitalize full day name, e.g., 'Tuesday'
+            day_text = local_time.strftime("%A")
+            date_text = local_time.strftime("%-m/%d")
+            time_text = local_time.strftime("%I:%M%p").lstrip('0')
         
         # Datetime column width
         temp_draw = ImageDraw.Draw(Image.new('RGB', (1, 1)))
@@ -676,6 +901,13 @@ class OddsTickerManager:
         # Team and record text
         away_team_text = f"{game.get('away_team_name', game.get('away_team', 'N/A'))} ({game.get('away_record', '') or 'N/A'})"
         home_team_text = f"{game.get('home_team_name', game.get('home_team', 'N/A'))} ({game.get('home_record', '') or 'N/A'})"
+        
+        # For live games, show scores instead of records
+        if is_live and live_info:
+            away_score = live_info.get('away_score', 0)
+            home_score = live_info.get('home_score', 0)
+            away_team_text = f"{game.get('away_team_name', game.get('away_team', 'N/A'))} ({away_score})"
+            home_team_text = f"{game.get('home_team_name', game.get('home_team', 'N/A'))} ({home_score})"
         
         away_team_width = int(temp_draw.textlength(away_team_text, font=team_font))
         home_team_width = int(temp_draw.textlength(home_team_text, font=team_font))
@@ -707,17 +939,65 @@ class OddsTickerManager:
         away_odds_text = ""
         home_odds_text = ""
         
-        # Simplified odds placement logic
-        if home_favored:
-            home_odds_text = f"{home_spread}"
-            if over_under:
-                away_odds_text = f"O/U {over_under}"
-        elif away_favored:
-            away_odds_text = f"{away_spread}"
-            if over_under:
+        # For live games, show live status instead of odds
+        if is_live and live_info:
+            sport = None
+            for league_key, config in self.league_configs.items():
+                if config.get('logo_dir') == game.get('logo_dir'):
+                    sport = config.get('sport')
+                    break
+            
+            if sport == 'baseball':
+                # Show bases occupied for baseball
+                bases = live_info.get('bases_occupied', [False, False, False])
+                bases_text = ""
+                if bases[0]: bases_text += "1"
+                if bases[1]: bases_text += "2"
+                if bases[2]: bases_text += "3"
+                if not bases_text: bases_text = "---"
+                
+                away_odds_text = f"Bases: {bases_text}"
+                home_odds_text = f"Count: {live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
+                
+            elif sport == 'football':
+                # Show possession and yard line for football
+                possession = live_info.get('possession', '')
+                yard_line = live_info.get('yard_line', 0)
+                
+                away_odds_text = f"Ball: {possession}"
+                home_odds_text = f"Yard: {yard_line}"
+                
+            elif sport == 'basketball':
+                # Show possession for basketball
+                possession = live_info.get('possession', '')
+                
+                away_odds_text = f"Ball: {possession}"
+                home_odds_text = f"Time: {live_info.get('time_remaining', '')}"
+                
+            elif sport == 'hockey':
+                # Show power play status for hockey
+                power_play = live_info.get('power_play', False)
+                
+                away_odds_text = "Power Play" if power_play else "Even"
+                home_odds_text = f"Time: {live_info.get('time_remaining', '')}"
+                
+            else:
+                # Generic live status
+                away_odds_text = "LIVE"
+                home_odds_text = live_info.get('clock', '')
+        else:
+            # Show odds for non-live games
+            # Simplified odds placement logic
+            if home_favored:
+                home_odds_text = f"{home_spread}"
+                if over_under:
+                    away_odds_text = f"O/U {over_under}"
+            elif away_favored:
+                away_odds_text = f"{away_spread}"
+                if over_under:
+                    home_odds_text = f"O/U {over_under}"
+            elif over_under:
                 home_odds_text = f"O/U {over_under}"
-        elif over_under:
-            home_odds_text = f"O/U {over_under}"
         
         away_odds_width = int(temp_draw.textlength(away_odds_text, font=odds_font))
         home_odds_width = int(temp_draw.textlength(home_odds_text, font=odds_font))
@@ -753,7 +1033,13 @@ class OddsTickerManager:
 
         # "vs."
         y_pos = (height - vs_font.size) // 2 if hasattr(vs_font, 'size') else (height - 8) // 2 # Added fallback for default font
-        draw.text((current_x, y_pos), vs_text, font=vs_font, fill=(255, 255, 255))
+        
+        # Use red color for live game "vs." text to make it stand out
+        vs_color = (255, 255, 255)  # White for regular games
+        if is_live and live_info:
+            vs_color = (255, 0, 0)  # Red for live games
+        
+        draw.text((current_x, y_pos), vs_text, font=vs_font, fill=vs_color)
         current_x += vs_width + h_padding
 
         # Home Logo
@@ -766,8 +1052,14 @@ class OddsTickerManager:
         team_font_height = team_font.size if hasattr(team_font, 'size') else 8
         away_y = 2
         home_y = height - team_font_height - 2
-        draw.text((current_x, away_y), away_team_text, font=team_font, fill=(255, 255, 255))
-        draw.text((current_x, home_y), home_team_text, font=team_font, fill=(255, 255, 255))
+        
+        # Use red color for live game scores to make them stand out
+        team_color = (255, 255, 255)  # White for regular team info
+        if is_live and live_info:
+            team_color = (255, 0, 0)  # Red for live games
+        
+        draw.text((current_x, away_y), away_team_text, font=team_font, fill=team_color)
+        draw.text((current_x, home_y), home_team_text, font=team_font, fill=team_color)
         current_x += team_info_width + h_padding
 
         # Odds (stacked)
@@ -777,6 +1069,10 @@ class OddsTickerManager:
         
         # Use a consistent color for all odds text
         odds_color = (0, 255, 0) # Green
+        
+        # Use red color for live game information to make it stand out
+        if is_live and live_info:
+            odds_color = (255, 0, 0)  # Red for live games
 
         draw.text((current_x, odds_y_away), away_odds_text, font=odds_font, fill=odds_color)
         draw.text((current_x, odds_y_home), home_odds_text, font=odds_font, fill=odds_color)
@@ -804,9 +1100,14 @@ class OddsTickerManager:
         date_x = current_x + (datetime_col_width - date_text_width) // 2
         time_x = current_x + (datetime_col_width - time_text_width) // 2
 
-        draw.text((day_x, day_y), day_text, font=datetime_font, fill=(255, 255, 255))
-        draw.text((date_x, date_y), date_text, font=datetime_font, fill=(255, 255, 255))
-        draw.text((time_x, time_y), time_text, font=datetime_font, fill=(255, 255, 255))
+        # Use red color for live game information to make it stand out
+        datetime_color = (255, 255, 255)  # White for regular date/time
+        if is_live and live_info:
+            datetime_color = (255, 0, 0)  # Red for live games
+
+        draw.text((day_x, day_y), day_text, font=datetime_font, fill=datetime_color)
+        draw.text((date_x, date_y), date_text, font=datetime_font, fill=datetime_color)
+        draw.text((time_x, time_y), time_text, font=datetime_font, fill=datetime_color)
         current_x += datetime_col_width + h_padding # Add padding after datetime
 
         if broadcast_logo:
