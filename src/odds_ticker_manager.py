@@ -932,8 +932,8 @@ class OddsTickerManager:
         if is_live and live_info:
             away_score = live_info.get('away_score', 0)
             home_score = live_info.get('home_score', 0)
-            away_team_text = f"{game.get('away_team_name', game.get('away_team', 'N/A'))} {away_score}"
-            home_team_text = f"{game.get('home_team_name', game.get('home_team', 'N/A'))} {home_score}"
+            away_team_text = f"{game.get('away_team_name', game.get('away_team', 'N/A'))}: {away_score} "
+            home_team_text = f"{game.get('home_team_name', game.get('home_team', 'N/A'))}: {home_score} "
         
         away_team_width = int(temp_draw.textlength(away_team_text, font=team_font))
         home_team_width = int(temp_draw.textlength(home_team_text, font=team_font))
