@@ -743,6 +743,37 @@ class OddsTickerManager:
         
         return " ".join(odds_parts)
 
+    def _draw_base_indicators(self, draw: ImageDraw.Draw, bases_occupied: List[bool], center_x: int, y: int) -> None:
+        """Draw base indicators on the display similar to MLB manager."""
+        base_size = 6  # Smaller size for odds ticker
+        base_spacing = 8  # Smaller spacing for odds ticker
+        
+        # Draw diamond outline
+        diamond_points = [
+            (center_x, y),  # Home
+            (center_x - base_spacing, y - base_spacing),  # First
+            (center_x, y - 2 * base_spacing),  # Second
+            (center_x + base_spacing, y - base_spacing)  # Third
+        ]
+        
+        # Draw diamond outline
+        for i in range(len(diamond_points)):
+            start = diamond_points[i]
+            end = diamond_points[(i + 1) % len(diamond_points)]
+            draw.line([start, end], fill=(255, 255, 255), width=1)
+        
+        # Draw occupied bases
+        for i, occupied in enumerate(bases_occupied):
+            x = diamond_points[i+1][0] - base_size//2
+            y = diamond_points[i+1][1] - base_size//2
+            
+            if occupied:
+                # Draw filled circle for occupied base
+                draw.ellipse([x, y, x + base_size, y + base_size], fill=(255, 255, 255))
+            else:
+                # Draw empty base with outline
+                draw.ellipse([x, y, x + base_size, y + base_size], outline=(255, 255, 255), width=1)
+
     def _create_game_display(self, game: Dict[str, Any]) -> Image.Image:
         """Create a display image for a game in the new format."""
         width = self.display_manager.matrix.width
@@ -861,6 +892,13 @@ class OddsTickerManager:
                 date_text = count_text
                 time_text = outs_text
                 
+                # For baseball, we'll use graphical base indicators instead of text
+                # Set the odds text to just show the count
+                away_odds_text = f"Count: {live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
+                home_odds_text = f"Outs: {live_info.get('outs', 0)}"
+                
+                # Store bases data for later drawing
+                self._bases_data = live_info.get('bases_occupied', [False, False, False])
             elif sport == 'football':
                 # Football: Show quarter and down/distance
                 quarter_text = f"Q{live_info.get('quarter', 1)}"
@@ -1103,6 +1141,25 @@ class OddsTickerManager:
         draw.text((current_x, odds_y_away), away_odds_text, font=odds_font, fill=odds_color)
         draw.text((current_x, odds_y_home), home_odds_text, font=odds_font, fill=odds_color)
         current_x += odds_width + h_padding
+        
+        # Draw graphical bases for baseball live games
+        if is_live and live_info and hasattr(self, '_bases_data'):
+            sport = None
+            for league_key, config in self.league_configs.items():
+                if config.get('logo_dir') == game.get('logo_dir'):
+                    sport = config.get('sport')
+                    break
+            
+            if sport == 'baseball':
+                # Calculate position for base indicators (center of the odds column)
+                bases_x = current_x - odds_width - h_padding + (odds_width // 2)
+                bases_y = height // 2
+                
+                # Draw the base indicators
+                self._draw_base_indicators(draw, self._bases_data, bases_x, bases_y)
+                
+                # Clear the bases data after drawing
+                delattr(self, '_bases_data')
         
         # Datetime (stacked, 3 rows) - Center justified
         datetime_font_height = datetime_font.size if hasattr(datetime_font, 'size') else 6
