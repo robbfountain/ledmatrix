@@ -1251,6 +1251,17 @@ class OddsTickerManager:
 
     def get_dynamic_duration(self) -> int:
         """Get the calculated dynamic duration for display"""
+        # If we don't have a valid dynamic duration yet (total_scroll_width is 0),
+        # try to update the data first
+        if self.total_scroll_width == 0 and self.is_enabled:
+            logger.debug("get_dynamic_duration called but total_scroll_width is 0, attempting update...")
+            try:
+                # Force an update to get the data and calculate proper duration
+                self._perform_update()
+            except Exception as e:
+                logger.error(f"Error updating odds ticker for dynamic duration: {e}")
+        
+        logger.debug(f"get_dynamic_duration called, returning: {self.dynamic_duration}s")
         return self.dynamic_duration
 
     def update(self):
