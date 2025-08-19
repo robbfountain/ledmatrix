@@ -265,6 +265,9 @@ class OddsTickerManager:
         now = datetime.now(timezone.utc)
         
         logger.debug(f"Fetching upcoming games for {len(self.enabled_leagues)} enabled leagues")
+        logger.debug(f"Enabled leagues: {self.enabled_leagues}")
+        logger.debug(f"Show favorite teams only: {self.show_favorite_teams_only}")
+        logger.debug(f"Show odds only: {self.show_odds_only}")
         
         for league_key in self.enabled_leagues:
             if league_key not in self.league_configs:
@@ -283,15 +286,18 @@ class OddsTickerManager:
                 if self.show_favorite_teams_only:
                     # For each favorite team, find their next N games
                     favorite_teams = league_config.get('favorite_teams', [])
+                    logger.debug(f"Favorite teams for {league_key}: {favorite_teams}")
                     seen_game_ids = set()
                     for team in favorite_teams:
                         # Find games where this team is home or away
                         team_games = [g for g in all_games if (g['home_team'] == team or g['away_team'] == team)]
+                        logger.debug(f"Found {len(team_games)} games for team {team}")
                         # Sort by start_time
                         team_games.sort(key=lambda x: x.get('start_time', datetime.max))
                         # Only keep games with odds if show_odds_only is set
                         if self.show_odds_only:
                             team_games = [g for g in team_games if g.get('odds')]
+                            logger.debug(f"After odds filter: {len(team_games)} games for team {team}")
                         # Take the next N games for this team
                         for g in team_games[:self.games_per_favorite_team]:
                             if g['id'] not in seen_game_ids:
@@ -314,11 +320,14 @@ class OddsTickerManager:
                 # (Other sort options can be added here)
                 
                 games_data.extend(league_games)
+                logger.debug(f"Added {len(league_games)} games from {league_key}")
                 
             except Exception as e:
                 logger.error(f"Error fetching games for {league_key}: {e}")
         
         logger.debug(f"Total games found: {len(games_data)}")
+        if games_data:
+            logger.debug(f"Sample game data keys: {list(games_data[0].keys())}")
         return games_data
 
     def _fetch_league_games(self, league_config: Dict[str, Any], now: datetime) -> List[Dict[str, Any]]:
@@ -1141,6 +1150,8 @@ class OddsTickerManager:
     def _create_ticker_image(self):
         """Create a single wide image containing all game tickers."""
         logger.debug("Entering _create_ticker_image method")
+        logger.debug(f"Number of games in games_data: {len(self.games_data) if self.games_data else 0}")
+        
         if not self.games_data:
             logger.warning("No games data available, cannot create ticker image.")
             self.ticker_image = None
@@ -1148,6 +1159,8 @@ class OddsTickerManager:
 
         logger.debug(f"Creating ticker image for {len(self.games_data)} games.")
         game_images = [self._create_game_display(game) for game in self.games_data]
+        logger.debug(f"Created {len(game_images)} game images")
+        
         if not game_images:
             logger.warning("Failed to create any game images.")
             self.ticker_image = None
@@ -1158,6 +1171,13 @@ class OddsTickerManager:
         content_width = sum(img.width for img in game_images) + gap_width * (len(game_images))
         total_width = display_width + content_width
         height = self.display_manager.matrix.height
+
+        logger.debug(f"Image creation details:")
+        logger.debug(f"  Display width: {display_width}px")
+        logger.debug(f"  Content width: {content_width}px")
+        logger.debug(f"  Total image width: {total_width}px")
+        logger.debug(f"  Number of games: {len(game_images)}")
+        logger.debug(f"  Gap width: {gap_width}px")
 
         self.ticker_image = Image.new('RGB', (total_width, height), color=(0, 0, 0))
         
@@ -1180,6 +1200,7 @@ class OddsTickerManager:
         logger.debug(f"  Total image width: {total_width}px")
         logger.debug(f"  Number of games: {len(game_images)}")
         logger.debug(f"  Gap width: {gap_width}px")
+        logger.debug(f"  Set total_scroll_width to: {self.total_scroll_width}px")
         self.calculate_dynamic_duration()
 
     def _draw_text_with_outline(self, draw: ImageDraw.Draw, text: str, position: tuple, font: ImageFont.FreeTypeFont, 
