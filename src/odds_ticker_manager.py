@@ -650,7 +650,8 @@ class OddsTickerManager:
                 inning_half_indicator = "▲" if live_info.get('inning_half') == 'top' else "▼"
                 inning_text = f"{inning_half_indicator}{live_info.get('inning', 1)}"
                 count_text = f"{live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
-                outs_text = f"{live_info.get('outs', 0)} out"
+                outs_count = live_info.get('outs', 0)
+                outs_text = f"{outs_count} out" if outs_count == 1 else f"{outs_count} outs"
                 return f"[LIVE] {game.get('away_team_name', game['away_team'])} {away_score} vs {game.get('home_team_name', game['home_team'])} {home_score} - {inning_text} {count_text} {outs_text}"
                 
             elif sport == 'football':
@@ -853,7 +854,8 @@ class OddsTickerManager:
                 inning_half_indicator = "▲" if live_info.get('inning_half') == 'top' else "▼"
                 inning_text = f"{inning_half_indicator}{live_info.get('inning', 1)}"
                 count_text = f"{live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
-                outs_text = f"{live_info.get('outs', 0)} out"
+                outs_count = live_info.get('outs', 0)
+                outs_text = f"{outs_count} out" if outs_count == 1 else f"{outs_count} outs"
                 
                 day_text = inning_text
                 date_text = count_text
