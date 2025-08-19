@@ -1139,7 +1139,7 @@ class OddsTickerManager:
         draw.text((current_x, home_y), home_team_text, font=team_font, fill=team_color)
         current_x += team_info_width + h_padding
 
-        # Odds (stacked)
+        # Odds (stacked) - Skip text for baseball live games, draw bases instead
         odds_font_height = odds_font.size if hasattr(odds_font, 'size') else 8
         odds_y_away = 2
         odds_y_home = height - odds_font_height - 2
@@ -1151,11 +1151,8 @@ class OddsTickerManager:
         if is_live and live_info:
             odds_color = (255, 0, 0)  # Red for live games
 
-        draw.text((current_x, odds_y_away), away_odds_text, font=odds_font, fill=odds_color)
-        draw.text((current_x, odds_y_home), home_odds_text, font=odds_font, fill=odds_color)
-        current_x += odds_width + h_padding
-        
-        # Draw graphical bases for baseball live games
+        # Check if this is a baseball live game
+        is_baseball_live = False
         if is_live and live_info and hasattr(self, '_bases_data'):
             sport = None
             for league_key, config in self.league_configs.items():
@@ -1164,9 +1161,9 @@ class OddsTickerManager:
                     break
             
             if sport == 'baseball':
-                # Calculate position for base indicators (center of the odds column)
-                # Use the current_x position before we move to the next column
-                bases_x = current_x - odds_width + (odds_width // 2)
+                is_baseball_live = True
+                # Draw graphical bases instead of text
+                bases_x = current_x + (odds_width // 2)
                 bases_y = height // 2
                 
                 # Ensure the bases don't go off the edge of the image
@@ -1177,6 +1174,12 @@ class OddsTickerManager:
                 
                 # Clear the bases data after drawing
                 delattr(self, '_bases_data')
+        else:
+            # Draw regular odds text for non-baseball games
+            draw.text((current_x, odds_y_away), away_odds_text, font=odds_font, fill=odds_color)
+            draw.text((current_x, odds_y_home), home_odds_text, font=odds_font, fill=odds_color)
+        
+        current_x += odds_width + h_padding
         
         # Datetime (stacked, 3 rows) - Center justified
         datetime_font_height = datetime_font.size if hasattr(datetime_font, 'size') else 6
