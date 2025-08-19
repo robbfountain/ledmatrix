@@ -12,6 +12,14 @@ from src.cache_manager import CacheManager
 from src.config_manager import ConfigManager
 from src.odds_manager import OddsManager
 
+# Import the API counter function from web interface
+try:
+    from web_interface_v2 import increment_api_counter
+except ImportError:
+    # Fallback if web interface is not available
+    def increment_api_counter(kind: str, count: int = 1):
+        pass
+
 # Get logger
 logger = logging.getLogger(__name__)
 
@@ -214,6 +222,9 @@ class OddsTickerManager:
             response.raise_for_status()
             data = response.json()
             
+            # Increment API counter for sports data
+            increment_api_counter('sports', 1)
+            
             # Different path for college sports records
             if league == 'college-football':
                  record_items = data.get('team', {}).get('record', {}).get('items', [])
@@ -371,6 +382,10 @@ class OddsTickerManager:
                         response = requests.get(url, timeout=self.request_timeout)
                         response.raise_for_status()
                         data = response.json()
+                        
+                        # Increment API counter for sports data
+                        increment_api_counter('sports', 1)
+                        
                         self.cache_manager.set(cache_key, data)
                         logger.debug(f"Cached scoreboard for {league} on {date} with a TTL of {ttl} seconds.")
                     else:
@@ -1140,7 +1155,8 @@ class OddsTickerManager:
 
         gap_width = 24  # Reduced gap between games
         display_width = self.display_manager.matrix.width  # Add display width of black space at start
-        total_width = display_width + sum(img.width for img in game_images) + gap_width * (len(game_images))
+        content_width = sum(img.width for img in game_images) + gap_width * (len(game_images))
+        total_width = display_width + content_width
         height = self.display_manager.matrix.height
 
         self.ticker_image = Image.new('RGB', (total_width, height), color=(0, 0, 0))
@@ -1156,8 +1172,14 @@ class OddsTickerManager:
                     self.ticker_image.putpixel((bar_x, y), (255, 255, 255))
             current_x += gap_width
             
-        # Calculate total scroll width for dynamic duration
-        self.total_scroll_width = total_width
+        # Calculate total scroll width for dynamic duration (only the content width, not including display width)
+        self.total_scroll_width = content_width
+        logger.debug(f"Odds ticker image creation:")
+        logger.debug(f"  Display width: {display_width}px")
+        logger.debug(f"  Content width: {content_width}px")
+        logger.debug(f"  Total image width: {total_width}px")
+        logger.debug(f"  Number of games: {len(game_images)}")
+        logger.debug(f"  Gap width: {gap_width}px")
         self.calculate_dynamic_duration()
 
     def _draw_text_with_outline(self, draw: ImageDraw.Draw, text: str, position: tuple, font: ImageFont.FreeTypeFont, 
@@ -1278,6 +1300,9 @@ class OddsTickerManager:
         """Display the odds ticker."""
         logger.debug("Entering display method")
         logger.debug(f"Odds ticker enabled: {self.is_enabled}")
+        logger.debug(f"Current scroll position: {self.scroll_position}")
+        logger.debug(f"Ticker image width: {self.ticker_image.width if self.ticker_image else 'None'}")
+        logger.debug(f"Dynamic duration: {self.dynamic_duration}s")
         
         if not self.is_enabled:
             logger.debug("Odds ticker is disabled, exiting display method.")
@@ -1326,10 +1351,12 @@ class OddsTickerManager:
             if self.loop:
                 # Reset position when we've scrolled past the end for a continuous loop
                 if self.scroll_position >= self.ticker_image.width:
+                    logger.debug(f"Odds ticker loop reset: scroll_position {self.scroll_position} >= image width {self.ticker_image.width}")
                     self.scroll_position = 0
             else:
                 # Stop scrolling when we reach the end
                 if self.scroll_position >= self.ticker_image.width - width:
+                    logger.debug(f"Odds ticker reached end: scroll_position {self.scroll_position} >= {self.ticker_image.width - width}")
                     self.scroll_position = self.ticker_image.width - width
                     # Signal that scrolling has stopped
                     self.display_manager.set_scrolling_state(False)
