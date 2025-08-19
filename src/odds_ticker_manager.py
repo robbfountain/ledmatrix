@@ -1437,6 +1437,11 @@ class OddsTickerManager:
             logger.debug("Odds ticker is disabled, exiting display method.")
             return
         
+        # Initialize display start time if not set
+        if not hasattr(self, '_display_start_time'):
+            self._display_start_time = time.time()
+            logger.debug(f"Initialized display start time: {self._display_start_time}")
+        
         logger.debug(f"Number of games in data at start of display method: {len(self.games_data)}")
         if not self.games_data:
             logger.warning("Odds ticker has no games data. Attempting to update...")
@@ -1493,27 +1498,23 @@ class OddsTickerManager:
             # Check if we're at a natural break point for mode switching
             # If we're near the end of the display duration and not at a clean break point,
             # adjust the scroll position to complete the current game display
-            if hasattr(self, '_display_start_time'):
-                elapsed_time = current_time - self._display_start_time
-                remaining_time = self.dynamic_duration - elapsed_time
+            elapsed_time = current_time - self._display_start_time
+            remaining_time = self.dynamic_duration - elapsed_time
+            
+            # If we have less than 2 seconds remaining and we're not at a clean break point,
+            # try to complete the current game display
+            if remaining_time < 2.0 and self.scroll_position > 0:
+                # Calculate how much time we need to complete the current scroll position
+                frames_to_complete = (self.ticker_image.width - self.scroll_position) / self.scroll_speed
+                time_to_complete = frames_to_complete * self.scroll_delay
                 
-                # If we have less than 2 seconds remaining and we're not at a clean break point,
-                # try to complete the current game display
-                if remaining_time < 2.0 and self.scroll_position > 0:
-                    # Calculate how much time we need to complete the current scroll position
-                    frames_to_complete = (self.ticker_image.width - self.scroll_position) / self.scroll_speed
-                    time_to_complete = frames_to_complete * self.scroll_delay
-                    
-                    if time_to_complete <= remaining_time:
-                        # We have enough time to complete the scroll, continue normally
-                        pass
-                    else:
-                        # Not enough time, reset to beginning for clean transition
-                        logger.debug(f"Display ending soon, resetting scroll position for clean transition")
-                        self.scroll_position = 0
-            else:
-                # First time through, record the start time
-                self._display_start_time = current_time
+                if time_to_complete <= remaining_time:
+                    # We have enough time to complete the scroll, continue normally
+                    pass
+                else:
+                    # Not enough time, reset to beginning for clean transition
+                    logger.debug(f"Display ending soon, resetting scroll position for clean transition")
+                    self.scroll_position = 0
             
             # Create the visible part of the image by pasting from the ticker_image
             visible_image = Image.new('RGB', (width, height))
