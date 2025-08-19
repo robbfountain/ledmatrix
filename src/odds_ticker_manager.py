@@ -881,19 +881,8 @@ class OddsTickerManager:
                     break
             
             if sport == 'baseball':
-                # Baseball: Show inning and count
-                inning_half_indicator = "▲" if live_info.get('inning_half') == 'top' else "▼"
-                inning_text = f"{inning_half_indicator}{live_info.get('inning', 1)}"
-                count_text = f"{live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
-                outs_count = live_info.get('outs', 0)
-                outs_text = f"{outs_count} out" if outs_count == 1 else f"{outs_count} outs"
-                
-                day_text = inning_text
-                date_text = count_text
-                time_text = outs_text
-                
                 # For baseball, we'll use graphical base indicators instead of text
-                # Set the odds text to just show the count
+                # Set the odds text to just show the count and outs
                 away_odds_text = f"Count: {live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
                 home_odds_text = f"Outs: {live_info.get('outs', 0)}"
                 
@@ -1152,11 +1141,15 @@ class OddsTickerManager:
             
             if sport == 'baseball':
                 # Calculate position for base indicators (center of the odds column)
-                bases_x = current_x - odds_width - h_padding + (odds_width // 2)
+                # Use the current_x position before we move to the next column
+                bases_x = current_x - odds_width + (odds_width // 2)
                 bases_y = height // 2
                 
-                # Draw the base indicators
-                self._draw_base_indicators(draw, self._bases_data, bases_x, bases_y)
+                # Ensure the bases don't go off the edge of the image
+                base_diamond_size = 16  # Total size of the diamond (8px spacing * 2)
+                if bases_x - base_diamond_size >= 0 and bases_x + base_diamond_size <= image.width:
+                    # Draw the base indicators
+                    self._draw_base_indicators(draw, self._bases_data, bases_x, bases_y)
                 
                 # Clear the bases data after drawing
                 delattr(self, '_bases_data')
