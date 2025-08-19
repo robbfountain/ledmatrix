@@ -745,34 +745,49 @@ class OddsTickerManager:
 
     def _draw_base_indicators(self, draw: ImageDraw.Draw, bases_occupied: List[bool], center_x: int, y: int) -> None:
         """Draw base indicators on the display similar to MLB manager."""
-        base_size = 6  # Smaller size for odds ticker
-        base_spacing = 8  # Smaller spacing for odds ticker
+        base_diamond_size = 8  # Match MLB manager size
+        base_horiz_spacing = 10  # Match MLB manager spacing
+        base_vert_spacing = 8  # Vertical spacing for odds ticker
+        base_cluster_width = base_diamond_size + base_horiz_spacing + base_diamond_size
+        base_cluster_height = base_diamond_size + base_vert_spacing + base_diamond_size
         
-        # Draw diamond outline
-        diamond_points = [
-            (center_x, y),  # Home
-            (center_x - base_spacing, y - base_spacing),  # First
-            (center_x, y - 2 * base_spacing),  # Second
-            (center_x + base_spacing, y - base_spacing)  # Third
-        ]
+        # Calculate cluster dimensions and positioning
+        bases_origin_x = center_x - (base_cluster_width // 2)
+        overall_start_y = y - (base_cluster_height // 2)
         
-        # Draw diamond outline
-        for i in range(len(diamond_points)):
-            start = diamond_points[i]
-            end = diamond_points[(i + 1) % len(diamond_points)]
-            draw.line([start, end], fill=(255, 255, 255), width=1)
+        # Draw diamond-shaped bases like MLB manager
+        base_color_occupied = (255, 255, 255)
+        base_color_empty = (255, 255, 255)  # Outline color
+        h_d = base_diamond_size // 2
         
-        # Draw occupied bases
-        for i, occupied in enumerate(bases_occupied):
-            x = diamond_points[i+1][0] - base_size//2
-            y = diamond_points[i+1][1] - base_size//2
-            
-            if occupied:
-                # Draw filled circle for occupied base
-                draw.ellipse([x, y, x + base_size, y + base_size], fill=(255, 255, 255))
-            else:
-                # Draw empty base with outline
-                draw.ellipse([x, y, x + base_size, y + base_size], outline=(255, 255, 255), width=1)
+        # 2nd Base (Top center)
+        c2x = bases_origin_x + base_cluster_width // 2
+        c2y = overall_start_y + h_d
+        poly2 = [(c2x, overall_start_y), (c2x + h_d, c2y), (c2x, c2y + h_d), (c2x - h_d, c2y)]
+        if bases_occupied[1]:
+            draw.polygon(poly2, fill=base_color_occupied)
+        else:
+            draw.polygon(poly2, outline=base_color_empty)
+        
+        base_bottom_y = c2y + h_d  # Bottom Y of 2nd base diamond
+        
+        # 3rd Base (Bottom left)
+        c3x = bases_origin_x + h_d
+        c3y = base_bottom_y + base_vert_spacing + h_d
+        poly3 = [(c3x, base_bottom_y + base_vert_spacing), (c3x + h_d, c3y), (c3x, c3y + h_d), (c3x - h_d, c3y)]
+        if bases_occupied[2]:
+            draw.polygon(poly3, fill=base_color_occupied)
+        else:
+            draw.polygon(poly3, outline=base_color_empty)
+
+        # 1st Base (Bottom right)
+        c1x = bases_origin_x + base_cluster_width - h_d
+        c1y = base_bottom_y + base_vert_spacing + h_d
+        poly1 = [(c1x, base_bottom_y + base_vert_spacing), (c1x + h_d, c1y), (c1x, c1y + h_d), (c1x - h_d, c1y)]
+        if bases_occupied[0]:
+            draw.polygon(poly1, fill=base_color_occupied)
+        else:
+            draw.polygon(poly1, outline=base_color_empty)
 
     def _create_game_display(self, game: Dict[str, Any]) -> Image.Image:
         """Create a display image for a game in the new format."""
@@ -1077,7 +1092,7 @@ class OddsTickerManager:
             
             if sport == 'baseball':
                 # Ensure minimum width for the graphical bases
-                min_bases_width = 20  # Minimum width needed for the base diamond
+                min_bases_width = 30  # Minimum width needed for the base diamond cluster
                 odds_width = max(odds_width, min_bases_width)
 
         # --- Calculate total width ---
@@ -1164,11 +1179,13 @@ class OddsTickerManager:
                 is_baseball_live = True
                 # Draw graphical bases instead of text
                 bases_x = current_x + (odds_width // 2)
-                bases_y = height // 2
+                # Shift bases down a bit more for better positioning
+                bases_y = (height // 2) + 2  # Move down 2 pixels from center
                 
                 # Ensure the bases don't go off the edge of the image
-                base_diamond_size = 16  # Total size of the diamond (8px spacing * 2)
-                if bases_x - base_diamond_size >= 0 and bases_x + base_diamond_size <= image.width:
+                base_diamond_size = 8  # Total size of the diamond
+                base_cluster_width = 26  # Width of the base cluster (8 + 10 + 8)
+                if bases_x - (base_cluster_width // 2) >= 0 and bases_x + (base_cluster_width // 2) <= image.width:
                     # Draw the base indicators
                     self._draw_base_indicators(draw, self._bases_data, bases_x, bases_y)
                 
