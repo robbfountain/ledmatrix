@@ -882,9 +882,9 @@ class OddsTickerManager:
             
             if sport == 'baseball':
                 # For baseball, we'll use graphical base indicators instead of text
-                # Set the odds text to just show the count and outs
-                away_odds_text = f"Count: {live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
-                home_odds_text = f"Outs: {live_info.get('outs', 0)}"
+                # Don't show any text for bases - the graphical display will replace this section
+                away_odds_text = ""
+                home_odds_text = ""
                 
                 # Store bases data for later drawing
                 self._bases_data = live_info.get('bases_occupied', [False, False, False])
@@ -1055,6 +1055,19 @@ class OddsTickerManager:
         away_odds_width = int(temp_draw.textlength(away_odds_text, font=odds_font))
         home_odds_width = int(temp_draw.textlength(home_odds_text, font=odds_font))
         odds_width = max(away_odds_width, home_odds_width)
+        
+        # For baseball live games, ensure minimum width for graphical bases
+        if is_live and live_info and hasattr(self, '_bases_data'):
+            sport = None
+            for league_key, config in self.league_configs.items():
+                if config.get('logo_dir') == game.get('logo_dir'):
+                    sport = config.get('sport')
+                    break
+            
+            if sport == 'baseball':
+                # Ensure minimum width for the graphical bases
+                min_bases_width = 20  # Minimum width needed for the base diamond
+                odds_width = max(odds_width, min_bases_width)
 
         # --- Calculate total width ---
         # Start with the sum of all visible components and consistent padding
