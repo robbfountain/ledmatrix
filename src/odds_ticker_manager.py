@@ -853,7 +853,7 @@ class OddsTickerManager:
                 inning_half_indicator = "▲" if live_info.get('inning_half') == 'top' else "▼"
                 inning_text = f"{inning_half_indicator}{live_info.get('inning', 1)}"
                 count_text = f"{live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
-                outs_text = f"{live_info.get('outs', 0)}out"
+                outs_text = f"{live_info.get('outs', 0)} out"
                 
                 day_text = inning_text
                 date_text = count_text
@@ -1247,7 +1247,16 @@ class OddsTickerManager:
             
             # Add buffer time for smooth cycling (configurable %)
             buffer_time = total_time * self.duration_buffer
-            calculated_duration = int(total_time + buffer_time)
+            
+            # If looping is enabled, ensure we complete at least one full cycle
+            # and add extra time to ensure we don't cut off mid-scroll
+            if self.loop:
+                # Add extra buffer for looping to ensure smooth transition
+                loop_buffer = total_time * 0.2  # 20% extra for looping
+                calculated_duration = int(total_time + buffer_time + loop_buffer)
+                logger.debug(f"Looping enabled, added {loop_buffer:.2f}s loop buffer")
+            else:
+                calculated_duration = int(total_time + buffer_time)
             
             # Apply configured min/max limits
             if calculated_duration < self.min_duration:
@@ -1266,6 +1275,7 @@ class OddsTickerManager:
             logger.debug(f"  Frames needed: {frames_needed:.1f}")
             logger.debug(f"  Base time: {total_time:.2f}s")
             logger.debug(f"  Buffer time: {buffer_time:.2f}s ({self.duration_buffer*100}%)")
+            logger.debug(f"  Looping enabled: {self.loop}")
             logger.debug(f"  Calculated duration: {calculated_duration}s")
             logger.debug(f"  Final duration: {self.dynamic_duration}s")
             
@@ -1400,6 +1410,31 @@ class OddsTickerManager:
                     self.scroll_position = self.ticker_image.width - width
                     # Signal that scrolling has stopped
                     self.display_manager.set_scrolling_state(False)
+            
+            # Check if we're at a natural break point for mode switching
+            # If we're near the end of the display duration and not at a clean break point,
+            # adjust the scroll position to complete the current game display
+            if hasattr(self, '_display_start_time'):
+                elapsed_time = current_time - self._display_start_time
+                remaining_time = self.dynamic_duration - elapsed_time
+                
+                # If we have less than 2 seconds remaining and we're not at a clean break point,
+                # try to complete the current game display
+                if remaining_time < 2.0 and self.scroll_position > 0:
+                    # Calculate how much time we need to complete the current scroll position
+                    frames_to_complete = (self.ticker_image.width - self.scroll_position) / self.scroll_speed
+                    time_to_complete = frames_to_complete * self.scroll_delay
+                    
+                    if time_to_complete <= remaining_time:
+                        # We have enough time to complete the scroll, continue normally
+                        pass
+                    else:
+                        # Not enough time, reset to beginning for clean transition
+                        logger.debug(f"Display ending soon, resetting scroll position for clean transition")
+                        self.scroll_position = 0
+            else:
+                # First time through, record the start time
+                self._display_start_time = current_time
             
             # Create the visible part of the image by pasting from the ticker_image
             visible_image = Image.new('RGB', (width, height))
