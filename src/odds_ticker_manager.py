@@ -1178,8 +1178,8 @@ class OddsTickerManager:
             if sport == 'baseball':
                 is_baseball_live = True
                 # Draw graphical bases instead of text
-                # Position bases at the right edge of odds column to be closer to inning indicator
-                bases_x = current_x + odds_width - 12  # Move to right edge, offset by half cluster width (24/2 = 12)
+                # Position bases at the left side of odds column to be closer to scores
+                bases_x = current_x + 12  # Position at left side, offset by half cluster width (24/2 = 12)
                 # Shift bases down a bit more for better positioning
                 bases_y = (height // 2) + 2  # Move down 2 pixels from center
                 
@@ -1455,10 +1455,20 @@ class OddsTickerManager:
             logger.debug("Odds ticker is disabled, exiting display method.")
             return
         
-        # Initialize display start time if not set
-        if not hasattr(self, '_display_start_time'):
+        # Reset display start time when force_clear is True or when starting fresh
+        if force_clear or not hasattr(self, '_display_start_time'):
             self._display_start_time = time.time()
-            logger.debug(f"Initialized display start time: {self._display_start_time}")
+            logger.debug(f"Reset/initialized display start time: {self._display_start_time}")
+            # Also reset scroll position for clean start
+            self.scroll_position = 0
+        else:
+            # Check if the display start time is too old (more than 2x the dynamic duration)
+            current_time = time.time()
+            elapsed_time = current_time - self._display_start_time
+            if elapsed_time > (self.dynamic_duration * 2):
+                logger.debug(f"Display start time is too old ({elapsed_time:.1f}s), resetting")
+                self._display_start_time = current_time
+                self.scroll_position = 0
         
         logger.debug(f"Number of games in data at start of display method: {len(self.games_data)}")
         if not self.games_data:
