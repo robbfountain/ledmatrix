@@ -1106,6 +1106,149 @@ MLB Conferences/Divisions
     OAK => Oakland Athletics
     SEA => Seattle Mariners
     TEX => Texas Rangers
+Soccer - Premier League (England)
+  ARS => Arsenal
+  AVL => Aston Villa
+  BHA => Brighton & Hove Albion
+  BOU => AFC Bournemouth
+  BRE => Brentford
+  BUR => Burnley
+  CHE => Chelsea
+  CRY => Crystal Palace
+  EVE => Everton
+  FUL => Fulham
+  LIV => Liverpool
+  LUT => Luton Town
+  MCI => Manchester City
+  MUN => Manchester United
+  NEW => Newcastle United
+  NFO => Nottingham Forest
+  SHU => Sheffield United
+  TOT => Tottenham Hotspur
+  WHU => West Ham United
+  WOL => Wolverhampton Wanderers
+
+Soccer - La Liga (Spain)
+  ALA => Alavés
+  ATH => Athletic Bilbao
+  ATM => Atlético Madrid
+  BAR => Barcelona
+  BET => Real Betis
+  CAG => Cagliari
+  CEL => Celta Vigo
+  ESP => Espanyol
+  GET => Getafe
+  GIR => Girona
+  LAZ => Lazio
+  LEG => Leganés
+  RAY => Rayo Vallecano
+  RMA => Real Madrid
+  SEV => Sevilla
+  VAL => Valencia
+  VLD => Valladolid
+
+Soccer - Bundesliga (Germany)
+  BOC => VfL Bochum
+  BOL => VfL Bochum
+  DOR => Borussia Dortmund
+  FCA => FC Augsburg
+  FCB => Bayern Munich
+  FCU => FC Union Berlin
+  HAC => Hannover 96
+  HDH => Hertha BSC
+  KOL => 1. FC Köln
+  LEV => Bayer Leverkusen
+  M05 => Mainz 05
+  RBL => RB Leipzig
+  SCF => SC Freiburg
+  SGE => Eintracht Frankfurt
+  STU => VfB Stuttgart
+  SVW => Werder Bremen
+  TSG => TSG Hoffenheim
+  WOB => VfL Wolfsburg
+
+Soccer - Serie A (Italy)
+  ATA => Atalanta
+  CAG => Cagliari
+  EMP => Empoli
+  FIO => Fiorentina
+  INT => Inter Milan
+  JUV => Juventus
+  LAZ => Lazio
+  MIL => AC Milan
+  MON => Monza
+  NAP => Napoli
+  ROM => Roma
+  TOR => Torino
+  UDI => Udinese
+  VER => Hellas Verona
+
+Soccer - Ligue 1 (France)
+  LIL => Lille
+  LPM => Lille
+  LYON => Lyon
+  MAR => Marseille
+  MON => Monaco
+  NAN => Nantes
+  NICE => Nice
+  OL => Olympique Lyonnais
+  OM => Olympique de Marseille
+  PAR => Paris Saint-Germain
+  PSG => Paris Saint-Germain
+  REN => Rennes
+  STR => Strasbourg
+
+Soccer - Champions League
+  AJA => Ajax
+  ASM => AS Monaco
+  ASS => AS Saint-Étienne
+  BOC => VfL Bochum
+  CEL => Celtic
+  COM => Club Brugge
+  FCA => FC Augsburg
+  FCB => Bayern Munich
+  FCU => FC Union Berlin
+  FIO => Fiorentina
+  GEN => Genoa
+  HAC => Hannover 96
+  IPS => Ipswich Town
+  KSV => Kaiserslautern
+  LEC => Lecce
+  LIL => Lille
+  LIV => Liverpool
+  M05 => Mainz 05
+  MCI => Manchester City
+  MUN => Manchester United
+  NAN => Nantes
+  OSA => Osasuna
+  RBL => RB Leipzig
+  RCL => RC Lens
+  RMA => Real Madrid
+  SCF => SC Freiburg
+  SGE => Eintracht Frankfurt
+  SR => Sporting CP
+  STP => St. Pauli
+  SVW => Werder Bremen
+  TFC => Toulouse FC
+  TOT => Tottenham Hotspur
+  TSG => TSG Hoffenheim
+  UDI => Udinese
+  VEN => Venezia
+  VFB => VfB Stuttgart
+  VIL => Villarreal
+
+Soccer - Other Teams
+  austin => Austin FC
+  cf_montral => CF Montréal
+  charlotte => Charlotte FC
+  dortmund => Borussia Dortmund
+  gladbach => Borussia Mönchengladbach
+  lafc => Los Angeles FC
+  leverkusen => Bayer Leverkusen
+  nycfc => New York City FC
+  paris_sg => Paris Saint-Germain
+  st_louis => St. Louis City SC
+
 MLS Conferences/Divisions
   Conferences currently unsupported
 
