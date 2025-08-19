@@ -853,7 +853,7 @@ class OddsTickerManager:
                 inning_half_indicator = "▲" if live_info.get('inning_half') == 'top' else "▼"
                 inning_text = f"{inning_half_indicator}{live_info.get('inning', 1)}"
                 count_text = f"{live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
-                outs_text = f"{live_info.get('outs', 0)} out"
+                outs_text = f"{live_info.get('outs', 0)}out"
                 
                 day_text = inning_text
                 date_text = count_text
