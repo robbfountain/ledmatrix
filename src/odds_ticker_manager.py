@@ -746,8 +746,8 @@ class OddsTickerManager:
     def _draw_base_indicators(self, draw: ImageDraw.Draw, bases_occupied: List[bool], center_x: int, y: int) -> None:
         """Draw base indicators on the display similar to MLB manager."""
         base_diamond_size = 8  # Match MLB manager size
-        base_horiz_spacing = 10  # Match MLB manager spacing
-        base_vert_spacing = 8  # Vertical spacing for odds ticker
+        base_horiz_spacing = 8  # Reduced from 10 to 8 for tighter spacing
+        base_vert_spacing = 6  # Reduced from 8 to 6 for tighter vertical spacing
         base_cluster_width = base_diamond_size + base_horiz_spacing + base_diamond_size
         base_cluster_height = base_diamond_size + base_vert_spacing + base_diamond_size
         
@@ -985,8 +985,8 @@ class OddsTickerManager:
         if is_live and live_info:
             away_score = live_info.get('away_score', 0)
             home_score = live_info.get('home_score', 0)
-            away_team_text = f"{game.get('away_team_name', game.get('away_team', 'N/A'))}: {away_score} "
-            home_team_text = f"{game.get('home_team_name', game.get('home_team', 'N/A'))}: {home_score} "
+            away_team_text = f"{game.get('away_team_name', game.get('away_team', 'N/A'))}:{away_score} "
+            home_team_text = f"{game.get('home_team_name', game.get('home_team', 'N/A'))}:{home_score} "
         
         away_team_width = int(temp_draw.textlength(away_team_text, font=team_font))
         home_team_width = int(temp_draw.textlength(home_team_text, font=team_font))
@@ -1178,13 +1178,14 @@ class OddsTickerManager:
             if sport == 'baseball':
                 is_baseball_live = True
                 # Draw graphical bases instead of text
-                bases_x = current_x + (odds_width // 2)
+                # Position bases at the right edge of odds column to be closer to inning indicator
+                bases_x = current_x + odds_width - 12  # Move to right edge, offset by half cluster width (24/2 = 12)
                 # Shift bases down a bit more for better positioning
                 bases_y = (height // 2) + 2  # Move down 2 pixels from center
                 
                 # Ensure the bases don't go off the edge of the image
                 base_diamond_size = 8  # Total size of the diamond
-                base_cluster_width = 26  # Width of the base cluster (8 + 10 + 8)
+                base_cluster_width = 24  # Width of the base cluster (8 + 8 + 8) with tighter spacing
                 if bases_x - (base_cluster_width // 2) >= 0 and bases_x + (base_cluster_width // 2) <= image.width:
                     # Draw the base indicators
                     self._draw_base_indicators(draw, self._bases_data, bases_x, bases_y)
