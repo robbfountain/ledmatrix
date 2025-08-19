@@ -930,8 +930,8 @@ class OddsTickerManager:
         if is_live and live_info:
             away_score = live_info.get('away_score', 0)
             home_score = live_info.get('home_score', 0)
-            away_team_text = f"{game.get('away_team_name', game.get('away_team', 'N/A'))} ({away_score})"
-            home_team_text = f"{game.get('home_team_name', game.get('home_team', 'N/A'))} ({home_score})"
+            away_team_text = f"{game.get('away_team_name', game.get('away_team', 'N/A'))} {away_score}"
+            home_team_text = f"{game.get('home_team_name', game.get('home_team', 'N/A'))} {home_score}"
         
         away_team_width = int(temp_draw.textlength(away_team_text, font=team_font))
         home_team_width = int(temp_draw.textlength(home_team_text, font=team_font))
@@ -975,10 +975,10 @@ class OddsTickerManager:
                 # Show bases occupied for baseball
                 bases = live_info.get('bases_occupied', [False, False, False])
                 bases_text = ""
-                if bases[0]: bases_text += "1"
-                if bases[1]: bases_text += "2"
-                if bases[2]: bases_text += "3"
-                if not bases_text: bases_text = "---"
+                if bases[0]: bases_text += "1B"
+                if bases[1]: bases_text += "2B"
+                if bases[2]: bases_text += "3B"
+                if not bases_text: bases_text = "Empty"
                 
                 away_odds_text = f"Bases: {bases_text}"
                 home_odds_text = f"Count: {live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
