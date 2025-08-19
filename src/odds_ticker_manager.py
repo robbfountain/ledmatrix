@@ -1194,6 +1194,8 @@ class OddsTickerManager:
 
     def calculate_dynamic_duration(self):
         """Calculate the exact time needed to display all odds ticker content"""
+        logger.debug(f"calculate_dynamic_duration called - dynamic_duration_enabled: {self.dynamic_duration_enabled}, total_scroll_width: {self.total_scroll_width}")
+        
         # If dynamic duration is disabled, use fixed duration from config
         if not self.dynamic_duration_enabled:
             self.dynamic_duration = self.odds_ticker_config.get('display_duration', 60)
@@ -1202,6 +1204,7 @@ class OddsTickerManager:
             
         if not self.total_scroll_width:
             self.dynamic_duration = self.min_duration  # Use configured minimum
+            logger.debug(f"total_scroll_width is 0, using minimum duration: {self.min_duration}s")
             return
             
         try:
@@ -1257,7 +1260,12 @@ class OddsTickerManager:
             logger.debug("get_dynamic_duration called but total_scroll_width is 0, attempting update...")
             try:
                 # Force an update to get the data and calculate proper duration
-                self._perform_update()
+                # Bypass the update interval check for duration calculation
+                self.games_data = self._fetch_upcoming_games()
+                self.scroll_position = 0
+                self.current_game_index = 0
+                self._create_ticker_image() # Create the composite image
+                logger.debug(f"Force update completed, total_scroll_width: {self.total_scroll_width}px")
             except Exception as e:
                 logger.error(f"Error updating odds ticker for dynamic duration: {e}")
         

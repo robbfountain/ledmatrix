@@ -6,7 +6,7 @@ import json
 import os
 from io import BytesIO
 import requests
-from typing import Union
+from typing import Union, Dict, Any, Optional
 from PIL import Image, ImageEnhance
 import queue # Added import
 
@@ -14,6 +14,14 @@ import queue # Added import
 from .spotify_client import SpotifyClient
 from .ytm_client import YTMClient
 # Removed: import config
+
+# Import the API counter function from web interface
+try:
+    from web_interface_v2 import increment_api_counter
+except ImportError:
+    # Fallback if web interface is not available
+    def increment_api_counter(kind: str, count: int = 1):
+        pass
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -313,6 +321,10 @@ class MusicManager:
         try:
             response = requests.get(url, timeout=5) # 5-second timeout for image download
             response.raise_for_status() # Raise an exception for bad status codes
+            
+            # Increment API counter for music data
+            increment_api_counter('music', 1)
+            
             img_data = BytesIO(response.content)
             img = Image.open(img_data)
             

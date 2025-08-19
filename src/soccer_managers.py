@@ -14,6 +14,14 @@ from src.config_manager import ConfigManager
 from src.odds_manager import OddsManager
 import pytz
 
+# Import the API counter function from web interface
+try:
+    from web_interface_v2 import increment_api_counter
+except ImportError:
+    # Fallback if web interface is not available
+    def increment_api_counter(kind: str, count: int = 1):
+        pass
+
 # Constants
 # ESPN_SOCCER_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/scoreboards" # Old URL
 ESPN_SOCCER_LEAGUE_SCOREBOARD_URL_FORMAT = "http://site.api.espn.com/apis/site/v2/sports/soccer/{}/scoreboard" # New format string
@@ -192,6 +200,9 @@ class BaseSoccerManager:
                 response = requests.get(url, params=params, timeout=10) # Add timeout
                 response.raise_for_status()
                 data = response.json()
+                
+                # Increment API counter for sports data
+                increment_api_counter('sports', 1)
                 cls.logger.debug(f"[Soccer Map Build] Fetched data for {league_slug}")
 
                 for event in data.get("events", []):
@@ -264,6 +275,10 @@ class BaseSoccerManager:
                     response = requests.get(url, params=params)
                     response.raise_for_status()
                     data = response.json()
+                    
+                    # Increment API counter for sports data
+                    increment_api_counter('sports', 1)
+                    
                     self.logger.info(f"[Soccer] Fetched data from ESPN API for {league_slug} on {fetch_date}")
                     
                     if use_cache:
