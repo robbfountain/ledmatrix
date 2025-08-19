@@ -64,13 +64,15 @@ def test_dynamic_duration():
         if odds_ticker.games_data:
             print("\nSample game data:")
             for i, game in enumerate(odds_ticker.games_data[:3]):  # Show first 3 games
-                print(f"  Game {i+1}: {game['away_team']} @ {game['home_team']}")
-                print(f"    Time: {game['start_time']}")
-                print(f"    League: {game['league']}")
+                print(f"  Game {i+1}: {game.get('away_team', 'Unknown')} @ {game.get('home_team', 'Unknown')}")
+                print(f"    Time: {game.get('start_time', 'Unknown')}")
+                print(f"    League: {game.get('league', 'Unknown')}")
+                print(f"    Sport: {game.get('sport', 'Unknown')}")
                 if game.get('odds'):
                     print(f"    Has odds: Yes")
                 else:
                     print(f"    Has odds: No")
+                print(f"    Available keys: {list(game.keys())}")
                 print()
             
             # Check dynamic duration calculation
