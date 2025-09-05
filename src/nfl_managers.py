@@ -87,7 +87,8 @@ class BaseNFLManager: # Renamed class
 
     def _get_timezone(self):
         try:
-            return pytz.timezone(self.config_manager.get_timezone())
+            timezone_str = self.config.get('timezone', 'UTC')
+            return pytz.timezone(timezone_str)
         except pytz.UnknownTimeZoneError:
             return pytz.utc
 

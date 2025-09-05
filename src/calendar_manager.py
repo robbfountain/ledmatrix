@@ -42,8 +42,7 @@ class CalendarManager:
         logger.info(f"Calendar configuration: enabled={self.enabled}, update_interval={self.update_interval}, max_events={self.max_events}, calendars={self.calendars}")
         
         # Get timezone from config
-        self.config_manager = ConfigManager()
-        timezone_str = self.config_manager.get_timezone()
+        timezone_str = self.config.get('timezone', 'UTC')
         logger.info(f"Loading timezone from config: {timezone_str}")
         try:
             self.timezone = pytz.timezone(timezone_str)

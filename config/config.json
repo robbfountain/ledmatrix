@@ -39,6 +39,7 @@
             "daily_forecast": 30,
             "stock_news": 20,
             "odds_ticker": 60,
+            "leaderboard": 60,
             "nhl_live": 30,
             "nhl_recent": 30,
             "nhl_upcoming": 30,
@@ -147,6 +148,45 @@
         "loop": true,
         "future_fetch_days": 50,
         "show_channel_logos": true,
+        "dynamic_duration": true,
+        "min_duration": 30,
+        "max_duration": 300,
+        "duration_buffer": 0.1
+    },
+    "leaderboard": {
+        "enabled": false,
+        "enabled_sports": {
+            "nfl": {
+                "enabled": false,
+                "top_teams": 10
+            },
+            "nba": {
+                "enabled": false,
+                "top_teams": 10
+            },
+            "mlb": {
+                "enabled": false,
+                "top_teams": 10
+            },
+            "ncaa_fb": {
+                "enabled": false,
+                "top_teams": 25
+            },
+            "nhl": {
+                "enabled": false,
+                "top_teams": 10
+            },
+            "ncaam_basketball": {
+                "enabled": false,
+                "top_teams": 25
+            }
+        },
+        "update_interval": 3600,
+        "scroll_speed": 2,
+        "scroll_delay": 0.05,
+        "display_duration": 60,
+        "loop": true,
+        "request_timeout": 30,
         "dynamic_duration": true,
         "min_duration": 30,
         "max_duration": 300,

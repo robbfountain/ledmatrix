@@ -20,6 +20,7 @@ from src.cache_manager import CacheManager
 from src.stock_manager import StockManager
 from src.stock_news_manager import StockNewsManager
 from src.odds_ticker_manager import OddsTickerManager
+from src.leaderboard_manager import LeaderboardManager
 from src.nhl_managers import NHLLiveManager, NHLRecentManager, NHLUpcomingManager
 from src.nba_managers import NBALiveManager, NBARecentManager, NBAUpcomingManager
 from src.mlb_manager import MLBLiveManager, MLBRecentManager, MLBUpcomingManager
@@ -60,6 +61,7 @@ class DisplayController:
         self.stocks = StockManager(self.config, self.display_manager) if self.config.get('stocks', {}).get('enabled', False) else None
         self.news = StockNewsManager(self.config, self.display_manager) if self.config.get('stock_news', {}).get('enabled', False) else None
         self.odds_ticker = OddsTickerManager(self.config, self.display_manager) if self.config.get('odds_ticker', {}).get('enabled', False) else None
+        self.leaderboard = LeaderboardManager(self.config, self.display_manager) if self.config.get('leaderboard', {}).get('enabled', False) else None
         self.calendar = CalendarManager(self.display_manager, self.config) if self.config.get('calendar', {}).get('enabled', False) else None
         self.youtube = YouTubeDisplay(self.display_manager, self.config) if self.config.get('youtube', {}).get('enabled', False) else None
         self.text_display = TextDisplay(self.display_manager, self.config) if self.config.get('text_display', {}).get('enabled', False) else None
@@ -258,6 +260,7 @@ class DisplayController:
         if self.stocks: self.available_modes.append('stocks')
         if self.news: self.available_modes.append('stock_news')
         if self.odds_ticker: self.available_modes.append('odds_ticker')
+        if self.leaderboard: self.available_modes.append('leaderboard')
         if self.calendar: self.available_modes.append('calendar')
         if self.youtube: self.available_modes.append('youtube')
         if self.text_display: self.available_modes.append('text_display')
@@ -1119,6 +1122,8 @@ class DisplayController:
                                 manager_to_display = self.news
                             elif self.current_display_mode == 'odds_ticker' and self.odds_ticker:
                                 manager_to_display = self.odds_ticker
+                            elif self.current_display_mode == 'leaderboard' and self.leaderboard:
+                                manager_to_display = self.leaderboard
                             elif self.current_display_mode == 'calendar' and self.calendar:
                                 manager_to_display = self.calendar
                             elif self.current_display_mode == 'youtube' and self.youtube:

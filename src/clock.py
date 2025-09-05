@@ -31,7 +31,7 @@ class Clock:
 
     def _get_timezone(self) -> pytz.timezone:
         """Get timezone from the config file."""
-        config_timezone = self.config_manager.get_timezone()
+        config_timezone = self.config.get('timezone', 'UTC')
         try:
             return pytz.timezone(config_timezone)
         except pytz.exceptions.UnknownTimeZoneError:
