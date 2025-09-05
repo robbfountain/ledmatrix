@@ -24,12 +24,13 @@ class BaseNCAABaseballManager:
     def __init__(self, config: Dict[str, Any], display_manager, cache_manager: CacheManager):
         self.config = config
         self.display_manager = display_manager
+        self.config_manager = ConfigManager()
         self.ncaa_baseball_config = config.get('ncaa_baseball_scoreboard', {})
         self.show_odds = self.ncaa_baseball_config.get('show_odds', False)
         self.show_records = self.ncaa_baseball_config.get('show_records', False)
         self.favorite_teams = self.ncaa_baseball_config.get('favorite_teams', [])
         self.cache_manager = cache_manager
-        self.odds_manager = OddsManager(self.cache_manager, self.config)
+        self.odds_manager = OddsManager(self.cache_manager, self.config_manager)
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)  # Set logger level to DEBUG
         

@@ -45,7 +45,7 @@ class BaseNHLManager:
         self.config_manager = ConfigManager()
         self.config = config
         self.cache_manager = cache_manager
-        self.odds_manager = OddsManager(self.cache_manager, self.config)
+        self.odds_manager = OddsManager(self.cache_manager, self.config_manager)
         self.logger = logging.getLogger(__name__)
         self.nhl_config = config.get("nhl_scoreboard", {})
         self.is_enabled = self.nhl_config.get("enabled", False)

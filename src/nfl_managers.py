@@ -40,7 +40,7 @@ class BaseNFLManager: # Renamed class
         self.config_manager = ConfigManager()
         self.config = config
         self.cache_manager = cache_manager
-        self.odds_manager = OddsManager(self.cache_manager, self.config)
+        self.odds_manager = OddsManager(self.cache_manager, self.config_manager)
         self.logger = logging.getLogger(__name__)
         self.nfl_config = config.get("nfl_scoreboard", {}) # Changed config key
         self.is_enabled = self.nfl_config.get("enabled", False)
