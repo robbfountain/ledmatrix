@@ -1178,8 +1178,8 @@ class OddsTickerManager:
             if sport == 'baseball':
                 is_baseball_live = True
                 # Draw graphical bases instead of text
-                # Position bases at the left side of odds column to be closer to scores
-                bases_x = current_x + 12  # Position at left side, offset by half cluster width (24/2 = 12)
+                # Position bases closer to the right edge of odds column to reduce gap to gameplay stats
+                bases_x = current_x + odds_width - 12  # Position at right side, offset by half cluster width (24/2 = 12)
                 # Shift bases down a bit more for better positioning
                 bases_y = (height // 2) + 2  # Move down 2 pixels from center
                 
@@ -1197,7 +1197,11 @@ class OddsTickerManager:
             draw.text((current_x, odds_y_away), away_odds_text, font=odds_font, fill=odds_color)
             draw.text((current_x, odds_y_home), home_odds_text, font=odds_font, fill=odds_color)
         
-        current_x += odds_width + h_padding
+        # For baseball live games, use reduced padding to bring gameplay stats closer to bases
+        if is_baseball_live:
+            current_x += odds_width + (h_padding // 2)  # Use half padding for baseball games
+        else:
+            current_x += odds_width + h_padding
         
         # Datetime (stacked, 3 rows) - Center justified
         datetime_font_height = datetime_font.size if hasattr(datetime_font, 'size') else 6
