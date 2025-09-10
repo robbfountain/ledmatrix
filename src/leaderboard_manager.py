@@ -7,9 +7,9 @@ from datetime import datetime, timedelta, timezone
 import os
 from PIL import Image, ImageDraw, ImageFont
 import pytz
-from display_manager import DisplayManager
-from cache_manager import CacheManager
-from config_manager import ConfigManager
+from .display_manager import DisplayManager
+from .cache_manager import CacheManager
+from .config_manager import ConfigManager
 
 # Import the API counter function from web interface
 try:
