@@ -1082,7 +1082,8 @@ class OddsTickerManager:
         home_odds_width = int(temp_draw.textlength(home_odds_text, font=odds_font))
         odds_width = max(away_odds_width, home_odds_width)
         
-        # For baseball live games, ensure minimum width for graphical bases
+        # For baseball live games, optimize width for graphical bases
+        is_baseball_live = False
         if is_live and live_info and hasattr(self, '_bases_data'):
             sport = None
             for league_key, config in self.league_configs.items():
@@ -1091,8 +1092,10 @@ class OddsTickerManager:
                     break
             
             if sport == 'baseball':
-                # Ensure minimum width for the graphical bases
-                min_bases_width = 30  # Minimum width needed for the base diamond cluster
+                is_baseball_live = True
+                # Use a more compact width for baseball games to minimize dead space
+                # The bases graphic only needs about 24px width, so we can be more efficient
+                min_bases_width = 24  # Reduced from 30 to minimize dead space
                 odds_width = max(odds_width, min_bases_width)
 
         # --- Calculate total width ---
@@ -1166,40 +1169,32 @@ class OddsTickerManager:
         if is_live and live_info:
             odds_color = (255, 0, 0)  # Red for live games
 
-        # Check if this is a baseball live game
-        is_baseball_live = False
-        if is_live and live_info and hasattr(self, '_bases_data'):
-            sport = None
-            for league_key, config in self.league_configs.items():
-                if config.get('logo_dir') == game.get('logo_dir'):
-                    sport = config.get('sport')
-                    break
+        # Draw odds content based on game type
+        if is_baseball_live:
+            # Draw graphical bases instead of text
+            # Position bases closer to team names (left side of odds column) for better spacing
+            bases_x = current_x + 12  # Position at left side, offset by half cluster width (24/2 = 12)
+            # Shift bases down a bit more for better positioning
+            bases_y = (height // 2) + 2  # Move down 2 pixels from center
             
-            if sport == 'baseball':
-                is_baseball_live = True
-                # Draw graphical bases instead of text
-                # Position bases closer to the right edge of odds column to reduce gap to gameplay stats
-                bases_x = current_x + odds_width - 12  # Position at right side, offset by half cluster width (24/2 = 12)
-                # Shift bases down a bit more for better positioning
-                bases_y = (height // 2) + 2  # Move down 2 pixels from center
-                
-                # Ensure the bases don't go off the edge of the image
-                base_diamond_size = 8  # Total size of the diamond
-                base_cluster_width = 24  # Width of the base cluster (8 + 8 + 8) with tighter spacing
-                if bases_x - (base_cluster_width // 2) >= 0 and bases_x + (base_cluster_width // 2) <= image.width:
-                    # Draw the base indicators
-                    self._draw_base_indicators(draw, self._bases_data, bases_x, bases_y)
-                
-                # Clear the bases data after drawing
-                delattr(self, '_bases_data')
+            # Ensure the bases don't go off the edge of the image
+            base_diamond_size = 8  # Total size of the diamond
+            base_cluster_width = 24  # Width of the base cluster (8 + 8 + 8) with tighter spacing
+            if bases_x - (base_cluster_width // 2) >= 0 and bases_x + (base_cluster_width // 2) <= image.width:
+                # Draw the base indicators
+                self._draw_base_indicators(draw, self._bases_data, bases_x, bases_y)
+            
+            # Clear the bases data after drawing
+            delattr(self, '_bases_data')
         else:
             # Draw regular odds text for non-baseball games
             draw.text((current_x, odds_y_away), away_odds_text, font=odds_font, fill=odds_color)
             draw.text((current_x, odds_y_home), home_odds_text, font=odds_font, fill=odds_color)
         
-        # For baseball live games, use reduced padding to bring gameplay stats closer to bases
+        # Dynamic spacing: Use reduced padding for baseball games to minimize dead space
         if is_baseball_live:
-            current_x += odds_width + (h_padding // 2)  # Use half padding for baseball games
+            # Use minimal padding since bases are positioned at left of column
+            current_x += odds_width + (h_padding // 3)  # Use 1/3 padding for baseball games
         else:
             current_x += odds_width + h_padding
         
