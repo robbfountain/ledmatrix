@@ -469,7 +469,9 @@ class LeaderboardManager:
             
             draw.text((x, y), text, font=self.fonts['medium'], fill=(255, 255, 255))
             
-            self.display_manager.set_image(image)
+            self.display_manager.image = image
+            self.display_manager.draw = ImageDraw.Draw(self.display_manager.image)
+            self.display_manager.update_display()
             
         except Exception as e:
             logger.error(f"Error displaying fallback message: {e}")
@@ -582,7 +584,9 @@ class LeaderboardManager:
             ))
             
             # Display the visible portion
-            self.display_manager.set_image(visible_image)
+            self.display_manager.image = visible_image
+            self.display_manager.draw = ImageDraw.Draw(self.display_manager.image)
+            self.display_manager.update_display()
             
         except Exception as e:
             logger.error(f"Error in leaderboard display: {e}")

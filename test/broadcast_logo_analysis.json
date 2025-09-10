@@ -1,0 +1,326 @@
+{
+  "total_mappings": 44,
+  "existing_logos": [],
+  "missing_logos": [],
+  "problematic_logos": [
+    {
+      "broadcast_name": "ACC Network",
+      "logo_filename": "accn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\accn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "ACCN",
+      "logo_filename": "accn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\accn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "ABC",
+      "logo_filename": "abc",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\abc.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "BTN",
+      "logo_filename": "btn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\btn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "CBS",
+      "logo_filename": "cbs",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbs.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "CBSSN",
+      "logo_filename": "cbssn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbssn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "CBS Sports Network",
+      "logo_filename": "cbssn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbssn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "ESPN",
+      "logo_filename": "espn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\espn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "ESPN2",
+      "logo_filename": "espn2",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\espn2.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "ESPN3",
+      "logo_filename": "espn3",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\espn3.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "ESPNU",
+      "logo_filename": "espnu",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\espnu.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "ESPNEWS",
+      "logo_filename": "espn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\espn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "ESPN+",
+      "logo_filename": "espn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\espn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "ESPN Plus",
+      "logo_filename": "espn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\espn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "FOX",
+      "logo_filename": "fox",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\fox.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "FS1",
+      "logo_filename": "fs1",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\fs1.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "FS2",
+      "logo_filename": "fs2",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\fs2.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "MLBN",
+      "logo_filename": "mlbn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\mlbn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "MLB Network",
+      "logo_filename": "mlbn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\mlbn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "MLB.TV",
+      "logo_filename": "mlbn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\mlbn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "NBC",
+      "logo_filename": "nbc",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\nbc.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "NFLN",
+      "logo_filename": "nfln",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\nfln.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "NFL Network",
+      "logo_filename": "nfln",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\nfln.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "PAC12",
+      "logo_filename": "pac12n",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\pac12n.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "Pac-12 Network",
+      "logo_filename": "pac12n",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\pac12n.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "SECN",
+      "logo_filename": "espn-sec-us",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\espn-sec-us.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "TBS",
+      "logo_filename": "tbs",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\tbs.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "TNT",
+      "logo_filename": "tnt",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\tnt.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "truTV",
+      "logo_filename": "tru",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\tru.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "Peacock",
+      "logo_filename": "nbc",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\nbc.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "Paramount+",
+      "logo_filename": "cbs",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbs.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "Hulu",
+      "logo_filename": "espn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\espn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "Disney+",
+      "logo_filename": "espn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\espn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "Apple TV+",
+      "logo_filename": "nbc",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\nbc.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "MASN",
+      "logo_filename": "cbs",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbs.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "MASN2",
+      "logo_filename": "cbs",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbs.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "MAS+",
+      "logo_filename": "cbs",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbs.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "SportsNet",
+      "logo_filename": "nbc",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\nbc.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "FanDuel SN",
+      "logo_filename": "fox",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\fox.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "FanDuel SN DET",
+      "logo_filename": "fox",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\fox.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "FanDuel SN FL",
+      "logo_filename": "fox",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\fox.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "SportsNet PIT",
+      "logo_filename": "nbc",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\nbc.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "Padres.TV",
+      "logo_filename": "espn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\espn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    },
+    {
+      "broadcast_name": "CLEGuardians.TV",
+      "logo_filename": "espn",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\espn.png",
+      "error": "Failed to analyze image: 'Stat' object has no attribute 'min'",
+      "is_problematic": true
+    }
+  ],
+  "recommendations": [
+    "Fix 44 problematic logos",
+    "Consider mapping 1 orphaned logo files",
+    "Ensure all logos are PNG format with transparency support",
+    "Use consistent dimensions (preferably 64x64 or 128x128 pixels)",
+    "Test logos on the actual LED matrix display",
+    "Consider creating fallback logos for missing channels"
+  ],
+  "orphaned_logos": [
+    "prime"
+  ]
+}
