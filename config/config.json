@@ -5,10 +5,10 @@
         "start_time": "07:00",
         "end_time": "23:00"
     },
-    "timezone": "America/Chicago",
+    "timezone": "America/New_York",
     "location": {
-        "city": "Dallas",
-        "state": "Texas",
+        "city": "Tampa",
+        "state": "Florida",
         "country": "US"
     },
     "display": {
@@ -154,10 +154,10 @@
         "duration_buffer": 0.1
     },
     "leaderboard": {
-        "enabled": false,
+        "enabled": true,
         "enabled_sports": {
             "nfl": {
-                "enabled": false,
+                "enabled": true,
                 "top_teams": 10
             },
             "nba": {
@@ -169,7 +169,7 @@
                 "top_teams": 10
             },
             "ncaa_fb": {
-                "enabled": false,
+                "enabled": true,
                 "top_teams": 25
             },
             "nhl": {
