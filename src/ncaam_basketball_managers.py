@@ -63,13 +63,9 @@ class BaseNCAAMBasketballManager:
         # Set logging level to INFO to reduce noise
         self.logger.setLevel(logging.INFO)
         
-        # Get display dimensions from config
-        display_config = config.get("display", {})
-        hardware_config = display_config.get("hardware", {})
-        cols = hardware_config.get("cols", 64)
-        chain = hardware_config.get("chain_length", 1)
-        self.display_width = int(cols * chain)
-        self.display_height = hardware_config.get("rows", 32)
+        # Get display dimensions from matrix
+        self.display_width = self.display_manager.matrix.width
+        self.display_height = self.display_manager.matrix.height
         
         # Cache for loaded logos
         self._logo_cache = {}

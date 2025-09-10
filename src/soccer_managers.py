@@ -84,12 +84,8 @@ class BaseSoccerManager:
         self.team_map_file = self.soccer_config.get("team_map_file", "assets/data/team_league_map.json")
         self.team_map_update_days = self.soccer_config.get("team_map_update_days", 7) # How often to update the map
 
-        display_config = config.get("display", {})
-        hardware_config = display_config.get("hardware", {})
-        cols = hardware_config.get("cols", 64)
-        chain = hardware_config.get("chain_length", 1)
-        self.display_width = int(cols * chain)
-        self.display_height = hardware_config.get("rows", 32)
+        self.display_width = self.display_manager.matrix.width
+        self.display_height = self.display_manager.matrix.height
         
         self._logo_cache = {}
 

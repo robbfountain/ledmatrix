@@ -91,12 +91,8 @@ class BaseNCAAFBManager: # Renamed class
 
         self.logger.setLevel(logging.INFO)
 
-        display_config = config.get("display", {})
-        hardware_config = display_config.get("hardware", {})
-        cols = hardware_config.get("cols", 64)
-        chain = hardware_config.get("chain_length", 1)
-        self.display_width = int(cols * chain)
-        self.display_height = hardware_config.get("rows", 32)
+        self.display_width = self.display_manager.matrix.width
+        self.display_height = self.display_manager.matrix.height
 
         self._logo_cache = {}
 
