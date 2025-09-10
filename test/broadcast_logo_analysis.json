@@ -66,6 +66,22 @@
       ]
     },
     {
+      "broadcast_name": "CBS",
+      "logo_filename": "cbs",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbs.png",
+      "dimensions": [
+        330,
+        96
+      ],
+      "mode": "RGBA",
+      "file_size": 10111,
+      "is_problematic": false,
+      "issues": [],
+      "recommendations": [
+        "Logo has transparency - ensure proper background handling"
+      ]
+    },
+    {
       "broadcast_name": "CBSSN",
       "logo_filename": "cbssn",
       "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbssn.png",
@@ -343,6 +359,38 @@
       ]
     },
     {
+      "broadcast_name": "NFLN",
+      "logo_filename": "nfln",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\nfln.png",
+      "dimensions": [
+        330,
+        130
+      ],
+      "mode": "RGBA",
+      "file_size": 10944,
+      "is_problematic": false,
+      "issues": [],
+      "recommendations": [
+        "Logo has transparency - ensure proper background handling"
+      ]
+    },
+    {
+      "broadcast_name": "NFL Network",
+      "logo_filename": "nfln",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\nfln.png",
+      "dimensions": [
+        330,
+        130
+      ],
+      "mode": "RGBA",
+      "file_size": 10944,
+      "is_problematic": false,
+      "issues": [],
+      "recommendations": [
+        "Logo has transparency - ensure proper background handling"
+      ]
+    },
+    {
       "broadcast_name": "PAC12",
       "logo_filename": "pac12n",
       "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\pac12n.png",
@@ -448,6 +496,22 @@
       ]
     },
     {
+      "broadcast_name": "Paramount+",
+      "logo_filename": "paramount-plus",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\paramount-plus.png",
+      "dimensions": [
+        330,
+        205
+      ],
+      "mode": "RGBA",
+      "file_size": 17617,
+      "is_problematic": false,
+      "issues": [],
+      "recommendations": [
+        "Logo has transparency - ensure proper background handling"
+      ]
+    },
+    {
       "broadcast_name": "Hulu",
       "logo_filename": "espn",
       "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\espn.png",
@@ -489,6 +553,54 @@
       ],
       "mode": "RGBA",
       "file_size": 15720,
+      "is_problematic": false,
+      "issues": [],
+      "recommendations": [
+        "Logo has transparency - ensure proper background handling"
+      ]
+    },
+    {
+      "broadcast_name": "MASN",
+      "logo_filename": "cbs",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbs.png",
+      "dimensions": [
+        330,
+        96
+      ],
+      "mode": "RGBA",
+      "file_size": 10111,
+      "is_problematic": false,
+      "issues": [],
+      "recommendations": [
+        "Logo has transparency - ensure proper background handling"
+      ]
+    },
+    {
+      "broadcast_name": "MASN2",
+      "logo_filename": "cbs",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbs.png",
+      "dimensions": [
+        330,
+        96
+      ],
+      "mode": "RGBA",
+      "file_size": 10111,
+      "is_problematic": false,
+      "issues": [],
+      "recommendations": [
+        "Logo has transparency - ensure proper background handling"
+      ]
+    },
+    {
+      "broadcast_name": "MAS+",
+      "logo_filename": "cbs",
+      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbs.png",
+      "dimensions": [
+        330,
+        96
+      ],
+      "mode": "RGBA",
+      "file_size": 10111,
       "is_problematic": false,
       "issues": [],
       "recommendations": [
@@ -611,62 +723,6 @@
   "missing_logos": [],
   "problematic_logos": [
     {
-      "broadcast_name": "CBS",
-      "logo_filename": "cbs",
-      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbs.png",
-      "dimensions": [
-        512,
-        512
-      ],
-      "mode": "P",
-      "file_size": 9339,
-      "is_problematic": true,
-      "issues": [
-        "Image appears to be mostly white",
-        "Very low content density: 0.0%"
-      ],
-      "recommendations": [
-        "Logo has transparency - ensure proper background handling",
-        "Logo may appear as a white box - check content"
-      ]
-    },
-    {
-      "broadcast_name": "NFLN",
-      "logo_filename": "nfln",
-      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\nfln.png",
-      "dimensions": [
-        512,
-        201
-      ],
-      "mode": "RGBA",
-      "file_size": 16372,
-      "is_problematic": true,
-      "issues": [
-        "Image appears to be mostly white"
-      ],
-      "recommendations": [
-        "Logo has transparency - ensure proper background handling"
-      ]
-    },
-    {
-      "broadcast_name": "NFL Network",
-      "logo_filename": "nfln",
-      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\nfln.png",
-      "dimensions": [
-        512,
-        201
-      ],
-      "mode": "RGBA",
-      "file_size": 16372,
-      "is_problematic": true,
-      "issues": [
-        "Image appears to be mostly white"
-      ],
-      "recommendations": [
-        "Logo has transparency - ensure proper background handling"
-      ]
-    },
-    {
       "broadcast_name": "TNT",
       "logo_filename": "tnt",
       "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\tnt.png",
@@ -685,90 +741,10 @@
         "Logo has transparency - ensure proper background handling",
         "Logo may appear as a white box - check content"
       ]
-    },
-    {
-      "broadcast_name": "Paramount+",
-      "logo_filename": "cbs",
-      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbs.png",
-      "dimensions": [
-        512,
-        512
-      ],
-      "mode": "P",
-      "file_size": 9339,
-      "is_problematic": true,
-      "issues": [
-        "Image appears to be mostly white",
-        "Very low content density: 0.0%"
-      ],
-      "recommendations": [
-        "Logo has transparency - ensure proper background handling",
-        "Logo may appear as a white box - check content"
-      ]
-    },
-    {
-      "broadcast_name": "MASN",
-      "logo_filename": "cbs",
-      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbs.png",
-      "dimensions": [
-        512,
-        512
-      ],
-      "mode": "P",
-      "file_size": 9339,
-      "is_problematic": true,
-      "issues": [
-        "Image appears to be mostly white",
-        "Very low content density: 0.0%"
-      ],
-      "recommendations": [
-        "Logo has transparency - ensure proper background handling",
-        "Logo may appear as a white box - check content"
-      ]
-    },
-    {
-      "broadcast_name": "MASN2",
-      "logo_filename": "cbs",
-      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbs.png",
-      "dimensions": [
-        512,
-        512
-      ],
-      "mode": "P",
-      "file_size": 9339,
-      "is_problematic": true,
-      "issues": [
-        "Image appears to be mostly white",
-        "Very low content density: 0.0%"
-      ],
-      "recommendations": [
-        "Logo has transparency - ensure proper background handling",
-        "Logo may appear as a white box - check content"
-      ]
-    },
-    {
-      "broadcast_name": "MAS+",
-      "logo_filename": "cbs",
-      "path": "C:\\Users\\Charles\\Documents\\GitHub\\LEDMatrix\\assets\\broadcast_logos\\cbs.png",
-      "dimensions": [
-        512,
-        512
-      ],
-      "mode": "P",
-      "file_size": 9339,
-      "is_problematic": true,
-      "issues": [
-        "Image appears to be mostly white",
-        "Very low content density: 0.0%"
-      ],
-      "recommendations": [
-        "Logo has transparency - ensure proper background handling",
-        "Logo may appear as a white box - check content"
-      ]
     }
   ],
   "recommendations": [
-    "Fix 8 problematic logos",
+    "Fix 1 problematic logos",
     "Consider mapping 1 orphaned logo files",
     "Ensure all logos are PNG format with transparency support",
     "Use consistent dimensions (preferably 64x64 or 128x128 pixels)",

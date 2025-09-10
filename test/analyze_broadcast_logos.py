@@ -66,7 +66,7 @@ BROADCAST_LOGO_MAP = {
     "TNT": "tnt",
     "truTV": "tru",
     "Peacock": "nbc",
-    "Paramount+": "cbs",
+    "Paramount+": "paramount-plus",
     "Hulu": "espn",
     "Disney+": "espn",
     "Apple TV+": "nbc",
