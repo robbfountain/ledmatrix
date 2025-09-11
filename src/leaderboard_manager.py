@@ -318,8 +318,8 @@ class LeaderboardManager:
             # Calculate total width needed
             total_width = 0
             team_height = 16  # Height for each team entry
-            league_header_height = 20  # Height for league logo and name
-            spacing = 10  # Spacing between leagues
+            league_header_height = 25  # Height for league logo and name
+            spacing = 20  # Spacing between leagues
             
             # Calculate width for each league section
             for league_data in self.leaderboard_data:
@@ -327,21 +327,30 @@ class LeaderboardManager:
                 teams = league_data['teams']
                 
                 # Width for league header (logo + name)
-                league_width = 200  # Base width for league section
+                league_header_width = 120  # Base width for league header
                 
-                # Width for team entries (number + logo + name + record)
+                # Width for team entries (bold number + logo + name + record)
                 max_team_width = 0
                 for i, team in enumerate(teams):
-                    team_text = f"{i+1}. {team['abbreviation']} {team['wins']}-{team['losses']}"
+                    # Calculate width for bold number
+                    number_text = f"{i+1}."
+                    number_bbox = self.fonts['large'].getbbox(number_text)
+                    number_width = number_bbox[2] - number_bbox[0]
+                    
+                    # Calculate width for team text
+                    team_text = f"{team['abbreviation']} {team['wins']}-{team['losses']}"
                     if 'ties' in team:
                         team_text += f"-{team['ties']}"
                     
-                    # Estimate text width (rough calculation)
-                    text_width = len(team_text) * 6  # Approximate character width
-                    team_width = 30 + text_width + 50  # Number + text + logo space
+                    text_bbox = self.fonts['small'].getbbox(team_text)
+                    text_width = text_bbox[2] - text_bbox[0]
+                    
+                    # Total team width: bold number + spacing + logo + spacing + text
+                    team_width = number_width + 5 + 16 + 5 + text_width + 10  # Extra padding
                     max_team_width = max(max_team_width, team_width)
                 
-                league_width = max(league_width, max_team_width)
+                # Total league width is the maximum of header and team widths
+                league_width = max(league_header_width, max_team_width)
                 total_width += league_width + spacing
             
             # Create the main image
@@ -356,33 +365,46 @@ class LeaderboardManager:
                 league_config = league_data['league_config']
                 teams = league_data['teams']
                 
-                # Draw league header
+                # Draw league header with logo first
                 league_logo = self._get_league_logo(league_config['league_logo'])
                 if league_logo:
-                    # Resize league logo to fit
+                    # Resize league logo to fit nicely
                     logo_height = int(height * 0.4)
                     logo_width = int(logo_height * league_logo.width / league_logo.height)
                     league_logo = league_logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
                     
-                    # Paste league logo
-                    logo_y = (height - logo_height) // 2
+                    # Paste league logo at the top
+                    logo_y = 3
                     self.leaderboard_image.paste(league_logo, (current_x + 5, logo_y), league_logo if league_logo.mode == 'RGBA' else None)
-                    current_x += logo_width + 10
+                    
+                    # Draw league name below the logo, centered
+                    league_name = league_key.upper().replace('_', ' ')
+                    league_name_bbox = self.fonts['small'].getbbox(league_name)
+                    league_name_width = league_name_bbox[2] - league_name_bbox[0]
+                    league_name_x = current_x + 5 + (logo_width - league_name_width) // 2
+                    draw.text((league_name_x, logo_y + logo_height + 1), league_name, font=self.fonts['small'], fill=(255, 255, 255))
+                    
+                    # Move current_x past the logo for team entries
+                    current_x += logo_width + 15
+                else:
+                    # Fallback if no league logo - just show league name
+                    league_name = league_key.upper().replace('_', ' ')
+                    draw.text((current_x + 5, 5), league_name, font=self.fonts['medium'], fill=(255, 255, 255))
+                    current_x += 100
                 
-                # Draw league name
-                league_name = league_key.upper().replace('_', ' ')
-                draw.text((current_x, 5), league_name, font=self.fonts['medium'], fill=(255, 255, 255))
-                current_x += 150
-                
-                # Draw team standings
+                # Draw team standings with bold numbers
                 team_y = league_header_height
                 for i, team in enumerate(teams):
                     if team_y + team_height > height:
                         break
                     
-                    # Draw team number
+                    # Draw bold team number with better positioning
                     number_text = f"{i+1}."
-                    draw.text((current_x, team_y), number_text, font=self.fonts['small'], fill=(255, 255, 0))
+                    draw.text((current_x + 5, team_y), number_text, font=self.fonts['large'], fill=(255, 255, 0))
+                    
+                    # Get number width for positioning
+                    number_bbox = self.fonts['large'].getbbox(number_text)
+                    number_width = number_bbox[2] - number_bbox[0]
                     
                     # Draw team logo
                     team_logo = self._get_team_logo(team['abbreviation'], league_config['logo_dir'])
@@ -391,27 +413,30 @@ class LeaderboardManager:
                         logo_size = 12
                         team_logo = team_logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
                         
-                        # Paste team logo
-                        logo_x = current_x + 20
+                        # Paste team logo after the bold number
+                        logo_x = current_x + 5 + number_width + 3
                         logo_y_pos = team_y + 2
                         self.leaderboard_image.paste(team_logo, (logo_x, logo_y_pos), team_logo if team_logo.mode == 'RGBA' else None)
                         
-                        # Draw team name and record
+                        # Draw team name and record after the logo
                         team_text = f"{team['abbreviation']} {team['wins']}-{team['losses']}"
-                        if 'ties' in team:
+                        if 'ties' in team and team['ties'] > 0:
                             team_text += f"-{team['ties']}"
                         
-                        draw.text((logo_x + logo_size + 5, team_y), team_text, font=self.fonts['small'], fill=(255, 255, 255))
+                        text_x = logo_x + logo_size + 3
+                        draw.text((text_x, team_y), team_text, font=self.fonts['small'], fill=(255, 255, 255))
                     else:
-                        # Fallback if no logo
+                        # Fallback if no logo - draw team text after bold number
                         team_text = f"{team['abbreviation']} {team['wins']}-{team['losses']}"
-                        if 'ties' in team:
+                        if 'ties' in team and team['ties'] > 0:
                             team_text += f"-{team['ties']}"
                         
-                        draw.text((current_x + 20, team_y), team_text, font=self.fonts['small'], fill=(255, 255, 255))
+                        text_x = current_x + 5 + number_width + 3
+                        draw.text((text_x, team_y), team_text, font=self.fonts['small'], fill=(255, 255, 255))
                     
                     team_y += team_height
                 
+                # Move to next league section
                 current_x += 200  # Width for team section
                 current_x += spacing  # Add spacing between leagues
             
