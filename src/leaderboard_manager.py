@@ -315,6 +315,9 @@ class LeaderboardManager:
             return
         
         try:
+            # Get display height first
+            height = self.display_manager.matrix.height
+            
             # Calculate total width needed
             total_width = 0
             spacing = 40  # Spacing between leagues
@@ -352,7 +355,6 @@ class LeaderboardManager:
                 total_width += league_width + spacing
             
             # Create the main image
-            height = self.display_manager.matrix.height
             self.leaderboard_image = Image.new('RGB', (total_width, height), (0, 0, 0))
             draw = ImageDraw.Draw(self.leaderboard_image)
             
