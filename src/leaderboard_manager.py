@@ -43,6 +43,8 @@ class LeaderboardManager:
         self.min_duration = self.leaderboard_config.get('min_duration', 30)
         self.max_duration = self.leaderboard_config.get('max_duration', 300)
         self.duration_buffer = self.leaderboard_config.get('duration_buffer', 0.1)
+        self.time_per_team = self.leaderboard_config.get('time_per_team', 2.0)  # Seconds per team
+        self.time_per_league = self.leaderboard_config.get('time_per_league', 3.0)  # Seconds per league logo
         self.dynamic_duration = 60  # Default duration in seconds
         self.total_scroll_width = 0  # Track total width for dynamic duration calculation
         
@@ -121,6 +123,28 @@ class LeaderboardManager:
         }
         
         logger.info(f"LeaderboardManager initialized with enabled sports: {[k for k, v in self.league_configs.items() if v['enabled']]}")
+    
+    def clear_leaderboard_cache(self) -> None:
+        """Clear all leaderboard cache data to force fresh data fetch."""
+        try:
+            for league_key in self.league_configs.keys():
+                cache_key = f"leaderboard_{league_key}"
+                self.cache_manager.clear_cache(cache_key)
+                logger.info(f"Cleared cache for {league_key}")
+            
+            # Also clear individual team record caches
+            for league_key in self.league_configs.keys():
+                league_config = self.league_configs[league_key]
+                if league_config['enabled']:
+                    # Get teams for this league to clear their individual caches
+                    standings = self._fetch_standings(league_config)
+                    for team in standings:
+                        team_cache_key = f"team_record_{league_key}_{team['abbreviation']}"
+                        self.cache_manager.clear_cache(team_cache_key)
+            
+            logger.info("Cleared all leaderboard cache data")
+        except Exception as e:
+            logger.error(f"Error clearing leaderboard cache: {e}")
 
     def _load_fonts(self) -> Dict[str, ImageFont.FreeTypeFont]:
         """Load fonts for the leaderboard display."""
@@ -174,8 +198,19 @@ class LeaderboardManager:
             return None
 
     def _fetch_standings(self, league_config: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Fetch standings for a specific league from ESPN API."""
+        """Fetch standings for a specific league from ESPN API with caching."""
+        league_key = league_config['league']
+        cache_key = f"leaderboard_{league_key}"
+        
+        # Try to get cached data first
+        cached_data = self.cache_manager.get_cached_data_with_strategy(cache_key, 'leaderboard')
+        if cached_data:
+            logger.info(f"Using cached leaderboard data for {league_key}")
+            return cached_data.get('standings', [])
+        
         try:
+            logger.info(f"Fetching fresh leaderboard data for {league_key}")
+            
             # First, get all teams for the league
             teams_url = league_config['teams_url']
             response = requests.get(teams_url, timeout=self.request_timeout)
@@ -231,7 +266,15 @@ class LeaderboardManager:
             standings.sort(key=lambda x: x['win_percentage'], reverse=True)
             top_teams = standings[:league_config['top_teams']]
             
-            logger.info(f"Fetched {len(top_teams)} teams for {league_config['league']}")
+            # Cache the results
+            cache_data = {
+                'standings': top_teams,
+                'timestamp': time.time(),
+                'league': league_key
+            }
+            self.cache_manager.save_cache(cache_key, cache_data)
+            
+            logger.info(f"Fetched and cached {len(top_teams)} teams for {league_config['league']}")
             return top_teams
             
         except Exception as e:
@@ -239,10 +282,17 @@ class LeaderboardManager:
             return []
 
     def _fetch_team_record(self, team_abbr: str, league_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Fetch individual team record from ESPN API."""
+        """Fetch individual team record from ESPN API with caching."""
+        league = league_config['league']
+        cache_key = f"team_record_{league}_{team_abbr}"
+        
+        # Try to get cached data first
+        cached_data = self.cache_manager.get_cached_data_with_strategy(cache_key, 'leaderboard')
+        if cached_data:
+            return cached_data.get('record')
+        
         try:
             sport = league_config['sport']
-            league = league_config['league']
             
             # Use a more specific endpoint for college sports
             if league == 'college-football':
@@ -277,12 +327,23 @@ class LeaderboardManager:
             total_games = wins + losses + ties
             win_percentage = wins / total_games if total_games > 0 else 0
             
-            return {
+            record = {
                 'wins': wins,
                 'losses': losses,
                 'ties': ties,
                 'win_percentage': win_percentage
             }
+            
+            # Cache the team record
+            cache_data = {
+                'record': record,
+                'timestamp': time.time(),
+                'team': team_abbr,
+                'league': league
+            }
+            self.cache_manager.save_cache(cache_key, cache_data)
+            
+            return record
             
         except Exception as e:
             logger.error(f"Error fetching record for {team_abbr} in league {league_config['league']}: {e}")
@@ -452,11 +513,29 @@ class LeaderboardManager:
                 current_x += teams_width + 20  # Teams width + spacing
                 current_x += spacing  # Add spacing between leagues
             
-            # Calculate dynamic duration based on total width
+            # Calculate dynamic duration based on number of teams and content
             if self.dynamic_duration_enabled:
+                # Count total teams across all leagues
+                total_teams = sum(len(league_data['teams']) for league_data in self.leaderboard_data)
+                total_leagues = len(self.leaderboard_data)
+                
+                # Use configurable time per team and league
+                time_per_team = self.time_per_team
+                time_per_league = self.time_per_league
+                
+                # Calculate base duration from teams and leagues
+                base_duration = (total_teams * time_per_team) + (total_leagues * time_per_league)
+                
+                # Add scroll time based on content width
                 scroll_time = (total_width / self.scroll_speed) * self.scroll_delay
-                self.dynamic_duration = max(self.min_duration, min(self.max_duration, scroll_time + self.duration_buffer))
-                logger.info(f"Calculated dynamic duration: {self.dynamic_duration:.1f}s for width {total_width}")
+                
+                # Use the maximum of base duration and scroll time, with buffer
+                calculated_duration = max(base_duration, scroll_time) + self.duration_buffer
+                
+                # Apply min/max constraints
+                self.dynamic_duration = max(self.min_duration, min(self.max_duration, calculated_duration))
+                
+                logger.info(f"Calculated dynamic duration: {self.dynamic_duration:.1f}s for {total_teams} teams across {total_leagues} leagues (width: {total_width})")
             
             self.total_scroll_width = total_width
             logger.info(f"Created leaderboard image with width {total_width}")

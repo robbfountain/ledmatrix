@@ -190,7 +190,9 @@
         "dynamic_duration": true,
         "min_duration": 30,
         "max_duration": 300,
-        "duration_buffer": 0.1
+        "duration_buffer": 0.1,
+        "time_per_team": 2.0,
+        "time_per_league": 3.0
     },
     "calendar": {
         "enabled": false,
