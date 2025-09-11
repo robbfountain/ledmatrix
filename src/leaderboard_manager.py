@@ -329,22 +329,22 @@ class LeaderboardManager:
                 
                 # Calculate total width for all teams in horizontal layout
                 teams_width = 0
+                # Calculate dynamic logo size (95% of display height)
+                logo_size = int(height * 0.95)
+                
                 for i, team in enumerate(teams):
                     # Calculate width for bold number
                     number_text = f"{i+1}."
-                    number_bbox = self.fonts['medium'].getbbox(number_text)
+                    number_bbox = self.fonts['large'].getbbox(number_text)
                     number_width = number_bbox[2] - number_bbox[0]
                     
-                    # Calculate width for team text
-                    team_text = f"{team['abbreviation']} {team['wins']}-{team['losses']}"
-                    if 'ties' in team and team['ties'] > 0:
-                        team_text += f"-{team['ties']}"
-                    
-                    text_bbox = self.fonts['small'].getbbox(team_text)
+                    # Calculate width for team abbreviation only
+                    team_text = team['abbreviation']
+                    text_bbox = self.fonts['large'].getbbox(team_text)
                     text_width = text_bbox[2] - text_bbox[0]
                     
                     # Total team width: bold number + spacing + logo + spacing + text + spacing
-                    team_width = number_width + 2 + 12 + 2 + text_width + 8  # Spacing between teams
+                    team_width = number_width + 4 + logo_size + 4 + text_width + 12  # Spacing between teams
                     teams_width += team_width
                 
                 # Total league width: logo width + teams width + spacing
@@ -396,52 +396,52 @@ class LeaderboardManager:
                 
                 # Draw team standings horizontally in a single line
                 team_x = current_x
+                # Use the same dynamic logo size calculated earlier
+                logo_size = int(height * 0.95)
+                
                 for i, team in enumerate(teams):
-                    # Draw bold team number
+                    # Draw bold team number (centered vertically)
                     number_text = f"{i+1}."
-                    draw.text((team_x, 2), number_text, font=self.fonts['medium'], fill=(255, 255, 0))
-                    
-                    # Get number width for positioning
-                    number_bbox = self.fonts['medium'].getbbox(number_text)
+                    number_bbox = self.fonts['large'].getbbox(number_text)
                     number_width = number_bbox[2] - number_bbox[0]
+                    number_height = number_bbox[3] - number_bbox[1]
+                    number_y = (height - number_height) // 2
+                    draw.text((team_x, number_y), number_text, font=self.fonts['large'], fill=(255, 255, 0))
                     
-                    # Draw team logo
+                    # Draw team logo (95% of display height, centered vertically)
                     team_logo = self._get_team_logo(team['abbreviation'], league_config['logo_dir'])
                     if team_logo:
-                        # Resize team logo
-                        logo_size = 12
+                        # Resize team logo to dynamic size (95% of display height)
                         team_logo = team_logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
                         
-                        # Paste team logo after the bold number
-                        logo_x = team_x + number_width + 2
-                        logo_y_pos = 2
+                        # Paste team logo after the bold number (centered vertically)
+                        logo_x = team_x + number_width + 4
+                        logo_y_pos = (height - logo_size) // 2
                         self.leaderboard_image.paste(team_logo, (logo_x, logo_y_pos), team_logo if team_logo.mode == 'RGBA' else None)
                         
-                        # Draw team name and record after the logo
-                        team_text = f"{team['abbreviation']} {team['wins']}-{team['losses']}"
-                        if 'ties' in team and team['ties'] > 0:
-                            team_text += f"-{team['ties']}"
-                        
-                        text_x = logo_x + logo_size + 2
-                        draw.text((text_x, 2), team_text, font=self.fonts['small'], fill=(255, 255, 255))
+                        # Draw team abbreviation after the logo (centered vertically)
+                        team_text = team['abbreviation']
+                        text_bbox = self.fonts['large'].getbbox(team_text)
+                        text_width = text_bbox[2] - text_bbox[0]
+                        text_height = text_bbox[3] - text_bbox[1]
+                        text_x = logo_x + logo_size + 4
+                        text_y = (height - text_height) // 2
+                        draw.text((text_x, text_y), team_text, font=self.fonts['large'], fill=(255, 255, 255))
                         
                         # Calculate total width used by this team
-                        text_bbox = self.fonts['small'].getbbox(team_text)
-                        text_width = text_bbox[2] - text_bbox[0]
-                        team_width = number_width + 2 + logo_size + 2 + text_width + 8  # 8px spacing to next team
+                        team_width = number_width + 4 + logo_size + 4 + text_width + 12  # 12px spacing to next team
                     else:
-                        # Fallback if no logo - draw team text after bold number
-                        team_text = f"{team['abbreviation']} {team['wins']}-{team['losses']}"
-                        if 'ties' in team and team['ties'] > 0:
-                            team_text += f"-{team['ties']}"
-                        
-                        text_x = team_x + number_width + 2
-                        draw.text((text_x, 2), team_text, font=self.fonts['small'], fill=(255, 255, 255))
+                        # Fallback if no logo - draw team abbreviation after bold number (centered vertically)
+                        team_text = team['abbreviation']
+                        text_bbox = self.fonts['large'].getbbox(team_text)
+                        text_width = text_bbox[2] - text_bbox[0]
+                        text_height = text_bbox[3] - text_bbox[1]
+                        text_x = team_x + number_width + 4
+                        text_y = (height - text_height) // 2
+                        draw.text((text_x, text_y), team_text, font=self.fonts['large'], fill=(255, 255, 255))
                         
                         # Calculate total width used by this team
-                        text_bbox = self.fonts['small'].getbbox(team_text)
-                        text_width = text_bbox[2] - text_bbox[0]
-                        team_width = number_width + 2 + text_width + 8  # 8px spacing to next team
+                        team_width = number_width + 4 + text_width + 12  # 12px spacing to next team
                     
                     # Move to next team position
                     team_x += team_width
