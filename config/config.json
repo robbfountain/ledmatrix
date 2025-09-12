@@ -188,7 +188,7 @@
         "display_duration": 60,
         "loop": false,
         "request_timeout": 30,
-        "dynamic_duration": true,
+        "dynamic_duration": false,
         "min_duration": 45,
         "max_duration": 600,
         "duration_buffer": 0.3
