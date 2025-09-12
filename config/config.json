@@ -189,9 +189,9 @@
         "loop": true,
         "request_timeout": 30,
         "dynamic_duration": true,
-        "min_duration": 30,
+        "min_duration": 45,
         "max_duration": 300,
-        "duration_buffer": 0.1,
+        "duration_buffer": 0.2,
         "time_per_team": 2.0,
         "time_per_league": 3.0
     },

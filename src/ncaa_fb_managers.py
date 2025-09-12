@@ -11,6 +11,7 @@ from src.display_manager import DisplayManager
 from src.cache_manager import CacheManager # Keep CacheManager import
 from src.config_manager import ConfigManager
 from src.odds_manager import OddsManager
+from src.logo_downloader import download_missing_logo
 import pytz
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -358,8 +359,8 @@ class BaseNCAAFBManager: # Renamed class
             draw.text((x + dx, y + dy), text, font=font, fill=outline_color)
         draw.text((x, y), text, font=font, fill=fill)
 
-    def _load_and_resize_logo(self, team_abbrev: str) -> Optional[Image.Image]:
-        """Load and resize a team logo, with caching."""
+    def _load_and_resize_logo(self, team_abbrev: str, team_name: str = None) -> Optional[Image.Image]:
+        """Load and resize a team logo, with caching and automatic download if missing."""
         if team_abbrev in self._logo_cache:
             return self._logo_cache[team_abbrev]
 
@@ -367,15 +368,22 @@ class BaseNCAAFBManager: # Renamed class
         self.logger.debug(f"Logo path: {logo_path}")
 
         try:
-            # Create placeholder if logo doesn't exist (useful for testing)
+            # Try to download missing logo first
             if not os.path.exists(logo_path):
-                self.logger.warning(f"Logo not found for {team_abbrev} at {logo_path}. Creating placeholder.")
-                os.makedirs(os.path.dirname(logo_path), exist_ok=True)
-                logo = Image.new('RGBA', (32, 32), (200, 200, 200, 255)) # Gray placeholder
-                draw = ImageDraw.Draw(logo)
-                draw.text((2, 10), team_abbrev, fill=(0, 0, 0, 255))
-                logo.save(logo_path)
-                self.logger.info(f"Created placeholder logo at {logo_path}")
+                self.logger.info(f"Logo not found for {team_abbrev} at {logo_path}. Attempting to download.")
+                
+                # Try to download the logo from ESPN API
+                success = download_missing_logo(team_abbrev, 'ncaa_fb', team_name)
+                
+                if not success:
+                    # Create placeholder if download fails
+                    self.logger.warning(f"Failed to download logo for {team_abbrev}. Creating placeholder.")
+                    os.makedirs(os.path.dirname(logo_path), exist_ok=True)
+                    logo = Image.new('RGBA', (32, 32), (200, 200, 200, 255)) # Gray placeholder
+                    draw = ImageDraw.Draw(logo)
+                    draw.text((2, 10), team_abbrev, fill=(0, 0, 0, 255))
+                    logo.save(logo_path)
+                    self.logger.info(f"Created placeholder logo at {logo_path}")
 
             logo = Image.open(logo_path)
             if logo.mode != 'RGBA':
@@ -784,8 +792,8 @@ class NCAAFBLiveManager(BaseNCAAFBManager): # Renamed class
             overlay = Image.new('RGBA', (self.display_width, self.display_height), (0, 0, 0, 0))
             draw_overlay = ImageDraw.Draw(overlay) # Draw text elements on overlay first
 
-            home_logo = self._load_and_resize_logo(game["home_abbr"])
-            away_logo = self._load_and_resize_logo(game["away_abbr"])
+            home_logo = self._load_and_resize_logo(game["home_abbr"], game.get("home_team_name"))
+            away_logo = self._load_and_resize_logo(game["away_abbr"], game.get("away_team_name"))
 
             if not home_logo or not away_logo:
                 self.logger.error(f"[NCAAFB] Failed to load logos for live game: {game.get('id')}") # Changed log prefix
@@ -1011,8 +1019,8 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
             overlay = Image.new('RGBA', (self.display_width, self.display_height), (0, 0, 0, 0))
             draw_overlay = ImageDraw.Draw(overlay)
 
-            home_logo = self._load_and_resize_logo(game["home_abbr"])
-            away_logo = self._load_and_resize_logo(game["away_abbr"])
+            home_logo = self._load_and_resize_logo(game["home_abbr"], game.get("home_team_name"))
+            away_logo = self._load_and_resize_logo(game["away_abbr"], game.get("away_team_name"))
 
             if not home_logo or not away_logo:
                 self.logger.error(f"[NCAAFB Recent] Failed to load logos for game: {game.get('id')}") # Changed log prefix
@@ -1286,8 +1294,8 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
             overlay = Image.new('RGBA', (self.display_width, self.display_height), (0, 0, 0, 0))
             draw_overlay = ImageDraw.Draw(overlay)
 
-            home_logo = self._load_and_resize_logo(game["home_abbr"])
-            away_logo = self._load_and_resize_logo(game["away_abbr"])
+            home_logo = self._load_and_resize_logo(game["home_abbr"], game.get("home_team_name"))
+            away_logo = self._load_and_resize_logo(game["away_abbr"], game.get("away_team_name"))
 
             if not home_logo or not away_logo:
                 self.logger.error(f"[NCAAFB Upcoming] Failed to load logos for game: {game.get('id')}") # Changed log prefix

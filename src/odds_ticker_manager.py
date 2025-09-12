@@ -11,6 +11,7 @@ from src.display_manager import DisplayManager
 from src.cache_manager import CacheManager
 from src.config_manager import ConfigManager
 from src.odds_manager import OddsManager
+from src.logo_downloader import download_missing_logo
 
 # Import the API counter function from web interface
 try:
@@ -125,6 +126,7 @@ class OddsTickerManager:
             'nfl': {
                 'sport': 'football',
                 'league': 'nfl',
+                'logo_league': 'nfl',  # ESPN API league identifier for logo downloading
                 'logo_dir': 'assets/sports/nfl_logos',
                 'favorite_teams': config.get('nfl_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('nfl_scoreboard', {}).get('enabled', False)
@@ -132,6 +134,7 @@ class OddsTickerManager:
             'nba': {
                 'sport': 'basketball',
                 'league': 'nba',
+                'logo_league': 'nba',  # ESPN API league identifier for logo downloading
                 'logo_dir': 'assets/sports/nba_logos',
                 'favorite_teams': config.get('nba_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('nba_scoreboard', {}).get('enabled', False)
@@ -139,6 +142,7 @@ class OddsTickerManager:
             'mlb': {
                 'sport': 'baseball',
                 'league': 'mlb',
+                'logo_league': 'mlb',  # ESPN API league identifier for logo downloading
                 'logo_dir': 'assets/sports/mlb_logos',
                 'favorite_teams': config.get('mlb', {}).get('favorite_teams', []),
                 'enabled': config.get('mlb', {}).get('enabled', False)
@@ -146,6 +150,7 @@ class OddsTickerManager:
             'ncaa_fb': {
                 'sport': 'football',
                 'league': 'college-football',
+                'logo_league': 'ncaa_fb',  # ESPN API league identifier for logo downloading
                 'logo_dir': 'assets/sports/ncaa_fbs_logos',
                 'favorite_teams': config.get('ncaa_fb_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('ncaa_fb_scoreboard', {}).get('enabled', False)
@@ -153,6 +158,7 @@ class OddsTickerManager:
             'milb': {
                 'sport': 'baseball',
                 'league': 'milb',
+                'logo_league': 'milb',  # ESPN API league identifier for logo downloading (if supported)
                 'logo_dir': 'assets/sports/milb_logos',
                 'favorite_teams': config.get('milb', {}).get('favorite_teams', []),
                 'enabled': config.get('milb', {}).get('enabled', False)
@@ -160,6 +166,7 @@ class OddsTickerManager:
             'nhl': {
                 'sport': 'hockey',
                 'league': 'nhl',
+                'logo_league': 'nhl',  # ESPN API league identifier for logo downloading
                 'logo_dir': 'assets/sports/nhl_logos',
                 'favorite_teams': config.get('nhl_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('nhl_scoreboard', {}).get('enabled', False)
@@ -167,6 +174,7 @@ class OddsTickerManager:
             'ncaam_basketball': {
                 'sport': 'basketball',
                 'league': 'mens-college-basketball',
+                'logo_league': 'ncaam_basketball',  # ESPN API league identifier for logo downloading
                 'logo_dir': 'assets/sports/ncaa_fbs_logos',
                 'favorite_teams': config.get('ncaam_basketball_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('ncaam_basketball_scoreboard', {}).get('enabled', False)
@@ -174,6 +182,7 @@ class OddsTickerManager:
             'ncaa_baseball': {
                 'sport': 'baseball',
                 'league': 'college-baseball',
+                'logo_league': 'ncaa_baseball',  # ESPN API league identifier for logo downloading
                 'logo_dir': 'assets/sports/ncaa_fbs_logos',
                 'favorite_teams': config.get('ncaa_baseball_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('ncaa_baseball_scoreboard', {}).get('enabled', False)
@@ -181,6 +190,7 @@ class OddsTickerManager:
             'soccer': {
                 'sport': 'soccer',
                 'leagues': config.get('soccer_scoreboard', {}).get('leagues', []),
+                'logo_league': None,  # Soccer logos not supported by ESPN API
                 'logo_dir': 'assets/sports/soccer_logos',
                 'favorite_teams': config.get('soccer_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('soccer_scoreboard', {}).get('enabled', False)
@@ -240,8 +250,8 @@ class OddsTickerManager:
             logger.error(f"Error fetching record for {team_abbr} in league {league}: {e}")
             return "N/A"
 
-    def _get_team_logo(self, team_abbr: str, logo_dir: str) -> Optional[Image.Image]:
-        """Get team logo from the configured directory."""
+    def _get_team_logo(self, team_abbr: str, logo_dir: str, league: str = None, team_name: str = None) -> Optional[Image.Image]:
+        """Get team logo from the configured directory, downloading if missing."""
         if not team_abbr or not logo_dir:
             logger.debug("Cannot get team logo with missing team_abbr or logo_dir")
             return None
@@ -254,6 +264,18 @@ class OddsTickerManager:
                 return logo
             else:
                 logger.warning(f"Logo not found at path: {logo_path}")
+                
+                # Try to download the missing logo if we have league information
+                if league:
+                    logger.info(f"Attempting to download missing logo for {team_abbr} in league {league}")
+                    success = download_missing_logo(team_abbr, league, team_name)
+                    if success:
+                        # Try to load the downloaded logo
+                        if os.path.exists(logo_path):
+                            logo = Image.open(logo_path)
+                            logger.info(f"Successfully downloaded and loaded logo for {team_abbr}")
+                            return logo
+                
                 return None
         except Exception as e:
             logger.error(f"Error loading logo for {team_abbr} from {logo_dir}: {e}")
@@ -512,6 +534,7 @@ class OddsTickerManager:
                                     'odds': odds_data if has_odds else None,
                                     'broadcast_info': broadcast_info,
                                     'logo_dir': league_config.get('logo_dir', f'assets/sports/{league.lower()}_logos'),
+                                    'league': league_config.get('logo_league', league),  # Use logo_league for downloading
                                     'status': status,
                                     'status_state': status_state,
                                     'live_info': live_info
@@ -804,9 +827,11 @@ class OddsTickerManager:
         vs_font = self.fonts['medium']
         datetime_font = self.fonts['medium'] # Use large font for date/time
 
-        # Get team logos
-        home_logo = self._get_team_logo(game['home_team'], game['logo_dir'])
-        away_logo = self._get_team_logo(game['away_team'], game['logo_dir'])
+        # Get team logos (with automatic download if missing)
+        home_logo = self._get_team_logo(game['home_team'], game['logo_dir'], 
+                                      league=game.get('league'), team_name=game.get('home_team_name'))
+        away_logo = self._get_team_logo(game['away_team'], game['logo_dir'], 
+                                      league=game.get('league'), team_name=game.get('away_team_name'))
         broadcast_logo = None
         
         # Enhanced broadcast logo debugging

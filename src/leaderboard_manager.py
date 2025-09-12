@@ -11,11 +11,13 @@ try:
     from .display_manager import DisplayManager
     from .cache_manager import CacheManager
     from .config_manager import ConfigManager
+    from .logo_downloader import download_missing_logo
 except ImportError:
     # Fallback for direct imports
     from display_manager import DisplayManager
     from cache_manager import CacheManager
     from config_manager import ConfigManager
+    from logo_downloader import download_missing_logo
 
 # Import the API counter function from web interface
 try:
@@ -193,8 +195,8 @@ class LeaderboardManager:
                 'xlarge': ImageFont.load_default()
             }
 
-    def _get_team_logo(self, team_abbr: str, logo_dir: str) -> Optional[Image.Image]:
-        """Get team logo from the configured directory."""
+    def _get_team_logo(self, team_abbr: str, logo_dir: str, league: str = None, team_name: str = None) -> Optional[Image.Image]:
+        """Get team logo from the configured directory, downloading if missing."""
         if not team_abbr or not logo_dir:
             logger.debug("Cannot get team logo with missing team_abbr or logo_dir")
             return None
@@ -207,6 +209,18 @@ class LeaderboardManager:
                 return logo
             else:
                 logger.warning(f"Logo not found at path: {logo_path}")
+                
+                # Try to download the missing logo if we have league information
+                if league:
+                    logger.info(f"Attempting to download missing logo for {team_abbr} in league {league}")
+                    success = download_missing_logo(team_abbr, league, team_name)
+                    if success:
+                        # Try to load the downloaded logo
+                        if os.path.exists(logo_path):
+                            logo = Image.open(logo_path)
+                            logger.info(f"Successfully downloaded and loaded logo for {team_abbr}")
+                            return logo
+                
                 return None
         except Exception as e:
             logger.error(f"Error loading logo for {team_abbr} from {logo_dir}: {e}")
@@ -767,19 +781,10 @@ class LeaderboardManager:
                     league_logo = league_logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
                     self.leaderboard_image.paste(league_logo, (logo_x, logo_y), league_logo if league_logo.mode == 'RGBA' else None)
                     
-                    # Draw league name at the bottom
-                    league_name = league_key.upper().replace('_', ' ')
-                    league_name_bbox = self.fonts['small'].getbbox(league_name)
-                    league_name_width = league_name_bbox[2] - league_name_bbox[0]
-                    league_name_x = current_x + (64 - league_name_width) // 2
-                    draw.text((league_name_x, height - 8), league_name, font=self.fonts['small'], fill=(255, 255, 255))
+                    # League name removed - only show league logo
                 else:
-                    # Fallback if no league logo - just show league name
-                    league_name = league_key.upper().replace('_', ' ')
-                    league_name_bbox = self.fonts['medium'].getbbox(league_name)
-                    league_name_width = league_name_bbox[2] - league_name_bbox[0]
-                    league_name_x = current_x + (64 - league_name_width) // 2
-                    draw.text((league_name_x, height // 2), league_name, font=self.fonts['medium'], fill=(255, 255, 255))
+                    # No league logo available - skip league name display
+                    pass
                 
                 # Move to team section
                 current_x += 64 + 10  # League logo width + spacing
@@ -816,7 +821,8 @@ class LeaderboardManager:
                     draw.text((team_x, number_y), number_text, font=self.fonts['xlarge'], fill=(255, 255, 0))
                     
                     # Draw team logo (95% of display height, centered vertically)
-                    team_logo = self._get_team_logo(team['abbreviation'], league_config['logo_dir'])
+                    team_logo = self._get_team_logo(team['abbreviation'], league_config['logo_dir'], 
+                                                   league=league_key, team_name=team.get('name'))
                     if team_logo:
                         # Resize team logo to dynamic size (95% of display height)
                         team_logo = team_logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
