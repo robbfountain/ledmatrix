@@ -10,9 +10,15 @@ from src.display_manager import DisplayManager
 logger = logging.getLogger(__name__)
 
 class Clock:
-    def __init__(self, display_manager: DisplayManager = None):
-        self.config_manager = ConfigManager()
-        self.config = self.config_manager.load_config()
+    def __init__(self, display_manager: DisplayManager = None, config: Dict[str, Any] = None):
+        if config is not None:
+            # Use provided config
+            self.config = config
+            self.config_manager = None  # Not needed when config is provided
+        else:
+            # Fallback: create ConfigManager and load config (for standalone usage)
+            self.config_manager = ConfigManager()
+            self.config = self.config_manager.load_config()
         # Use the provided display_manager or create a new one if none provided
         self.display_manager = display_manager or DisplayManager(self.config.get('display', {}))
         logger.info("Clock initialized with display_manager: %s", id(self.display_manager))
@@ -31,7 +37,7 @@ class Clock:
 
     def _get_timezone(self) -> pytz.timezone:
         """Get timezone from the config file."""
-        config_timezone = self.config_manager.get_timezone()
+        config_timezone = self.config.get('timezone', 'UTC')
         try:
             return pytz.timezone(config_timezone)
         except pytz.exceptions.UnknownTimeZoneError:

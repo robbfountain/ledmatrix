@@ -1,13 +1,22 @@
-import requests
+import time
 import logging
+import requests
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from src.cache_manager import CacheManager
-from src.config_manager import ConfigManager
-from typing import Optional, List, Dict, Any
+import pytz
+from typing import Dict, Any, Optional, List
+
+# Import the API counter function from web interface
+try:
+    from web_interface_v2 import increment_api_counter
+except ImportError:
+    # Fallback if web interface is not available
+    def increment_api_counter(kind: str, count: int = 1):
+        pass
 
 class OddsManager:
-    def __init__(self, cache_manager: CacheManager, config_manager: ConfigManager):
+    def __init__(self, cache_manager: CacheManager, config_manager=None):
         self.cache_manager = cache_manager
         self.config_manager = config_manager
         self.logger = logging.getLogger(__name__)
@@ -31,6 +40,9 @@ class OddsManager:
             response = requests.get(url, timeout=10)
             response.raise_for_status()
             raw_data = response.json()
+            
+            # Increment API counter for odds data
+            increment_api_counter('odds', 1)
             self.logger.debug(f"Received raw odds data from ESPN: {json.dumps(raw_data, indent=2)}")
             
             odds_data = self._extract_espn_data(raw_data)

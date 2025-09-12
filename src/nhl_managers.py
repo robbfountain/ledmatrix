@@ -42,10 +42,11 @@ class BaseNHLManager:
     
     def __init__(self, config: Dict[str, Any], display_manager: DisplayManager, cache_manager: CacheManager):
         self.display_manager = display_manager
-        self.config_manager = ConfigManager()
+        # Store reference to config instead of creating new ConfigManager
+        self.config_manager = None  # Not used in this class
         self.config = config
         self.cache_manager = cache_manager
-        self.odds_manager = OddsManager(self.cache_manager, self.config)
+        self.odds_manager = OddsManager(self.cache_manager, None)
         self.logger = logging.getLogger(__name__)
         self.nhl_config = config.get("nhl_scoreboard", {})
         self.is_enabled = self.nhl_config.get("enabled", False)
@@ -63,13 +64,9 @@ class BaseNHLManager:
         # Set logging level to DEBUG to see all messages
         self.logger.setLevel(logging.DEBUG)
         
-        # Get display dimensions from config
-        display_config = config.get("display", {})
-        hardware_config = display_config.get("hardware", {})
-        cols = hardware_config.get("cols", 64)
-        chain = hardware_config.get("chain_length", 1)
-        self.display_width = int(cols * chain)
-        self.display_height = hardware_config.get("rows", 32)
+        # Get display dimensions from matrix
+        self.display_width = self.display_manager.matrix.width
+        self.display_height = self.display_manager.matrix.height
         
         # Cache for loaded logos
         self._logo_cache = {}
@@ -107,7 +104,8 @@ class BaseNHLManager:
 
     def _get_timezone(self):
         try:
-            return pytz.timezone(self.config_manager.get_timezone())
+            timezone_str = self.config.get('timezone', 'UTC')
+            return pytz.timezone(timezone_str)
         except pytz.UnknownTimeZoneError:
             return pytz.utc
 

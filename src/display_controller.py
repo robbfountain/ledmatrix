@@ -20,6 +20,7 @@ from src.cache_manager import CacheManager
 from src.stock_manager import StockManager
 from src.stock_news_manager import StockNewsManager
 from src.odds_ticker_manager import OddsTickerManager
+from src.leaderboard_manager import LeaderboardManager
 from src.nhl_managers import NHLLiveManager, NHLRecentManager, NHLUpcomingManager
 from src.nba_managers import NBALiveManager, NBARecentManager, NBAUpcomingManager
 from src.mlb_manager import MLBLiveManager, MLBRecentManager, MLBUpcomingManager
@@ -55,16 +56,17 @@ class DisplayController:
         
         # Initialize display modes
         init_time = time.time()
-        self.clock = Clock(self.display_manager) if self.config.get('clock', {}).get('enabled', True) else None
+        self.clock = Clock(self.display_manager, self.config) if self.config.get('clock', {}).get('enabled', True) else None
         self.weather = WeatherManager(self.config, self.display_manager) if self.config.get('weather', {}).get('enabled', False) else None
         self.stocks = StockManager(self.config, self.display_manager) if self.config.get('stocks', {}).get('enabled', False) else None
         self.news = StockNewsManager(self.config, self.display_manager) if self.config.get('stock_news', {}).get('enabled', False) else None
         self.odds_ticker = OddsTickerManager(self.config, self.display_manager) if self.config.get('odds_ticker', {}).get('enabled', False) else None
+        self.leaderboard = LeaderboardManager(self.config, self.display_manager) if self.config.get('leaderboard', {}).get('enabled', False) else None
         self.calendar = CalendarManager(self.display_manager, self.config) if self.config.get('calendar', {}).get('enabled', False) else None
         self.youtube = YouTubeDisplay(self.display_manager, self.config) if self.config.get('youtube', {}).get('enabled', False) else None
         self.text_display = TextDisplay(self.display_manager, self.config) if self.config.get('text_display', {}).get('enabled', False) else None
         self.of_the_day = OfTheDayManager(self.display_manager, self.config) if self.config.get('of_the_day', {}).get('enabled', False) else None
-        self.news_manager = NewsManager(self.config, self.display_manager) if self.config.get('news_manager', {}).get('enabled', False) else None
+        self.news_manager = NewsManager(self.config, self.display_manager, self.config_manager) if self.config.get('news_manager', {}).get('enabled', False) else None
         logger.info(f"Calendar Manager initialized: {'Object' if self.calendar else 'None'}")
         logger.info(f"Text Display initialized: {'Object' if self.text_display else 'None'}")
         logger.info(f"OfTheDay Manager initialized: {'Object' if self.of_the_day else 'None'}")
@@ -258,6 +260,7 @@ class DisplayController:
         if self.stocks: self.available_modes.append('stocks')
         if self.news: self.available_modes.append('stock_news')
         if self.odds_ticker: self.available_modes.append('odds_ticker')
+        if self.leaderboard: self.available_modes.append('leaderboard')
         if self.calendar: self.available_modes.append('calendar')
         if self.youtube: self.available_modes.append('youtube')
         if self.text_display: self.available_modes.append('text_display')
@@ -427,11 +430,9 @@ class DisplayController:
         logger.info(f"Initial display mode: {self.current_display_mode}")
         logger.info("DisplayController initialized with display_manager: %s", id(self.display_manager))
 
-        # --- SCHEDULING & CONFIG REFRESH ---
-        self.config_check_interval = 30
-        self.last_config_check = 0
+        # --- SCHEDULING ---
         self.is_display_active = True
-        self._load_config() # Initial load of schedule
+        self._load_schedule_config() # Load schedule config once at startup
 
     def _handle_music_update(self, track_info: Dict[str, Any], significant_change: bool = False):
         """Callback for when music track info changes."""
@@ -516,6 +517,20 @@ class DisplayController:
                 # Fall back to configured duration
                 return self.display_durations.get(mode_key, 60)
 
+        # Handle dynamic duration for leaderboard
+        if mode_key == 'leaderboard' and self.leaderboard:
+            try:
+                dynamic_duration = self.leaderboard.get_dynamic_duration()
+                # Only log if duration has changed or we haven't logged this duration yet
+                if not hasattr(self, '_last_logged_leaderboard_duration') or self._last_logged_leaderboard_duration != dynamic_duration:
+                    logger.info(f"Using dynamic duration for leaderboard: {dynamic_duration} seconds")
+                    self._last_logged_leaderboard_duration = dynamic_duration
+                return dynamic_duration
+            except Exception as e:
+                logger.error(f"Error getting dynamic duration for leaderboard: {e}")
+                # Fall back to configured duration
+                return self.display_durations.get(mode_key, 60)
+
         # Simplify weather key handling
         if mode_key.startswith('weather_'):
             return self.display_durations.get(mode_key, 15)
@@ -530,14 +545,33 @@ class DisplayController:
 
     def _update_modules(self):
         """Call update methods on active managers."""
-        if self.weather: self.weather.get_weather()
-        if self.stocks: self.stocks.update_stock_data()
-        if self.news: self.news.update_news_data()
-        if self.odds_ticker: self.odds_ticker.update()
-        if self.calendar: self.calendar.update(time.time())
-        if self.youtube: self.youtube.update()
-        if self.text_display: self.text_display.update()
-        if self.of_the_day: self.of_the_day.update(time.time())
+        # Check if we're currently scrolling and defer updates if so
+        if self.display_manager.is_currently_scrolling():
+            logger.debug("Display is currently scrolling, deferring module updates")
+            # Defer updates for modules that might cause lag during scrolling
+            if self.odds_ticker: 
+                self.display_manager.defer_update(self.odds_ticker.update, priority=1)
+            if self.stocks: 
+                self.display_manager.defer_update(self.stocks.update_stock_data, priority=2)
+            if self.news: 
+                self.display_manager.defer_update(self.news.update_news_data, priority=2)
+            # Continue with non-scrolling-sensitive updates
+            if self.weather: self.weather.get_weather()
+            if self.calendar: self.calendar.update(time.time())
+            if self.youtube: self.youtube.update()
+            if self.text_display: self.text_display.update()
+            if self.of_the_day: self.of_the_day.update(time.time())
+        else:
+            # Not scrolling, perform all updates normally
+            if self.weather: self.weather.get_weather()
+            if self.stocks: self.stocks.update_stock_data()
+            if self.news: self.news.update_news_data()
+            if self.odds_ticker: self.odds_ticker.update()
+            if self.calendar: self.calendar.update(time.time())
+            if self.youtube: self.youtube.update()
+            if self.text_display: self.text_display.update()
+            if self.of_the_day: self.of_the_day.update(time.time())
+        
         # News manager fetches data when displayed, not during updates
         # if self.news_manager: self.news_manager.fetch_news_data()
         
@@ -829,14 +863,14 @@ class DisplayController:
                 self.ncaa_fb_showing_recent = True # Reset to recent for the new team
 
     # --- SCHEDULING METHODS ---
-    def _load_config(self):
-        """Load configuration from the config manager and parse schedule settings."""
-        self.config = self.config_manager.load_config()
+    def _load_schedule_config(self):
+        """Load schedule configuration once at startup."""
         schedule_config = self.config.get('schedule', {})
         self.schedule_enabled = schedule_config.get('enabled', False)
         try:
             self.start_time = datetime.strptime(schedule_config.get('start_time', '07:00'), '%H:%M').time()
             self.end_time = datetime.strptime(schedule_config.get('end_time', '22:00'), '%H:%M').time()
+            logger.info(f"Schedule loaded: enabled={self.schedule_enabled}, start={self.start_time}, end={self.end_time}")
         except (ValueError, TypeError):
             logger.warning("Invalid time format in schedule config. Using defaults.")
             self.start_time = time_obj(7, 0)
@@ -926,12 +960,7 @@ class DisplayController:
             while True:
                 current_time = time.time()
 
-                # Periodically check for config changes
-                if current_time - self.last_config_check > self.config_check_interval:
-                    self._load_config()
-                    self.last_config_check = current_time
-
-                # Enforce the schedule
+                # Check the schedule (no config reload needed)
                 self._check_schedule()
                 if not self.is_display_active:
                     time.sleep(60)
@@ -939,6 +968,9 @@ class DisplayController:
                 
                 # Update data for all modules first
                 self._update_modules()
+                
+                # Process any deferred updates that may have accumulated
+                self.display_manager.process_deferred_updates()
                 
                 # Update live modes in rotation if needed
                 self._update_live_modes_in_rotation()
@@ -1097,6 +1129,8 @@ class DisplayController:
                                 manager_to_display = self.news
                             elif self.current_display_mode == 'odds_ticker' and self.odds_ticker:
                                 manager_to_display = self.odds_ticker
+                            elif self.current_display_mode == 'leaderboard' and self.leaderboard:
+                                manager_to_display = self.leaderboard
                             elif self.current_display_mode == 'calendar' and self.calendar:
                                 manager_to_display = self.calendar
                             elif self.current_display_mode == 'youtube' and self.youtube:

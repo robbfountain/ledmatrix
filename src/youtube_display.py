@@ -8,6 +8,14 @@ from rgbmatrix import RGBMatrix, RGBMatrixOptions
 import os
 from typing import Dict, Any
 
+# Import the API counter function from web interface
+try:
+    from web_interface_v2 import increment_api_counter
+except ImportError:
+    # Fallback if web interface is not available
+    def increment_api_counter(kind: str, count: int = 1):
+        pass
+
 # Get logger without configuring
 logger = logging.getLogger(__name__)
 
@@ -57,6 +65,10 @@ class YouTubeDisplay:
         try:
             response = requests.get(url)
             data = response.json()
+            
+            # Increment API counter for YouTube data
+            increment_api_counter('youtube', 1)
+            
             if data['items']:
                 channel = data['items'][0]
                 return {

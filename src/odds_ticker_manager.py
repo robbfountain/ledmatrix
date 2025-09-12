@@ -11,6 +11,15 @@ from src.display_manager import DisplayManager
 from src.cache_manager import CacheManager
 from src.config_manager import ConfigManager
 from src.odds_manager import OddsManager
+from src.logo_downloader import download_missing_logo
+
+# Import the API counter function from web interface
+try:
+    from web_interface_v2 import increment_api_counter
+except ImportError:
+    # Fallback if web interface is not available
+    def increment_api_counter(kind: str, count: int = 1):
+        pass
 
 # Get logger
 logger = logging.getLogger(__name__)
@@ -75,6 +84,7 @@ class OddsTickerManager:
         self.games_per_favorite_team = self.odds_ticker_config.get('games_per_favorite_team', 1)
         self.max_games_per_league = self.odds_ticker_config.get('max_games_per_league', 5)
         self.show_odds_only = self.odds_ticker_config.get('show_odds_only', False)
+        self.fetch_odds = self.odds_ticker_config.get('fetch_odds', True)  # New option to disable odds fetching
         self.sort_order = self.odds_ticker_config.get('sort_order', 'soonest')
         self.enabled_leagues = self.odds_ticker_config.get('enabled_leagues', ['nfl', 'nba', 'mlb'])
         self.update_interval = self.odds_ticker_config.get('update_interval', 3600)
@@ -98,7 +108,8 @@ class OddsTickerManager:
         
         # Initialize managers
         self.cache_manager = CacheManager()
-        self.odds_manager = OddsManager(self.cache_manager, ConfigManager())
+        # OddsManager doesn't actually use the config_manager parameter, so pass None
+        self.odds_manager = OddsManager(self.cache_manager, None)
         
         # State variables
         self.last_update = 0
@@ -117,6 +128,7 @@ class OddsTickerManager:
             'nfl': {
                 'sport': 'football',
                 'league': 'nfl',
+                'logo_league': 'nfl',  # ESPN API league identifier for logo downloading
                 'logo_dir': 'assets/sports/nfl_logos',
                 'favorite_teams': config.get('nfl_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('nfl_scoreboard', {}).get('enabled', False)
@@ -124,6 +136,7 @@ class OddsTickerManager:
             'nba': {
                 'sport': 'basketball',
                 'league': 'nba',
+                'logo_league': 'nba',  # ESPN API league identifier for logo downloading
                 'logo_dir': 'assets/sports/nba_logos',
                 'favorite_teams': config.get('nba_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('nba_scoreboard', {}).get('enabled', False)
@@ -131,6 +144,7 @@ class OddsTickerManager:
             'mlb': {
                 'sport': 'baseball',
                 'league': 'mlb',
+                'logo_league': 'mlb',  # ESPN API league identifier for logo downloading
                 'logo_dir': 'assets/sports/mlb_logos',
                 'favorite_teams': config.get('mlb', {}).get('favorite_teams', []),
                 'enabled': config.get('mlb', {}).get('enabled', False)
@@ -138,6 +152,7 @@ class OddsTickerManager:
             'ncaa_fb': {
                 'sport': 'football',
                 'league': 'college-football',
+                'logo_league': 'ncaa_fb',  # ESPN API league identifier for logo downloading
                 'logo_dir': 'assets/sports/ncaa_fbs_logos',
                 'favorite_teams': config.get('ncaa_fb_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('ncaa_fb_scoreboard', {}).get('enabled', False)
@@ -145,6 +160,7 @@ class OddsTickerManager:
             'milb': {
                 'sport': 'baseball',
                 'league': 'milb',
+                'logo_league': 'milb',  # ESPN API league identifier for logo downloading (if supported)
                 'logo_dir': 'assets/sports/milb_logos',
                 'favorite_teams': config.get('milb', {}).get('favorite_teams', []),
                 'enabled': config.get('milb', {}).get('enabled', False)
@@ -152,6 +168,7 @@ class OddsTickerManager:
             'nhl': {
                 'sport': 'hockey',
                 'league': 'nhl',
+                'logo_league': 'nhl',  # ESPN API league identifier for logo downloading
                 'logo_dir': 'assets/sports/nhl_logos',
                 'favorite_teams': config.get('nhl_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('nhl_scoreboard', {}).get('enabled', False)
@@ -159,6 +176,7 @@ class OddsTickerManager:
             'ncaam_basketball': {
                 'sport': 'basketball',
                 'league': 'mens-college-basketball',
+                'logo_league': 'ncaam_basketball',  # ESPN API league identifier for logo downloading
                 'logo_dir': 'assets/sports/ncaa_fbs_logos',
                 'favorite_teams': config.get('ncaam_basketball_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('ncaam_basketball_scoreboard', {}).get('enabled', False)
@@ -166,6 +184,7 @@ class OddsTickerManager:
             'ncaa_baseball': {
                 'sport': 'baseball',
                 'league': 'college-baseball',
+                'logo_league': 'ncaa_baseball',  # ESPN API league identifier for logo downloading
                 'logo_dir': 'assets/sports/ncaa_fbs_logos',
                 'favorite_teams': config.get('ncaa_baseball_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('ncaa_baseball_scoreboard', {}).get('enabled', False)
@@ -173,6 +192,7 @@ class OddsTickerManager:
             'soccer': {
                 'sport': 'soccer',
                 'leagues': config.get('soccer_scoreboard', {}).get('leagues', []),
+                'logo_league': None,  # Soccer logos not supported by ESPN API
                 'logo_dir': 'assets/sports/soccer_logos',
                 'favorite_teams': config.get('soccer_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('soccer_scoreboard', {}).get('enabled', False)
@@ -214,6 +234,9 @@ class OddsTickerManager:
             response.raise_for_status()
             data = response.json()
             
+            # Increment API counter for sports data
+            increment_api_counter('sports', 1)
+            
             # Different path for college sports records
             if league == 'college-football':
                  record_items = data.get('team', {}).get('record', {}).get('items', [])
@@ -229,8 +252,55 @@ class OddsTickerManager:
             logger.error(f"Error fetching record for {team_abbr} in league {league}: {e}")
             return "N/A"
 
-    def _get_team_logo(self, team_abbr: str, logo_dir: str) -> Optional[Image.Image]:
-        """Get team logo from the configured directory."""
+    def _fetch_team_rankings(self) -> Dict[str, int]:
+        """Fetch current team rankings from ESPN API for NCAA football."""
+        current_time = time.time()
+        
+        # Check if we have cached rankings that are still valid
+        if (hasattr(self, '_team_rankings_cache') and 
+            hasattr(self, '_rankings_cache_timestamp') and
+            self._team_rankings_cache and 
+            current_time - self._rankings_cache_timestamp < 3600):  # Cache for 1 hour
+            return self._team_rankings_cache
+        
+        try:
+            rankings_url = "https://site.api.espn.com/apis/site/v2/sports/football/college-football/rankings"
+            response = requests.get(rankings_url, timeout=self.request_timeout)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Increment API counter for sports data
+            increment_api_counter('sports', 1)
+            
+            rankings = {}
+            rankings_data = data.get('rankings', [])
+            
+            if rankings_data:
+                # Use the first ranking (usually AP Top 25)
+                first_ranking = rankings_data[0]
+                teams = first_ranking.get('ranks', [])
+                
+                for team_data in teams:
+                    team_info = team_data.get('team', {})
+                    team_abbr = team_info.get('abbreviation', '')
+                    current_rank = team_data.get('current', 0)
+                    
+                    if team_abbr and current_rank > 0:
+                        rankings[team_abbr] = current_rank
+            
+            # Cache the results
+            self._team_rankings_cache = rankings
+            self._rankings_cache_timestamp = current_time
+            
+            logger.debug(f"Fetched rankings for {len(rankings)} teams")
+            return rankings
+            
+        except Exception as e:
+            logger.error(f"Error fetching team rankings: {e}")
+            return {}
+
+    def _get_team_logo(self, team_abbr: str, logo_dir: str, league: str = None, team_name: str = None) -> Optional[Image.Image]:
+        """Get team logo from the configured directory, downloading if missing."""
         if not team_abbr or not logo_dir:
             logger.debug("Cannot get team logo with missing team_abbr or logo_dir")
             return None
@@ -239,10 +309,28 @@ class OddsTickerManager:
             logger.debug(f"Attempting to load logo from path: {logo_path}")
             if os.path.exists(logo_path):
                 logo = Image.open(logo_path)
+                # Convert palette images with transparency to RGBA to avoid PIL warnings
+                if logo.mode == 'P' and 'transparency' in logo.info:
+                    logo = logo.convert('RGBA')
                 logger.debug(f"Successfully loaded logo for {team_abbr} from {logo_path}")
                 return logo
             else:
                 logger.warning(f"Logo not found at path: {logo_path}")
+                
+                # Try to download the missing logo if we have league information
+                if league:
+                    logger.info(f"Attempting to download missing logo for {team_abbr} in league {league}")
+                    success = download_missing_logo(team_abbr, league, team_name)
+                    if success:
+                        # Try to load the downloaded logo
+                        if os.path.exists(logo_path):
+                            logo = Image.open(logo_path)
+                            # Convert palette images with transparency to RGBA to avoid PIL warnings
+                            if logo.mode == 'P' and 'transparency' in logo.info:
+                                logo = logo.convert('RGBA')
+                            logger.info(f"Successfully downloaded and loaded logo for {team_abbr}")
+                            return logo
+                
                 return None
         except Exception as e:
             logger.error(f"Error loading logo for {team_abbr} from {logo_dir}: {e}")
@@ -254,6 +342,9 @@ class OddsTickerManager:
         now = datetime.now(timezone.utc)
         
         logger.debug(f"Fetching upcoming games for {len(self.enabled_leagues)} enabled leagues")
+        logger.debug(f"Enabled leagues: {self.enabled_leagues}")
+        logger.debug(f"Show favorite teams only: {self.show_favorite_teams_only}")
+        logger.debug(f"Show odds only: {self.show_odds_only}")
         
         for league_key in self.enabled_leagues:
             if league_key not in self.league_configs:
@@ -272,15 +363,18 @@ class OddsTickerManager:
                 if self.show_favorite_teams_only:
                     # For each favorite team, find their next N games
                     favorite_teams = league_config.get('favorite_teams', [])
+                    logger.debug(f"Favorite teams for {league_key}: {favorite_teams}")
                     seen_game_ids = set()
                     for team in favorite_teams:
                         # Find games where this team is home or away
                         team_games = [g for g in all_games if (g['home_team'] == team or g['away_team'] == team)]
+                        logger.debug(f"Found {len(team_games)} games for team {team}")
                         # Sort by start_time
                         team_games.sort(key=lambda x: x.get('start_time', datetime.max))
                         # Only keep games with odds if show_odds_only is set
                         if self.show_odds_only:
                             team_games = [g for g in team_games if g.get('odds')]
+                            logger.debug(f"After odds filter: {len(team_games)} games for team {team}")
                         # Take the next N games for this team
                         for g in team_games[:self.games_per_favorite_team]:
                             if g['id'] not in seen_game_ids:
@@ -303,11 +397,14 @@ class OddsTickerManager:
                 # (Other sort options can be added here)
                 
                 games_data.extend(league_games)
+                logger.debug(f"Added {len(league_games)} games from {league_key}")
                 
             except Exception as e:
                 logger.error(f"Error fetching games for {league_key}: {e}")
         
         logger.debug(f"Total games found: {len(games_data)}")
+        if games_data:
+            logger.debug(f"Sample game data keys: {list(games_data[0].keys())}")
         return games_data
 
     def _fetch_league_games(self, league_config: Dict[str, Any], now: datetime) -> List[Dict[str, Any]]:
@@ -359,7 +456,7 @@ class OddsTickerManager:
                     if request_date_obj < current_date_obj:
                         ttl = 86400 * 30  # 30 days for past dates
                     elif request_date_obj == current_date_obj:
-                        ttl = 3600  # 1 hour for today
+                        ttl = 300  # 5 minutes for today (shorter to catch live games)
                     else:
                         ttl = 43200  # 12 hours for future dates
                     
@@ -371,6 +468,10 @@ class OddsTickerManager:
                         response = requests.get(url, timeout=self.request_timeout)
                         response.raise_for_status()
                         data = response.json()
+                        
+                        # Increment API counter for sports data
+                        increment_api_counter('sports', 1)
+                        
                         self.cache_manager.set(cache_key, data)
                         logger.debug(f"Cached scoreboard for {league} on {date} with a TTL of {ttl} seconds.")
                     else:
@@ -382,9 +483,15 @@ class OddsTickerManager:
                             break
                         game_id = event['id']
                         status = event['status']['type']['name'].lower()
-                        if status in ['scheduled', 'pre-game', 'status_scheduled']:
+                        status_state = event['status']['type']['state'].lower()
+                        
+                        # Include both scheduled and live games
+                        if status in ['scheduled', 'pre-game', 'status_scheduled'] or status_state == 'in':
                             game_time = datetime.fromisoformat(event['date'].replace('Z', '+00:00'))
-                            if now <= game_time <= future_window:
+                            
+                            # For live games, include them regardless of time window
+                            # For scheduled games, check if they're within the future window
+                            if status_state == 'in' or (now <= game_time <= future_window):
                                 competitors = event['competitions'][0]['competitors']
                                 home_team = next(c for c in competitors if c['homeAway'] == 'home')
                                 away_team = next(c for c in competitors if c['homeAway'] == 'away')
@@ -437,19 +544,59 @@ class OddsTickerManager:
                                 
                                 # Dynamically set update interval based on game start time
                                 time_until_game = game_time - now
-                                if time_until_game > timedelta(hours=48):
+                                if status_state == 'in':
+                                    # Live games need more frequent updates
+                                    update_interval_seconds = 300  # 5 minutes for live games
+                                elif time_until_game > timedelta(hours=48):
                                     update_interval_seconds = 86400  # 24 hours
                                 else:
                                     update_interval_seconds = 3600   # 1 hour
                                 
                                 logger.debug(f"Game {game_id} starts in {time_until_game}. Setting odds update interval to {update_interval_seconds}s.")
                                 
-                                odds_data = self.odds_manager.get_odds(
-                                    sport=sport,
-                                    league=league,
-                                    event_id=game_id,
-                                    update_interval_seconds=update_interval_seconds
-                                )
+                                # Fetch odds with timeout protection to prevent freezing (if enabled)
+                                if self.fetch_odds:
+                                    try:
+                                        import threading
+                                        import queue
+                                        
+                                        result_queue = queue.Queue()
+                                        
+                                        def fetch_odds():
+                                            try:
+                                                odds_result = self.odds_manager.get_odds(
+                                                    sport=sport,
+                                                    league=league,
+                                                    event_id=game_id,
+                                                    update_interval_seconds=update_interval_seconds
+                                                )
+                                                result_queue.put(('success', odds_result))
+                                            except Exception as e:
+                                                result_queue.put(('error', e))
+                                        
+                                        # Start odds fetch in a separate thread
+                                        odds_thread = threading.Thread(target=fetch_odds)
+                                        odds_thread.daemon = True
+                                        odds_thread.start()
+                                        
+                                        # Wait for result with 3-second timeout
+                                        try:
+                                            result_type, result_data = result_queue.get(timeout=3)
+                                            if result_type == 'success':
+                                                odds_data = result_data
+                                            else:
+                                                logger.warning(f"Odds fetch failed for game {game_id}: {result_data}")
+                                                odds_data = None
+                                        except queue.Empty:
+                                            logger.warning(f"Odds fetch timed out for game {game_id}")
+                                            odds_data = None
+                                        
+                                    except Exception as e:
+                                        logger.warning(f"Odds fetch failed for game {game_id}: {e}")
+                                        odds_data = None
+                                else:
+                                    # Odds fetching is disabled
+                                    odds_data = None
                                 
                                 has_odds = False
                                 if odds_data and not odds_data.get('no_odds'):
@@ -461,6 +608,12 @@ class OddsTickerManager:
                                         has_odds = True
                                     if odds_data.get('over_under') is not None:
                                         has_odds = True
+                                
+                                # Extract live game information if the game is in progress
+                                live_info = None
+                                if status_state == 'in':
+                                    live_info = self._extract_live_game_info(event, sport)
+                                
                                 game = {
                                     'id': game_id,
                                     'home_team': home_abbr,
@@ -472,7 +625,11 @@ class OddsTickerManager:
                                     'away_record': away_record,
                                     'odds': odds_data if has_odds else None,
                                     'broadcast_info': broadcast_info,
-                                    'logo_dir': league_config.get('logo_dir', f'assets/sports/{league.lower()}_logos')
+                                    'logo_dir': league_config.get('logo_dir', f'assets/sports/{league.lower()}_logos'),
+                                    'league': league_config.get('logo_league', league),  # Use logo_league for downloading
+                                    'status': status,
+                                    'status_state': status_state,
+                                    'live_info': live_info
                                 }
                                 all_games.append(game)
                                 games_found += 1
@@ -492,8 +649,170 @@ class OddsTickerManager:
                 break
         return all_games
 
+    def _extract_live_game_info(self, event: Dict[str, Any], sport: str) -> Dict[str, Any]:
+        """Extract live game information from ESPN API event data."""
+        try:
+            status = event['status']
+            competitions = event['competitions'][0]
+            competitors = competitions['competitors']
+            
+            # Get scores
+            home_score = next(c['score'] for c in competitors if c['homeAway'] == 'home')
+            away_score = next(c['score'] for c in competitors if c['homeAway'] == 'away')
+            
+            live_info = {
+                'home_score': home_score,
+                'away_score': away_score,
+                'period': status.get('period', 1),
+                'clock': status.get('displayClock', ''),
+                'detail': status['type'].get('detail', ''),
+                'short_detail': status['type'].get('shortDetail', '')
+            }
+            
+            # Sport-specific information
+            if sport == 'baseball':
+                # Extract inning information
+                situation = competitions.get('situation', {})
+                count = situation.get('count', {})
+                
+                live_info.update({
+                    'inning': status.get('period', 1),
+                    'inning_half': 'top',  # Default
+                    'balls': count.get('balls', 0),
+                    'strikes': count.get('strikes', 0),
+                    'outs': situation.get('outs', 0),
+                    'bases_occupied': [
+                        situation.get('onFirst', False),
+                        situation.get('onSecond', False),
+                        situation.get('onThird', False)
+                    ]
+                })
+                
+                # Determine inning half from status detail
+                status_detail = status['type'].get('detail', '').lower()
+                status_short = status['type'].get('shortDetail', '').lower()
+                
+                if 'bottom' in status_detail or 'bot' in status_detail or 'bottom' in status_short or 'bot' in status_short:
+                    live_info['inning_half'] = 'bottom'
+                elif 'top' in status_detail or 'mid' in status_detail or 'top' in status_short or 'mid' in status_short:
+                    live_info['inning_half'] = 'top'
+                    
+            elif sport == 'football':
+                # Extract football-specific information
+                situation = competitions.get('situation', {})
+                
+                live_info.update({
+                    'quarter': status.get('period', 1),
+                    'down': situation.get('down', 0),
+                    'distance': situation.get('distance', 0),
+                    'yard_line': situation.get('yardLine', 0),
+                    'possession': situation.get('possession', '')
+                })
+                
+            elif sport == 'basketball':
+                # Extract basketball-specific information
+                situation = competitions.get('situation', {})
+                
+                live_info.update({
+                    'quarter': status.get('period', 1),
+                    'time_remaining': status.get('displayClock', ''),
+                    'possession': situation.get('possession', '')
+                })
+                
+            elif sport == 'hockey':
+                # Extract hockey-specific information
+                situation = competitions.get('situation', {})
+                
+                live_info.update({
+                    'period': status.get('period', 1),
+                    'time_remaining': status.get('displayClock', ''),
+                    'power_play': situation.get('powerPlay', False)
+                })
+                
+            elif sport == 'soccer':
+                # Extract soccer-specific information
+                live_info.update({
+                    'period': status.get('period', 1),
+                    'time_remaining': status.get('displayClock', ''),
+                    'extra_time': status.get('displayClock', '').endswith('+')
+                })
+            
+            return live_info
+            
+        except Exception as e:
+            logger.error(f"Error extracting live game info: {e}")
+            return None
+
     def _format_odds_text(self, game: Dict[str, Any]) -> str:
         """Format the odds text for display."""
+        # Check if this is a live game
+        is_live = game.get('status_state') == 'in'
+        live_info = game.get('live_info')
+        
+        if is_live and live_info:
+            # Format live game information
+            home_score = live_info.get('home_score', 0)
+            away_score = live_info.get('away_score', 0)
+            
+            # Determine sport for sport-specific formatting
+            sport = None
+            for league_key, config in self.league_configs.items():
+                if config.get('logo_dir') == game.get('logo_dir'):
+                    sport = config.get('sport')
+                    break
+            
+            # Get team names with rankings for NCAA football
+            away_team_name = game.get('away_team_name', game['away_team'])
+            home_team_name = game.get('home_team_name', game['home_team'])
+            away_team_abbr = game.get('away_team', '')
+            home_team_abbr = game.get('home_team', '')
+            
+            # Check if this is NCAA football and add rankings
+            league_key = None
+            for key, config in self.league_configs.items():
+                if config.get('logo_dir') == game.get('logo_dir'):
+                    league_key = key
+                    break
+            
+            if league_key == 'ncaa_fb':
+                rankings = self._fetch_team_rankings()
+                
+                # Add ranking to away team name if ranked
+                if away_team_abbr in rankings and rankings[away_team_abbr] > 0:
+                    away_team_name = f"{rankings[away_team_abbr]}. {away_team_name}"
+                
+                # Add ranking to home team name if ranked
+                if home_team_abbr in rankings and rankings[home_team_abbr] > 0:
+                    home_team_name = f"{rankings[home_team_abbr]}. {home_team_name}"
+            
+            if sport == 'baseball':
+                inning_half_indicator = "▲" if live_info.get('inning_half') == 'top' else "▼"
+                inning_text = f"{inning_half_indicator}{live_info.get('inning', 1)}"
+                count_text = f"{live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
+                outs_count = live_info.get('outs', 0)
+                outs_text = f"{outs_count} out" if outs_count == 1 else f"{outs_count} outs"
+                return f"[LIVE] {away_team_name} {away_score} vs {home_team_name} {home_score} - {inning_text} {count_text} {outs_text}"
+                
+            elif sport == 'football':
+                quarter_text = f"Q{live_info.get('quarter', 1)}"
+                down_text = f"{live_info.get('down', 0)}&{live_info.get('distance', 0)}"
+                clock_text = live_info.get('clock', '')
+                return f"[LIVE] {away_team_name} {away_score} vs {home_team_name} {home_score} - {quarter_text} {down_text} {clock_text}"
+                
+            elif sport == 'basketball':
+                quarter_text = f"Q{live_info.get('quarter', 1)}"
+                clock_text = live_info.get('time_remaining', '')
+                return f"[LIVE] {away_team_name} {away_score} vs {home_team_name} {home_score} - {quarter_text} {clock_text}"
+                
+            elif sport == 'hockey':
+                period_text = f"P{live_info.get('period', 1)}"
+                clock_text = live_info.get('time_remaining', '')
+                return f"[LIVE] {away_team_name} {away_score} vs {home_team_name} {home_score} - {period_text} {clock_text}"
+                
+            else:
+                return f"[LIVE] {away_team_name} {away_score} vs {home_team_name} {home_score}"
+        
+        # Original odds formatting for non-live games
         odds = game.get('odds', {})
         if not odds:
             # Show just the game info without odds
@@ -509,7 +828,31 @@ class OddsTickerManager:
             local_time = game_time.astimezone(tz)
             time_str = local_time.strftime("%I:%M%p").lstrip('0')
             
-            return f"[{time_str}] {game.get('away_team_name', game['away_team'])} vs {game.get('home_team_name', game['home_team'])} (No odds)"
+            # Get team names with rankings for NCAA football
+            away_team_name = game.get('away_team_name', game['away_team'])
+            home_team_name = game.get('home_team_name', game['home_team'])
+            away_team_abbr = game.get('away_team', '')
+            home_team_abbr = game.get('home_team', '')
+            
+            # Check if this is NCAA football and add rankings
+            league_key = None
+            for key, config in self.league_configs.items():
+                if config.get('logo_dir') == game.get('logo_dir'):
+                    league_key = key
+                    break
+            
+            if league_key == 'ncaa_fb':
+                rankings = self._fetch_team_rankings()
+                
+                # Add ranking to away team name if ranked
+                if away_team_abbr in rankings and rankings[away_team_abbr] > 0:
+                    away_team_name = f"{rankings[away_team_abbr]}. {away_team_name}"
+                
+                # Add ranking to home team name if ranked
+                if home_team_abbr in rankings and rankings[home_team_abbr] > 0:
+                    home_team_name = f"{rankings[home_team_abbr]}. {home_team_name}"
+            
+            return f"[{time_str}] {away_team_name} vs {home_team_name} (No odds)"
         
         # Extract odds data
         home_team_odds = odds.get('home_team_odds', {})
@@ -537,8 +880,32 @@ class OddsTickerManager:
         # Build odds string
         odds_parts = [f"[{time_str}]"]
         
+        # Get team names with rankings for NCAA football
+        away_team_name = game.get('away_team_name', game['away_team'])
+        home_team_name = game.get('home_team_name', game['home_team'])
+        away_team_abbr = game.get('away_team', '')
+        home_team_abbr = game.get('home_team', '')
+        
+        # Check if this is NCAA football and add rankings
+        league_key = None
+        for key, config in self.league_configs.items():
+            if config.get('logo_dir') == game.get('logo_dir'):
+                league_key = key
+                break
+        
+        if league_key == 'ncaa_fb':
+            rankings = self._fetch_team_rankings()
+            
+            # Add ranking to away team name if ranked
+            if away_team_abbr in rankings and rankings[away_team_abbr] > 0:
+                away_team_name = f"{rankings[away_team_abbr]}. {away_team_name}"
+            
+            # Add ranking to home team name if ranked
+            if home_team_abbr in rankings and rankings[home_team_abbr] > 0:
+                home_team_name = f"{rankings[home_team_abbr]}. {home_team_name}"
+        
         # Add away team and odds
-        odds_parts.append(game.get('away_team_name', game['away_team']))
+        odds_parts.append(away_team_name)
         if away_spread is not None:
             spread_str = f"{away_spread:+.1f}" if away_spread > 0 else f"{away_spread:.1f}"
             odds_parts.append(spread_str)
@@ -549,7 +916,7 @@ class OddsTickerManager:
         odds_parts.append("vs")
         
         # Add home team and odds
-        odds_parts.append(game.get('home_team_name', game['home_team']))
+        odds_parts.append(home_team_name)
         if home_spread is not None:
             spread_str = f"{home_spread:+.1f}" if home_spread > 0 else f"{home_spread:.1f}"
             odds_parts.append(spread_str)
@@ -562,6 +929,52 @@ class OddsTickerManager:
             odds_parts.append(f"O/U {over_under}")
         
         return " ".join(odds_parts)
+
+    def _draw_base_indicators(self, draw: ImageDraw.Draw, bases_occupied: List[bool], center_x: int, y: int) -> None:
+        """Draw base indicators on the display similar to MLB manager."""
+        base_diamond_size = 8  # Match MLB manager size
+        base_horiz_spacing = 8  # Reduced from 10 to 8 for tighter spacing
+        base_vert_spacing = 6  # Reduced from 8 to 6 for tighter vertical spacing
+        base_cluster_width = base_diamond_size + base_horiz_spacing + base_diamond_size
+        base_cluster_height = base_diamond_size + base_vert_spacing + base_diamond_size
+        
+        # Calculate cluster dimensions and positioning
+        bases_origin_x = center_x - (base_cluster_width // 2)
+        overall_start_y = y - (base_cluster_height // 2)
+        
+        # Draw diamond-shaped bases like MLB manager
+        base_color_occupied = (255, 255, 255)
+        base_color_empty = (255, 255, 255)  # Outline color
+        h_d = base_diamond_size // 2
+        
+        # 2nd Base (Top center)
+        c2x = bases_origin_x + base_cluster_width // 2
+        c2y = overall_start_y + h_d
+        poly2 = [(c2x, overall_start_y), (c2x + h_d, c2y), (c2x, c2y + h_d), (c2x - h_d, c2y)]
+        if bases_occupied[1]:
+            draw.polygon(poly2, fill=base_color_occupied)
+        else:
+            draw.polygon(poly2, outline=base_color_empty)
+        
+        base_bottom_y = c2y + h_d  # Bottom Y of 2nd base diamond
+        
+        # 3rd Base (Bottom left)
+        c3x = bases_origin_x + h_d
+        c3y = base_bottom_y + base_vert_spacing + h_d
+        poly3 = [(c3x, base_bottom_y + base_vert_spacing), (c3x + h_d, c3y), (c3x, c3y + h_d), (c3x - h_d, c3y)]
+        if bases_occupied[2]:
+            draw.polygon(poly3, fill=base_color_occupied)
+        else:
+            draw.polygon(poly3, outline=base_color_empty)
+
+        # 1st Base (Bottom right)
+        c1x = bases_origin_x + base_cluster_width - h_d
+        c1y = base_bottom_y + base_vert_spacing + h_d
+        poly1 = [(c1x, base_bottom_y + base_vert_spacing), (c1x + h_d, c1y), (c1x, c1y + h_d), (c1x - h_d, c1y)]
+        if bases_occupied[0]:
+            draw.polygon(poly1, fill=base_color_occupied)
+        else:
+            draw.polygon(poly1, outline=base_color_empty)
 
     def _create_game_display(self, game: Dict[str, Any]) -> Image.Image:
         """Create a display image for a game in the new format."""
@@ -578,9 +991,11 @@ class OddsTickerManager:
         vs_font = self.fonts['medium']
         datetime_font = self.fonts['medium'] # Use large font for date/time
 
-        # Get team logos
-        home_logo = self._get_team_logo(game['home_team'], game['logo_dir'])
-        away_logo = self._get_team_logo(game['away_team'], game['logo_dir'])
+        # Get team logos (with automatic download if missing)
+        home_logo = self._get_team_logo(game['home_team'], game['logo_dir'], 
+                                      league=game.get('league'), team_name=game.get('home_team_name'))
+        away_logo = self._get_team_logo(game['away_team'], game['logo_dir'], 
+                                      league=game.get('league'), team_name=game.get('away_team_name'))
         broadcast_logo = None
         
         # Enhanced broadcast logo debugging
@@ -657,10 +1072,88 @@ class OddsTickerManager:
             game_time = game_time.replace(tzinfo=pytz.UTC)
         local_time = game_time.astimezone(tz)
         
-        # Capitalize full day name, e.g., 'Tuesday'
-        day_text = local_time.strftime("%A")
-        date_text = local_time.strftime("%-m/%d")
-        time_text = local_time.strftime("%I:%M%p").lstrip('0')
+        # Check if this is a live game
+        is_live = game.get('status_state') == 'in'
+        live_info = game.get('live_info')
+        
+        if is_live and live_info:
+            # Show live game information instead of date/time
+            sport = None
+            for league_key, config in self.league_configs.items():
+                if config.get('logo_dir') == game.get('logo_dir'):
+                    sport = config.get('sport')
+                    break
+            
+            if sport == 'baseball':
+                # For baseball, we'll use graphical base indicators instead of text
+                # Don't show any text for bases - the graphical display will replace this section
+                away_odds_text = ""
+                home_odds_text = ""
+                
+                # Store bases data for later drawing
+                self._bases_data = live_info.get('bases_occupied', [False, False, False])
+                
+                # Set datetime text for baseball live games
+                inning_half_indicator = "▲" if live_info.get('inning_half') == 'top' else "▼"
+                inning_text = f"{inning_half_indicator}{live_info.get('inning', 1)}"
+                count_text = f"{live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
+                outs_count = live_info.get('outs', 0)
+                outs_text = f"{outs_count} out" if outs_count == 1 else f"{outs_count} outs"
+                
+                day_text = inning_text
+                date_text = count_text
+                time_text = outs_text
+            elif sport == 'football':
+                # Football: Show quarter and down/distance
+                quarter_text = f"Q{live_info.get('quarter', 1)}"
+                down_text = f"{live_info.get('down', 0)}&{live_info.get('distance', 0)}"
+                clock_text = live_info.get('clock', '')
+                
+                day_text = quarter_text
+                date_text = down_text
+                time_text = clock_text
+                
+            elif sport == 'basketball':
+                # Basketball: Show quarter and time remaining
+                quarter_text = f"Q{live_info.get('quarter', 1)}"
+                clock_text = live_info.get('time_remaining', '')
+                possession_text = live_info.get('possession', '')
+                
+                day_text = quarter_text
+                date_text = clock_text
+                time_text = possession_text
+                
+            elif sport == 'hockey':
+                # Hockey: Show period and time remaining
+                period_text = f"P{live_info.get('period', 1)}"
+                clock_text = live_info.get('time_remaining', '')
+                power_play_text = "PP" if live_info.get('power_play') else ""
+                
+                day_text = period_text
+                date_text = clock_text
+                time_text = power_play_text
+                
+            elif sport == 'soccer':
+                # Soccer: Show period and time remaining
+                period_text = f"P{live_info.get('period', 1)}"
+                clock_text = live_info.get('time_remaining', '')
+                extra_time_text = "+" if live_info.get('extra_time') else ""
+                
+                day_text = period_text
+                date_text = clock_text
+                time_text = extra_time_text
+                
+            else:
+                # Fallback: Show generic live info
+                day_text = "LIVE"
+                date_text = f"{live_info.get('home_score', 0)}-{live_info.get('away_score', 0)}"
+                time_text = live_info.get('clock', '')
+        else:
+            # Show regular date/time for non-live games
+            # Capitalize full day name, e.g., 'Tuesday'
+            day_text = local_time.strftime("%A")
+            date_text = local_time.strftime("%-m/%d")
+            time_text = local_time.strftime("%I:%M%p").lstrip('0')
         
         # Datetime column width
         temp_draw = ImageDraw.Draw(Image.new('RGB', (1, 1)))
@@ -673,9 +1166,40 @@ class OddsTickerManager:
         vs_text = "vs."
         vs_width = int(temp_draw.textlength(vs_text, font=vs_font))
 
-        # Team and record text
-        away_team_text = f"{game.get('away_team_name', game.get('away_team', 'N/A'))} ({game.get('away_record', '') or 'N/A'})"
-        home_team_text = f"{game.get('home_team_name', game.get('home_team', 'N/A'))} ({game.get('home_record', '') or 'N/A'})"
+        # Team and record text with rankings
+        away_team_name = game.get('away_team_name', game.get('away_team', 'N/A'))
+        home_team_name = game.get('home_team_name', game.get('home_team', 'N/A'))
+        away_team_abbr = game.get('away_team', '')
+        home_team_abbr = game.get('home_team', '')
+        
+        # Check if this is NCAA football and fetch rankings
+        league_key = None
+        for key, config in self.league_configs.items():
+            if config.get('logo_dir') == game.get('logo_dir'):
+                league_key = key
+                break
+        
+        # Add ranking prefix for NCAA football teams
+        if league_key == 'ncaa_fb':
+            rankings = self._fetch_team_rankings()
+            
+            # Add ranking to away team name if ranked
+            if away_team_abbr in rankings and rankings[away_team_abbr] > 0:
+                away_team_name = f"{rankings[away_team_abbr]}. {away_team_name}"
+            
+            # Add ranking to home team name if ranked
+            if home_team_abbr in rankings and rankings[home_team_abbr] > 0:
+                home_team_name = f"{rankings[home_team_abbr]}. {home_team_name}"
+        
+        away_team_text = f"{away_team_name} ({game.get('away_record', '') or 'N/A'})"
+        home_team_text = f"{home_team_name} ({game.get('home_record', '') or 'N/A'})"
+        
+        # For live games, show scores instead of records
+        if is_live and live_info:
+            away_score = live_info.get('away_score', 0)
+            home_score = live_info.get('home_score', 0)
+            away_team_text = f"{away_team_name}:{away_score} "
+            home_team_text = f"{home_team_name}:{home_score} "
         
         away_team_width = int(temp_draw.textlength(away_team_text, font=team_font))
         home_team_width = int(temp_draw.textlength(home_team_text, font=team_font))
@@ -707,21 +1231,85 @@ class OddsTickerManager:
         away_odds_text = ""
         home_odds_text = ""
         
-        # Simplified odds placement logic
-        if home_favored:
-            home_odds_text = f"{home_spread}"
-            if over_under:
-                away_odds_text = f"O/U {over_under}"
-        elif away_favored:
-            away_odds_text = f"{away_spread}"
-            if over_under:
+        # For live games, show live status instead of odds
+        if is_live and live_info:
+            sport = None
+            for league_key, config in self.league_configs.items():
+                if config.get('logo_dir') == game.get('logo_dir'):
+                    sport = config.get('sport')
+                    break
+            
+            if sport == 'baseball':
+                # Show bases occupied for baseball
+                bases = live_info.get('bases_occupied', [False, False, False])
+                bases_text = ""
+                if bases[0]: bases_text += "1B"
+                if bases[1]: bases_text += "2B"
+                if bases[2]: bases_text += "3B"
+                if not bases_text: bases_text = "Empty"
+                
+                away_odds_text = f"Bases: {bases_text}"
+                home_odds_text = f"Count: {live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
+                
+            elif sport == 'football':
+                # Show possession and yard line for football
+                possession = live_info.get('possession', '')
+                yard_line = live_info.get('yard_line', 0)
+                
+                away_odds_text = f"Ball: {possession}"
+                home_odds_text = f"Yard: {yard_line}"
+                
+            elif sport == 'basketball':
+                # Show possession for basketball
+                possession = live_info.get('possession', '')
+                
+                away_odds_text = f"Ball: {possession}"
+                home_odds_text = f"Time: {live_info.get('time_remaining', '')}"
+                
+            elif sport == 'hockey':
+                # Show power play status for hockey
+                power_play = live_info.get('power_play', False)
+                
+                away_odds_text = "Power Play" if power_play else "Even"
+                home_odds_text = f"Time: {live_info.get('time_remaining', '')}"
+                
+            else:
+                # Generic live status
+                away_odds_text = "LIVE"
+                home_odds_text = live_info.get('clock', '')
+        else:
+            # Show odds for non-live games
+            # Simplified odds placement logic
+            if home_favored:
+                home_odds_text = f"{home_spread}"
+                if over_under:
+                    away_odds_text = f"O/U {over_under}"
+            elif away_favored:
+                away_odds_text = f"{away_spread}"
+                if over_under:
+                    home_odds_text = f"O/U {over_under}"
+            elif over_under:
                 home_odds_text = f"O/U {over_under}"
-        elif over_under:
-            home_odds_text = f"O/U {over_under}"
         
         away_odds_width = int(temp_draw.textlength(away_odds_text, font=odds_font))
         home_odds_width = int(temp_draw.textlength(home_odds_text, font=odds_font))
         odds_width = max(away_odds_width, home_odds_width)
+        
+        # For baseball live games, optimize width for graphical bases
+        is_baseball_live = False
+        if is_live and live_info and hasattr(self, '_bases_data'):
+            sport = None
+            for league_key, config in self.league_configs.items():
+                if config.get('logo_dir') == game.get('logo_dir'):
+                    sport = config.get('sport')
+                    break
+            
+            if sport == 'baseball':
+                is_baseball_live = True
+                # Use a more compact width for baseball games to minimize dead space
+                # The bases graphic only needs about 24px width, so we can be more efficient
+                min_bases_width = 24  # Reduced from 30 to minimize dead space
+                odds_width = max(odds_width, min_bases_width)
 
         # --- Calculate total width ---
         # Start with the sum of all visible components and consistent padding
@@ -753,7 +1341,13 @@ class OddsTickerManager:
 
         # "vs."
         y_pos = (height - vs_font.size) // 2 if hasattr(vs_font, 'size') else (height - 8) // 2 # Added fallback for default font
-        draw.text((current_x, y_pos), vs_text, font=vs_font, fill=(255, 255, 255))
+        
+        # Use red color for live game "vs." text to make it stand out
+        vs_color = (255, 255, 255)  # White for regular games
+        if is_live and live_info:
+            vs_color = (255, 0, 0)  # Red for live games
+        
+        draw.text((current_x, y_pos), vs_text, font=vs_font, fill=vs_color)
         current_x += vs_width + h_padding
 
         # Home Logo
@@ -766,21 +1360,56 @@ class OddsTickerManager:
         team_font_height = team_font.size if hasattr(team_font, 'size') else 8
         away_y = 2
         home_y = height - team_font_height - 2
-        draw.text((current_x, away_y), away_team_text, font=team_font, fill=(255, 255, 255))
-        draw.text((current_x, home_y), home_team_text, font=team_font, fill=(255, 255, 255))
+        
+        # Use red color for live game scores to make them stand out
+        team_color = (255, 255, 255)  # White for regular team info
+        if is_live and live_info:
+            team_color = (255, 0, 0)  # Red for live games
+        
+        draw.text((current_x, away_y), away_team_text, font=team_font, fill=team_color)
+        draw.text((current_x, home_y), home_team_text, font=team_font, fill=team_color)
         current_x += team_info_width + h_padding
 
-        # Odds (stacked)
+        # Odds (stacked) - Skip text for baseball live games, draw bases instead
         odds_font_height = odds_font.size if hasattr(odds_font, 'size') else 8
         odds_y_away = 2
         odds_y_home = height - odds_font_height - 2
         
         # Use a consistent color for all odds text
         odds_color = (0, 255, 0) # Green
+        
+        # Use red color for live game information to make it stand out
+        if is_live and live_info:
+            odds_color = (255, 0, 0)  # Red for live games
 
-        draw.text((current_x, odds_y_away), away_odds_text, font=odds_font, fill=odds_color)
-        draw.text((current_x, odds_y_home), home_odds_text, font=odds_font, fill=odds_color)
-        current_x += odds_width + h_padding
+        # Draw odds content based on game type
+        if is_baseball_live:
+            # Draw graphical bases instead of text
+            # Position bases closer to team names (left side of odds column) for better spacing
+            bases_x = current_x + 12  # Position at left side, offset by half cluster width (24/2 = 12)
+            # Shift bases down a bit more for better positioning
+            bases_y = (height // 2) + 2  # Move down 2 pixels from center
+            
+            # Ensure the bases don't go off the edge of the image
+            base_diamond_size = 8  # Total size of the diamond
+            base_cluster_width = 24  # Width of the base cluster (8 + 8 + 8) with tighter spacing
+            if bases_x - (base_cluster_width // 2) >= 0 and bases_x + (base_cluster_width // 2) <= image.width:
+                # Draw the base indicators
+                self._draw_base_indicators(draw, self._bases_data, bases_x, bases_y)
+            
+            # Clear the bases data after drawing
+            delattr(self, '_bases_data')
+        else:
+            # Draw regular odds text for non-baseball games
+            draw.text((current_x, odds_y_away), away_odds_text, font=odds_font, fill=odds_color)
+            draw.text((current_x, odds_y_home), home_odds_text, font=odds_font, fill=odds_color)
+        
+        # Dynamic spacing: Use reduced padding for baseball games to minimize dead space
+        if is_baseball_live:
+            # Use minimal padding since bases are positioned at left of column
+            current_x += odds_width + (h_padding // 3)  # Use 1/3 padding for baseball games
+        else:
+            current_x += odds_width + h_padding
         
         # Datetime (stacked, 3 rows) - Center justified
         datetime_font_height = datetime_font.size if hasattr(datetime_font, 'size') else 6
@@ -804,9 +1433,14 @@ class OddsTickerManager:
         date_x = current_x + (datetime_col_width - date_text_width) // 2
         time_x = current_x + (datetime_col_width - time_text_width) // 2
 
-        draw.text((day_x, day_y), day_text, font=datetime_font, fill=(255, 255, 255))
-        draw.text((date_x, date_y), date_text, font=datetime_font, fill=(255, 255, 255))
-        draw.text((time_x, time_y), time_text, font=datetime_font, fill=(255, 255, 255))
+        # Use red color for live game information to make it stand out
+        datetime_color = (255, 255, 255)  # White for regular date/time
+        if is_live and live_info:
+            datetime_color = (255, 0, 0)  # Red for live games
+
+        draw.text((day_x, day_y), day_text, font=datetime_font, fill=datetime_color)
+        draw.text((date_x, date_y), date_text, font=datetime_font, fill=datetime_color)
+        draw.text((time_x, time_y), time_text, font=datetime_font, fill=datetime_color)
         current_x += datetime_col_width + h_padding # Add padding after datetime
 
         if broadcast_logo:
@@ -825,6 +1459,8 @@ class OddsTickerManager:
     def _create_ticker_image(self):
         """Create a single wide image containing all game tickers."""
         logger.debug("Entering _create_ticker_image method")
+        logger.debug(f"Number of games in games_data: {len(self.games_data) if self.games_data else 0}")
+        
         if not self.games_data:
             logger.warning("No games data available, cannot create ticker image.")
             self.ticker_image = None
@@ -832,6 +1468,8 @@ class OddsTickerManager:
 
         logger.debug(f"Creating ticker image for {len(self.games_data)} games.")
         game_images = [self._create_game_display(game) for game in self.games_data]
+        logger.debug(f"Created {len(game_images)} game images")
+        
         if not game_images:
             logger.warning("Failed to create any game images.")
             self.ticker_image = None
@@ -839,8 +1477,16 @@ class OddsTickerManager:
 
         gap_width = 24  # Reduced gap between games
         display_width = self.display_manager.matrix.width  # Add display width of black space at start
-        total_width = display_width + sum(img.width for img in game_images) + gap_width * (len(game_images))
+        content_width = sum(img.width for img in game_images) + gap_width * (len(game_images))
+        total_width = display_width + content_width
         height = self.display_manager.matrix.height
+
+        logger.debug(f"Image creation details:")
+        logger.debug(f"  Display width: {display_width}px")
+        logger.debug(f"  Content width: {content_width}px")
+        logger.debug(f"  Total image width: {total_width}px")
+        logger.debug(f"  Number of games: {len(game_images)}")
+        logger.debug(f"  Gap width: {gap_width}px")
 
         self.ticker_image = Image.new('RGB', (total_width, height), color=(0, 0, 0))
         
@@ -855,8 +1501,15 @@ class OddsTickerManager:
                     self.ticker_image.putpixel((bar_x, y), (255, 255, 255))
             current_x += gap_width
             
-        # Calculate total scroll width for dynamic duration
-        self.total_scroll_width = total_width
+        # Calculate total scroll width for dynamic duration (only the content width, not including display width)
+        self.total_scroll_width = content_width
+        logger.debug(f"Odds ticker image creation:")
+        logger.debug(f"  Display width: {display_width}px")
+        logger.debug(f"  Content width: {content_width}px")
+        logger.debug(f"  Total image width: {total_width}px")
+        logger.debug(f"  Number of games: {len(game_images)}")
+        logger.debug(f"  Gap width: {gap_width}px")
+        logger.debug(f"  Set total_scroll_width to: {self.total_scroll_width}px")
         self.calculate_dynamic_duration()
 
     def _draw_text_with_outline(self, draw: ImageDraw.Draw, text: str, position: tuple, font: ImageFont.FreeTypeFont, 
@@ -871,6 +1524,8 @@ class OddsTickerManager:
 
     def calculate_dynamic_duration(self):
         """Calculate the exact time needed to display all odds ticker content"""
+        logger.debug(f"calculate_dynamic_duration called - dynamic_duration_enabled: {self.dynamic_duration_enabled}, total_scroll_width: {self.total_scroll_width}")
+        
         # If dynamic duration is disabled, use fixed duration from config
         if not self.dynamic_duration_enabled:
             self.dynamic_duration = self.odds_ticker_config.get('display_duration', 60)
@@ -879,6 +1534,7 @@ class OddsTickerManager:
             
         if not self.total_scroll_width:
             self.dynamic_duration = self.min_duration  # Use configured minimum
+            logger.debug(f"total_scroll_width is 0, using minimum duration: {self.min_duration}s")
             return
             
         try:
@@ -890,17 +1546,38 @@ class OddsTickerManager:
                 display_width = 128  # Default to 128 if not available
             
             # Calculate total scroll distance needed
-            # Text needs to scroll from right edge to completely off left edge
-            total_scroll_distance = display_width + self.total_scroll_width
+            # For looping content, we need to scroll the entire content width
+            # For non-looping content, we need content width minus display width (since last part shows fully)
+            if self.loop:
+                total_scroll_distance = self.total_scroll_width
+            else:
+                # For single pass, we need to scroll until the last content is fully visible
+                total_scroll_distance = max(0, self.total_scroll_width - display_width)
             
             # Calculate time based on scroll speed and delay
             # scroll_speed = pixels per frame, scroll_delay = seconds per frame
-            frames_needed = total_scroll_distance / self.scroll_speed
-            total_time = frames_needed * self.scroll_delay
+            # However, actual observed speed is slower than theoretical calculation
+            # Based on log analysis: 1950px in 36s = 54.2 px/s actual speed
+            # vs theoretical: 1px/0.01s = 100 px/s
+            # Use actual observed speed for more accurate timing
+            actual_scroll_speed = 54.2  # pixels per second (calculated from logs)
+            total_time = total_scroll_distance / actual_scroll_speed
             
             # Add buffer time for smooth cycling (configurable %)
             buffer_time = total_time * self.duration_buffer
-            calculated_duration = int(total_time + buffer_time)
+            
+            # Calculate duration for single complete pass
+            if self.loop:
+                # For looping: add 5-second buffer to ensure complete scroll before switching
+                fixed_buffer = 5  # 5 seconds of additional buffer
+                calculated_duration = int(total_time + fixed_buffer)
+                logger.debug(f"Looping enabled, duration set to one loop cycle plus 5s buffer: {calculated_duration}s")
+            else:
+                # For single pass: precise calculation to show content exactly once
+                # Add buffer to prevent cutting off the last content
+                completion_buffer = total_time * 0.05  # 5% extra to ensure complete display
+                calculated_duration = int(total_time + buffer_time + completion_buffer)
+                logger.debug(f"Single pass mode, added {completion_buffer:.2f}s completion buffer for precise timing")
             
             # Apply configured min/max limits
             if calculated_duration < self.min_duration:
@@ -911,16 +1588,33 @@ class OddsTickerManager:
                 logger.debug(f"Duration capped to maximum: {self.max_duration}s")
             else:
                 self.dynamic_duration = calculated_duration
+            
+            # Additional safety check: if the calculated duration seems too short for the content,
+            # ensure we have enough time to display all content properly
+            if self.dynamic_duration < 45 and self.total_scroll_width > 200:
+                # If we have content but short duration, increase it
+                # Use a more generous calculation: at least 45s or 1s per 20px
+                self.dynamic_duration = max(45, int(self.total_scroll_width / 20))
+                logger.debug(f"Adjusted duration for content: {self.dynamic_duration}s (content width: {self.total_scroll_width}px)")
                 
-            logger.debug(f"Odds ticker dynamic duration calculation:")
-            logger.debug(f"  Display width: {display_width}px")
-            logger.debug(f"  Text width: {self.total_scroll_width}px")
-            logger.debug(f"  Total scroll distance: {total_scroll_distance}px")
-            logger.debug(f"  Frames needed: {frames_needed:.1f}")
-            logger.debug(f"  Base time: {total_time:.2f}s")
-            logger.debug(f"  Buffer time: {buffer_time:.2f}s ({self.duration_buffer*100}%)")
-            logger.debug(f"  Calculated duration: {calculated_duration}s")
-            logger.debug(f"  Final duration: {self.dynamic_duration}s")
+            logger.info(f"Odds ticker dynamic duration calculation:")
+            logger.info(f"  Display width: {display_width}px")
+            logger.info(f"  Content width: {self.total_scroll_width}px")
+            logger.info(f"  Total scroll distance: {total_scroll_distance}px")
+            logger.info(f"  Configured scroll speed: {self.scroll_speed}px/frame")
+            logger.info(f"  Configured scroll delay: {self.scroll_delay}s/frame")
+            logger.info(f"  Actual observed scroll speed: {actual_scroll_speed}px/s (from log analysis)")
+            logger.info(f"  Base time: {total_time:.2f}s")
+            logger.info(f"  Buffer time: {buffer_time:.2f}s ({self.duration_buffer*100}%)")
+            logger.info(f"  Looping enabled: {self.loop}")
+            if self.loop:
+                logger.info(f"  Fixed buffer added: 5s")
+            logger.info(f"  Calculated duration: {calculated_duration}s")
+            logger.info(f"Final calculated duration: {self.dynamic_duration}s")
+            
+            # Verify the duration makes sense for the content
+            expected_scroll_time = self.total_scroll_width / actual_scroll_speed
+            logger.info(f"  Verification - Time to scroll content: {expected_scroll_time:.1f}s")
             
         except Exception as e:
             logger.error(f"Error calculating dynamic duration: {e}")
@@ -928,6 +1622,22 @@ class OddsTickerManager:
 
     def get_dynamic_duration(self) -> int:
         """Get the calculated dynamic duration for display"""
+        # If we don't have a valid dynamic duration yet (total_scroll_width is 0),
+        # try to update the data first
+        if self.total_scroll_width == 0 and self.is_enabled:
+            logger.debug("get_dynamic_duration called but total_scroll_width is 0, attempting update...")
+            try:
+                # Force an update to get the data and calculate proper duration
+                # Bypass the update interval check for duration calculation
+                self.games_data = self._fetch_upcoming_games()
+                self.scroll_position = 0
+                self.current_game_index = 0
+                self._create_ticker_image() # Create the composite image
+                logger.debug(f"Force update completed, total_scroll_width: {self.total_scroll_width}px")
+            except Exception as e:
+                logger.error(f"Error updating odds ticker for dynamic duration: {e}")
+        
+        logger.debug(f"get_dynamic_duration called, returning: {self.dynamic_duration}s")
         return self.dynamic_duration
 
     def update(self):
@@ -937,6 +1647,16 @@ class OddsTickerManager:
             logger.debug("Odds ticker is disabled, skipping update")
             return
             
+        # Check if we're currently scrolling and defer the update if so
+        if self.display_manager.is_currently_scrolling():
+            logger.debug("Odds ticker is currently scrolling, deferring update")
+            self.display_manager.defer_update(self._perform_update, priority=1)
+            return
+            
+        self._perform_update()
+
+    def _perform_update(self):
+        """Internal method to perform the actual update."""
         current_time = time.time()
         if current_time - self.last_update < self.update_interval:
             logger.debug(f"Odds ticker update interval not reached. Next update in {self.update_interval - (current_time - self.last_update)} seconds")
@@ -967,15 +1687,60 @@ class OddsTickerManager:
         """Display the odds ticker."""
         logger.debug("Entering display method")
         logger.debug(f"Odds ticker enabled: {self.is_enabled}")
+        logger.debug(f"Current scroll position: {self.scroll_position}")
+        logger.debug(f"Ticker image width: {self.ticker_image.width if self.ticker_image else 'None'}")
+        logger.debug(f"Dynamic duration: {self.dynamic_duration}s")
         
         if not self.is_enabled:
             logger.debug("Odds ticker is disabled, exiting display method.")
             return
         
+        # Reset display start time when force_clear is True or when starting fresh
+        if force_clear or not hasattr(self, '_display_start_time'):
+            self._display_start_time = time.time()
+            logger.debug(f"Reset/initialized display start time: {self._display_start_time}")
+            # Also reset scroll position for clean start
+            self.scroll_position = 0
+        else:
+            # Check if the display start time is too old (more than 2x the dynamic duration)
+            current_time = time.time()
+            elapsed_time = current_time - self._display_start_time
+            if elapsed_time > (self.dynamic_duration * 2):
+                logger.debug(f"Display start time is too old ({elapsed_time:.1f}s), resetting")
+                self._display_start_time = current_time
+                self.scroll_position = 0
+        
         logger.debug(f"Number of games in data at start of display method: {len(self.games_data)}")
         if not self.games_data:
             logger.warning("Odds ticker has no games data. Attempting to update...")
-            self.update()
+            try:
+                import threading
+                import queue
+                
+                update_queue = queue.Queue()
+                
+                def perform_update():
+                    try:
+                        self.update()
+                        update_queue.put(('success', None))
+                    except Exception as e:
+                        update_queue.put(('error', e))
+                
+                # Start update in a separate thread with 10-second timeout
+                update_thread = threading.Thread(target=perform_update)
+                update_thread.daemon = True
+                update_thread.start()
+                
+                try:
+                    result_type, result_data = update_queue.get(timeout=10)
+                    if result_type == 'error':
+                        logger.error(f"Update failed: {result_data}")
+                except queue.Empty:
+                    logger.warning("Update timed out after 10 seconds, using fallback")
+                
+            except Exception as e:
+                logger.error(f"Error during update: {e}")
+            
             if not self.games_data:
                 logger.warning("Still no games data after update. Displaying fallback message.")
                 self._display_fallback_message()
@@ -983,7 +1748,34 @@ class OddsTickerManager:
         
         if self.ticker_image is None:
             logger.warning("Ticker image is not available. Attempting to create it.")
-            self._create_ticker_image()
+            try:
+                import threading
+                import queue
+                
+                image_queue = queue.Queue()
+                
+                def create_image():
+                    try:
+                        self._create_ticker_image()
+                        image_queue.put(('success', None))
+                    except Exception as e:
+                        image_queue.put(('error', e))
+                
+                # Start image creation in a separate thread with 5-second timeout
+                image_thread = threading.Thread(target=create_image)
+                image_thread.daemon = True
+                image_thread.start()
+                
+                try:
+                    result_type, result_data = image_queue.get(timeout=5)
+                    if result_type == 'error':
+                        logger.error(f"Image creation failed: {result_data}")
+                except queue.Empty:
+                    logger.warning("Image creation timed out after 5 seconds")
+                
+            except Exception as e:
+                logger.error(f"Error during image creation: {e}")
+            
             if self.ticker_image is None:
                 logger.error("Failed to create ticker image.")
                 self._display_fallback_message()
@@ -992,8 +1784,18 @@ class OddsTickerManager:
         try:
             current_time = time.time()
             
+            # Check if we should be scrolling
+            should_scroll = current_time - self.last_scroll_time >= self.scroll_delay
+            
+            # Signal scrolling state to display manager
+            if should_scroll:
+                self.display_manager.set_scrolling_state(True)
+            else:
+                # If we're not scrolling, check if we should process deferred updates
+                self.display_manager.process_deferred_updates()
+            
             # Scroll the image
-            if current_time - self.last_scroll_time >= self.scroll_delay:
+            if should_scroll:
                 self.scroll_position += self.scroll_speed
                 self.last_scroll_time = current_time
             
@@ -1005,11 +1807,51 @@ class OddsTickerManager:
             if self.loop:
                 # Reset position when we've scrolled past the end for a continuous loop
                 if self.scroll_position >= self.ticker_image.width:
+                    logger.debug(f"Odds ticker loop reset: scroll_position {self.scroll_position} >= image width {self.ticker_image.width}")
                     self.scroll_position = 0
             else:
                 # Stop scrolling when we reach the end
                 if self.scroll_position >= self.ticker_image.width - width:
+                    logger.info(f"Odds ticker reached end: scroll_position {self.scroll_position} >= {self.ticker_image.width - width}")
                     self.scroll_position = self.ticker_image.width - width
+                    # Signal that scrolling has stopped
+                    self.display_manager.set_scrolling_state(False)
+                    logger.info("Odds ticker scrolling stopped - reached end of content")
+            
+            # Check if we're at a natural break point for mode switching
+            # If we're near the end of the display duration and not at a clean break point,
+            # adjust the scroll position to complete the current game display
+            elapsed_time = current_time - self._display_start_time
+            remaining_time = self.dynamic_duration - elapsed_time
+            
+            # Log scroll progress every 50 pixels to help debug (less verbose)
+            if self.scroll_position % 50 == 0 and self.scroll_position > 0:
+                logger.info(f"Odds ticker progress: elapsed={elapsed_time:.1f}s, remaining={remaining_time:.1f}s, scroll_pos={self.scroll_position}/{self.ticker_image.width}px")
+            
+            # If we have less than 2 seconds remaining, check if we can complete the content display
+            if remaining_time < 2.0 and self.scroll_position > 0:
+                # Calculate how much time we need to complete the current scroll position
+                # Use actual observed scroll speed (54.2 px/s) instead of theoretical calculation
+                actual_scroll_speed = 54.2  # pixels per second (calculated from logs)
+                
+                if self.loop:
+                    # For looping, we need to complete one full cycle
+                    distance_to_complete = self.ticker_image.width - self.scroll_position
+                else:
+                    # For single pass, we need to reach the end (content width minus display width)
+                    end_position = max(0, self.ticker_image.width - width)
+                    distance_to_complete = end_position - self.scroll_position
+                
+                time_to_complete = distance_to_complete / actual_scroll_speed
+                
+                if time_to_complete <= remaining_time:
+                    # We have enough time to complete the scroll, continue normally
+                    logger.debug(f"Sufficient time remaining ({remaining_time:.1f}s) to complete scroll ({time_to_complete:.1f}s)")
+                else:
+                    # Not enough time, reset to beginning for clean transition
+                    logger.warning(f"Not enough time to complete content display - remaining: {remaining_time:.1f}s, needed: {time_to_complete:.1f}s")
+                    logger.debug(f"Resetting scroll position for clean transition")
+                    self.scroll_position = 0
             
             # Create the visible part of the image by pasting from the ticker_image
             visible_image = Image.new('RGB', (width, height))
@@ -1026,7 +1868,35 @@ class OddsTickerManager:
             # Display the cropped image
             self.display_manager.image = visible_image
             self.display_manager.draw = ImageDraw.Draw(self.display_manager.image)
-            self.display_manager.update_display()
+            
+            # Add timeout protection for display update to prevent hanging
+            try:
+                import threading
+                import queue
+                
+                display_queue = queue.Queue()
+                
+                def update_display():
+                    try:
+                        self.display_manager.update_display()
+                        display_queue.put(('success', None))
+                    except Exception as e:
+                        display_queue.put(('error', e))
+                
+                # Start display update in a separate thread with 1-second timeout
+                display_thread = threading.Thread(target=update_display)
+                display_thread.daemon = True
+                display_thread.start()
+                
+                try:
+                    result_type, result_data = display_queue.get(timeout=1)
+                    if result_type == 'error':
+                        logger.error(f"Display update failed: {result_data}")
+                except queue.Empty:
+                    logger.warning("Display update timed out after 1 second")
+                
+            except Exception as e:
+                logger.error(f"Error during display update: {e}")
             
         except Exception as e:
             logger.error(f"Error displaying odds ticker: {e}", exc_info=True)

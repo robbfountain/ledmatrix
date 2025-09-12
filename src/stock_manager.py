@@ -366,32 +366,52 @@ class StockManager:
             logger.info("Stock display settings changed, clearing cache")
 
     def update_stock_data(self):
-        """Update stock and crypto data for all configured symbols."""
+        """Update stock data from API."""
         current_time = time.time()
-        update_interval = self.stocks_config.get('update_interval', 300)
+        update_interval = self.stocks_config.get('update_interval', 600)
         
-        # Check if we need to update based on time
-        if current_time - self.last_update > update_interval:
-            stock_symbols = self.stocks_config.get('symbols', [])
-            crypto_symbols = self.crypto_config.get('symbols', []) if self.crypto_config.get('enabled', False) else []
+        # Check if we're currently scrolling and defer the update if so
+        if self.display_manager.is_currently_scrolling():
+            logger.debug("Stock display is currently scrolling, deferring update")
+            self.display_manager.defer_update(self._perform_stock_update, priority=2)
+            return
             
-            if not stock_symbols and not crypto_symbols:
-                logger.warning("No stock or crypto symbols configured")
+        self._perform_stock_update()
+
+    def _perform_stock_update(self):
+        """Internal method to perform the actual stock update."""
+        current_time = time.time()
+        update_interval = self.stocks_config.get('update_interval', 600)
+        
+        if current_time - self.last_update < update_interval:
+            return
+            
+        try:
+            logger.debug("Updating stock data")
+            symbols = self.stocks_config.get('symbols', [])
+            
+            if not symbols:
+                logger.warning("No stock symbols configured")
                 return
-
-            # Update stocks
-            for symbol in stock_symbols:
-                data = self._fetch_stock_data(symbol, is_crypto=False)
-                if data:
-                    self.stock_data[symbol] = data
-
-            # Update crypto
-            for symbol in crypto_symbols:
-                data = self._fetch_stock_data(symbol, is_crypto=True)
-                if data:
-                    self.stock_data[symbol] = data
-
+                
+            # Fetch stock data
+            for symbol in symbols:
+                try:
+                    data = self._fetch_stock_data(symbol)
+                    if data:
+                        self.stock_data[symbol] = data
+                        logger.debug(f"Updated data for {symbol}: {data}")
+                except Exception as e:
+                    logger.error(f"Error fetching data for {symbol}: {e}")
+                    
             self.last_update = current_time
+            
+            # Clear cached text to force regeneration
+            self.cached_text = None
+            self.cached_text_image = None
+            
+        except Exception as e:
+            logger.error(f"Error updating stock data: {e}")
 
     def _get_stock_logo(self, symbol: str, is_crypto: bool = False) -> Image.Image:
         """Get stock or crypto logo image from local directory."""
@@ -695,6 +715,15 @@ class StockManager:
         # Calculate the visible portion of the image
         width = self.display_manager.matrix.width
         total_width = self.cached_text_image.width
+        
+        # Check if we should be scrolling
+        should_scroll = True  # Stock display always scrolls continuously
+        
+        # Signal scrolling state to display manager
+        self.display_manager.set_scrolling_state(True)
+        
+        # Process any deferred updates (though stocks are always scrolling)
+        self.display_manager.process_deferred_updates()
         
         # Update scroll position with small increments
         self.scroll_position = (self.scroll_position + self.scroll_speed) % total_width

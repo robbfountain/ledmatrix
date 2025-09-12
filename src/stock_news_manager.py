@@ -29,7 +29,8 @@ logger = logging.getLogger(__name__)
 class StockNewsManager:
     def __init__(self, config: Dict[str, Any], display_manager):
         self.config = config
-        self.config_manager = ConfigManager()
+        # Store reference to config instead of creating new ConfigManager
+        self.config_manager = None  # Not used in this class
         self.display_manager = display_manager
         self.stocks_config = config.get('stocks', {})
         self.stock_news_config = config.get('stock_news', {})
@@ -169,50 +170,52 @@ class StockNewsManager:
             return []
             
     def update_news_data(self):
-        """Update news data for all configured stock symbols."""
+        """Update news data from API."""
         current_time = time.time()
-        update_interval = self.stock_news_config.get('update_interval', 300)
+        update_interval = self.stock_news_config.get('update_interval', 3600)
         
-        # Check if we need to update based on time
-        if current_time - self.last_update > update_interval:
+        # Check if we're currently scrolling and defer the update if so
+        if self.display_manager.is_currently_scrolling():
+            logger.debug("Stock news display is currently scrolling, deferring update")
+            self.display_manager.defer_update(self._perform_news_update, priority=2)
+            return
+            
+        self._perform_news_update()
+
+    def _perform_news_update(self):
+        """Internal method to perform the actual news update."""
+        current_time = time.time()
+        update_interval = self.stock_news_config.get('update_interval', 3600)
+        
+        if current_time - self.last_update < update_interval:
+            return
+            
+        try:
+            logger.debug("Updating stock news data")
             symbols = self.stocks_config.get('symbols', [])
+            
             if not symbols:
                 logger.warning("No stock symbols configured for news")
                 return
-
-            # Get cached data
-            cached_data = self.cache_manager.get('stock_news')
-            
-            # Update each symbol
-            new_data = {}
-            success = False
-            
+                
+            # Fetch news for each symbol
             for symbol in symbols:
-                # Check if data has changed before fetching
-                if cached_data and symbol in cached_data:
-                    current_state = cached_data[symbol]
-                    if not self.cache_manager.has_data_changed('stock_news', current_state):
-                        logger.info(f"News data hasn't changed for {symbol}, using existing data")
-                        new_data[symbol] = current_state
-                        success = True
-                        continue
-
-                # Add a longer delay between requests to avoid rate limiting
-                time.sleep(random.uniform(1.0, 2.0))  # increased delay between requests
-                news_items = self._fetch_news(symbol)
-                if news_items:
-                    new_data[symbol] = news_items
-                    success = True
+                try:
+                    news = self._fetch_news(symbol)
+                    if news:
+                        self.news_data[symbol] = news
+                        logger.debug(f"Updated news for {symbol}: {len(news)} headlines")
+                except Exception as e:
+                    logger.error(f"Error fetching news for {symbol}: {e}")
                     
-            if success:
-                # Cache the new data
-                self.cache_manager.update_cache('stock_news', new_data)
-                # Only update the displayed data when we have new data
-                self.news_data = new_data
-                self.last_update = current_time
-                logger.info(f"Updated news data for {len(new_data)} symbols")
-            else:
-                logger.error("Failed to fetch news for any configured stocks")
+            self.last_update = current_time
+            
+            # Clear cached text to force regeneration
+            self.cached_text = None
+            self.cached_text_image = None
+            
+        except Exception as e:
+            logger.error(f"Error updating stock news data: {e}")
             
     def _create_text_image(self, text: str, color: Tuple[int, int, int] = (255, 255, 255)) -> Image.Image:
         """Create an image containing the text for efficient scrolling."""
@@ -405,11 +408,22 @@ class StockNewsManager:
         
         # If total_width is somehow less than screen width, don't scroll
         if total_width <= width:
+            # Signal that we're not scrolling for this frame
+            self.display_manager.set_scrolling_state(False)
+            # Process any deferred updates
+            self.display_manager.process_deferred_updates()
+            
             self.display_manager.image.paste(self.cached_text_image, (0, 0))
             self.display_manager.update_display()
             time.sleep(self.stock_news_config.get('item_display_duration', 5)) # Hold static image
             self.cached_text_image = None # Force recreation next cycle
             return True
+
+        # Signal that we're scrolling
+        self.display_manager.set_scrolling_state(True)
+        
+        # Process any deferred updates (though news is usually always scrolling)
+        self.display_manager.process_deferred_updates()
 
         # Update scroll position
         self.scroll_position += self.scroll_speed

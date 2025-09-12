@@ -581,6 +581,11 @@ class CacheManager:
                 'memory_ttl': 172800,
                 'force_refresh': False
             },
+            'leaderboard': {
+                'max_age': 604800,  # 7 days (1 week) - football rankings updated weekly
+                'memory_ttl': 1209600,  # 14 days in memory
+                'force_refresh': False
+            },
             
             # News and odds
             'news': {

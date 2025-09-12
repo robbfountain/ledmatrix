@@ -815,6 +815,9 @@ api_counters = {
     'stocks': {'used': 0},
     'sports': {'used': 0},
     'news': {'used': 0},
+    'odds': {'used': 0},
+    'music': {'used': 0},
+    'youtube': {'used': 0},
 }
 api_window_start = time.time()
 api_window_seconds = 24 * 3600
@@ -874,6 +877,27 @@ def get_metrics():
             forecast['news'] = max(1, int(api_window_seconds / max(1, n_int)))
         except Exception:
             forecast['news'] = 0
+
+        # Odds ticker
+        try:
+            o_int = int(config.get('odds_ticker', {}).get('update_interval', 3600))
+            forecast['odds'] = max(1, int(api_window_seconds / max(1, o_int)))
+        except Exception:
+            forecast['odds'] = 0
+
+        # Music manager (image downloads)
+        try:
+            m_int = int(config.get('music', {}).get('POLLING_INTERVAL_SECONDS', 5))
+            forecast['music'] = max(1, int(api_window_seconds / max(1, m_int)))
+        except Exception:
+            forecast['music'] = 0
+
+        # YouTube display
+        try:
+            y_int = int(config.get('youtube', {}).get('update_interval', 300))
+            forecast['youtube'] = max(1, int(api_window_seconds / max(1, y_int)))
+        except Exception:
+            forecast['youtube'] = 0
 
         return jsonify({
             'status': 'success',

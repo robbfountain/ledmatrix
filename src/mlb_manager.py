@@ -29,12 +29,14 @@ class BaseMLBManager:
     def __init__(self, config: Dict[str, Any], display_manager, cache_manager: CacheManager):
         self.config = config
         self.display_manager = display_manager
+        # Store reference to config instead of creating new ConfigManager
+        self.config_manager = None  # Not used in this class
         self.mlb_config = config.get('mlb', {})
         self.show_odds = self.mlb_config.get("show_odds", False)
         self.favorite_teams = self.mlb_config.get('favorite_teams', [])
         self.show_records = self.mlb_config.get('show_records', False)
         self.cache_manager = cache_manager
-        self.odds_manager = OddsManager(self.cache_manager, self.config)
+        self.odds_manager = OddsManager(self.cache_manager, self.config_manager)
         self.logger = logging.getLogger(__name__)
         
         # Logo handling

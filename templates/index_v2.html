@@ -818,11 +818,17 @@
                     <button class="tab-btn" onclick="showTab('odds')">
                         <i class="fas fa-ticket-alt"></i> Odds Ticker
                     </button>
+                    <button class="tab-btn" onclick="showTab('leaderboard')">
+                        <i class="fas fa-trophy"></i> Leaderboard
+                    </button>
                     <button class="tab-btn" onclick="showTab('text')">
                         <i class="fas fa-font"></i> Text
                     </button>
                     <button class="tab-btn" onclick="showTab('features')">
                         <i class="fas fa-star"></i> Features
+                    </button>
+                    <button class="tab-btn" onclick="showTab('of_the_day')">
+                        <i class="fas fa-calendar-day"></i> Of The Day
                     </button>
                     <button class="tab-btn" onclick="showTab('music')">
                         <i class="fas fa-music"></i> Music
@@ -1408,6 +1414,147 @@
                     </div>
                 </div>
 
+                <!-- Leaderboard Tab -->
+                <div id="leaderboard" class="tab-content">
+                    <div class="config-section">
+                        <div style="display:flex; justify-content: space-between; align-items:center;">
+                            <h3>Leaderboard Configuration</h3>
+                            <div style="display:flex; gap:8px;">
+                                <button type="button" class="btn btn-info" onclick="startOnDemand('leaderboard')"><i class="fas fa-bolt"></i> On-Demand</button>
+                                <button type="button" class="btn btn-secondary" onclick="stopOnDemand()"><i class="fas fa-ban"></i> Stop</button>
+                            </div>
+                        </div>
+                        <form id="leaderboard-form">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="leaderboard_enabled" {% if main_config.leaderboard.enabled %}checked{% endif %}>
+                                    Enable Leaderboard
+                                </label>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="leaderboard_update_interval">Update Interval (sec)</label>
+                                    <input type="number" class="form-control" id="leaderboard_update_interval" value="{{ main_config.leaderboard.update_interval }}">
+                                </div>
+                                <div class="form-group">
+                                    <label for="leaderboard_scroll_speed">Scroll Speed</label>
+                                    <input type="number" step="0.1" class="form-control" id="leaderboard_scroll_speed" value="{{ main_config.leaderboard.scroll_speed }}">
+                                </div>
+                                <div class="form-group">
+                                    <label for="leaderboard_scroll_delay">Scroll Delay (sec)</label>
+                                    <input type="number" step="0.001" class="form-control" id="leaderboard_scroll_delay" value="{{ main_config.leaderboard.scroll_delay }}">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="leaderboard_display_duration">Display Duration (sec)</label>
+                                    <input type="number" class="form-control" id="leaderboard_display_duration" value="{{ main_config.leaderboard.display_duration }}">
+                                </div>
+                                <div class="form-group">
+                                    <label for="leaderboard_request_timeout">Request Timeout (sec)</label>
+                                    <input type="number" class="form-control" id="leaderboard_request_timeout" value="{{ main_config.leaderboard.request_timeout }}">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="leaderboard_loop" {% if main_config.leaderboard.loop %}checked{% endif %}>
+                                    Loop
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="leaderboard_dynamic_duration" {% if main_config.leaderboard.dynamic_duration %}checked{% endif %}>
+                                    Dynamic Duration
+                                </label>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="leaderboard_min_duration">Min Duration (sec)</label>
+                                    <input type="number" class="form-control" id="leaderboard_min_duration" value="{{ main_config.leaderboard.min_duration }}">
+                                </div>
+                                <div class="form-group">
+                                    <label for="leaderboard_max_duration">Max Duration (sec)</label>
+                                    <input type="number" class="form-control" id="leaderboard_max_duration" value="{{ main_config.leaderboard.max_duration }}">
+                                </div>
+                                <div class="form-group">
+                                    <label for="leaderboard_duration_buffer">Duration Buffer</label>
+                                    <input type="number" step="0.01" class="form-control" id="leaderboard_duration_buffer" value="{{ main_config.leaderboard.duration_buffer }}">
+                                </div>
+                            </div>
+                            
+                            <h4>Enabled Sports</h4>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="leaderboard_nfl_enabled" {% if main_config.leaderboard.enabled_sports.nfl.enabled %}checked{% endif %}>
+                                    NFL
+                                </label>
+                                <div class="form-group" style="margin-left: 20px;">
+                                    <label for="leaderboard_nfl_top_teams">Top Teams</label>
+                                    <input type="number" class="form-control" id="leaderboard_nfl_top_teams" value="{{ main_config.leaderboard.enabled_sports.nfl.top_teams }}" min="1" max="32">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="leaderboard_nba_enabled" {% if main_config.leaderboard.enabled_sports.nba.enabled %}checked{% endif %}>
+                                    NBA
+                                </label>
+                                <div class="form-group" style="margin-left: 20px;">
+                                    <label for="leaderboard_nba_top_teams">Top Teams</label>
+                                    <input type="number" class="form-control" id="leaderboard_nba_top_teams" value="{{ main_config.leaderboard.enabled_sports.nba.top_teams }}" min="1" max="30">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="leaderboard_mlb_enabled" {% if main_config.leaderboard.enabled_sports.mlb.enabled %}checked{% endif %}>
+                                    MLB
+                                </label>
+                                <div class="form-group" style="margin-left: 20px;">
+                                    <label for="leaderboard_mlb_top_teams">Top Teams</label>
+                                    <input type="number" class="form-control" id="leaderboard_mlb_top_teams" value="{{ main_config.leaderboard.enabled_sports.mlb.top_teams }}" min="1" max="30">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="leaderboard_ncaa_fb_enabled" {% if main_config.leaderboard.enabled_sports.ncaa_fb.enabled %}checked{% endif %}>
+                                    NCAA Football
+                                </label>
+                                <div class="form-group" style="margin-left: 20px;">
+                                    <label for="leaderboard_ncaa_fb_top_teams">Top Teams</label>
+                                    <input type="number" class="form-control" id="leaderboard_ncaa_fb_top_teams" value="{{ main_config.leaderboard.enabled_sports.ncaa_fb.top_teams }}" min="1" max="25">
+                                </div>
+                                <div class="form-group" style="margin-left: 20px;">
+                                    <label>
+                                        <input type="checkbox" id="leaderboard_ncaa_fb_show_ranking" {% if main_config.leaderboard.enabled_sports.ncaa_fb.show_ranking %}checked{% endif %}>
+                                        Show Ranking
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="leaderboard_nhl_enabled" {% if main_config.leaderboard.enabled_sports.nhl.enabled %}checked{% endif %}>
+                                    NHL
+                                </label>
+                                <div class="form-group" style="margin-left: 20px;">
+                                    <label for="leaderboard_nhl_top_teams">Top Teams</label>
+                                    <input type="number" class="form-control" id="leaderboard_nhl_top_teams" value="{{ main_config.leaderboard.enabled_sports.nhl.top_teams }}" min="1" max="32">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="leaderboard_ncaam_basketball_enabled" {% if main_config.leaderboard.enabled_sports.ncaam_basketball.enabled %}checked{% endif %}>
+                                    NCAA Men's Basketball
+                                </label>
+                                <div class="form-group" style="margin-left: 20px;">
+                                    <label for="leaderboard_ncaam_basketball_top_teams">Top Teams</label>
+                                    <input type="number" class="form-control" id="leaderboard_ncaam_basketball_top_teams" value="{{ main_config.leaderboard.enabled_sports.ncaam_basketball.top_teams }}" min="1" max="25">
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-success">Save Leaderboard Settings</button>
+                        </form>
+                    </div>
+                </div>
+
                 <!-- Text Display Tab -->
                 <div id="text" class="tab-content">
                     <div class="config-section">
@@ -1445,6 +1592,84 @@
                         <div id="features-config">
                             Loading features configuration...
                         </div>
+                    </div>
+                </div>
+
+                <!-- Of The Day Tab -->
+                <div id="of_the_day" class="tab-content">
+                    <div class="config-section">
+                        <div style="display:flex; justify-content: space-between; align-items:center;">
+                            <h3>Of The Day Configuration</h3>
+                            <div style="display:flex; gap:8px;">
+                                <button type="button" class="btn btn-info" onclick="startOnDemand('of_the_day')"><i class="fas fa-bolt"></i> On-Demand</button>
+                            </div>
+                        </div>
+                        <form id="of_the_day-form">
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" id="of_the_day_enabled" {% if main_config.of_the_day.enabled %}checked{% endif %}>
+                                    Enable Of The Day
+                                </label>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="of_the_day_update_interval">Update Interval (sec)</label>
+                                    <input type="number" class="form-control" id="of_the_day_update_interval" value="{{ main_config.of_the_day.update_interval }}">
+                                </div>
+                                <div class="form-group">
+                                    <label for="of_the_day_display_rotate_interval">Display Rotate Interval (sec)</label>
+                                    <input type="number" class="form-control" id="of_the_day_display_rotate_interval" value="{{ main_config.of_the_day.display_rotate_interval }}">
+                                </div>
+                                <div class="form-group">
+                                    <label for="of_the_day_subtitle_rotate_interval">Subtitle Rotate Interval (sec)</label>
+                                    <input type="number" class="form-control" id="of_the_day_subtitle_rotate_interval" value="{{ main_config.of_the_day.subtitle_rotate_interval }}">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="of_the_day_category_order">Category Order</label>
+                                <input type="text" class="form-control" id="of_the_day_category_order" value="{{ main_config.of_the_day.category_order | join(', ') }}" placeholder="word_of_the_day, slovenian_word_of_the_day">
+                                <div class="description">Comma-separated list of category keys in display order</div>
+                            </div>
+                            
+                            <h4>Categories</h4>
+                            <div class="form-group">
+                                <h5>Word of the Day</h5>
+                                <div class="form-group" style="margin-left: 20px;">
+                                    <label>
+                                        <input type="checkbox" id="of_the_day_word_enabled" {% if main_config.of_the_day.categories.word_of_the_day.enabled %}checked{% endif %}>
+                                        Enable Word of the Day
+                                    </label>
+                                </div>
+                                <div class="form-group" style="margin-left: 20px;">
+                                    <label for="of_the_day_word_data_file">Data File</label>
+                                    <input type="text" class="form-control" id="of_the_day_word_data_file" value="{{ main_config.of_the_day.categories.word_of_the_day.data_file }}">
+                                </div>
+                                <div class="form-group" style="margin-left: 20px;">
+                                    <label for="of_the_day_word_display_name">Display Name</label>
+                                    <input type="text" class="form-control" id="of_the_day_word_display_name" value="{{ main_config.of_the_day.categories.word_of_the_day.display_name }}">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <h5>Slovenian Word of the Day</h5>
+                                <div class="form-group" style="margin-left: 20px;">
+                                    <label>
+                                        <input type="checkbox" id="of_the_day_slovenian_enabled" {% if main_config.of_the_day.categories.slovenian_word_of_the_day.enabled %}checked{% endif %}>
+                                        Enable Slovenian Word of the Day
+                                    </label>
+                                </div>
+                                <div class="form-group" style="margin-left: 20px;">
+                                    <label for="of_the_day_slovenian_data_file">Data File</label>
+                                    <input type="text" class="form-control" id="of_the_day_slovenian_data_file" value="{{ main_config.of_the_day.categories.slovenian_word_of_the_day.data_file }}">
+                                </div>
+                                <div class="form-group" style="margin-left: 20px;">
+                                    <label for="of_the_day_slovenian_display_name">Display Name</label>
+                                    <input type="text" class="form-control" id="of_the_day_slovenian_display_name" value="{{ main_config.of_the_day.categories.slovenian_word_of_the_day.display_name }}">
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-success">Save Of The Day Settings</button>
+                        </form>
                     </div>
                 </div>
 
@@ -1996,6 +2221,9 @@
                     <div><strong>Stocks:</strong> ${u.stocks || 0} used / ${f.stocks || 0} forecast</div>
                     <div><strong>Sports:</strong> ${u.sports || 0} used / ${f.sports || 0} forecast</div>
                     <div><strong>News:</strong> ${u.news || 0} used / ${f.news || 0} forecast</div>
+                    <div><strong>Odds:</strong> ${u.odds || 0} used / ${f.odds || 0} forecast</div>
+                    <div><strong>Music:</strong> ${u.music || 0} used / ${f.music || 0} forecast</div>
+                    <div><strong>YouTube:</strong> ${u.youtube || 0} used / ${f.youtube || 0} forecast</div>
                 `;
             } catch (e) {
                 // ignore
@@ -2680,6 +2908,88 @@
                         min_duration: parseInt(document.getElementById('odds_min_duration').value),
                         max_duration: parseInt(document.getElementById('odds_max_duration').value),
                         duration_buffer: parseFloat(document.getElementById('odds_duration_buffer').value)
+                    }
+                };
+                await saveConfigJson(payload);
+            });
+        })();
+
+        // Leaderboard form submit
+        (function augmentLeaderboardForm(){
+            const form = document.getElementById('leaderboard-form');
+            form.addEventListener('submit', async function(e){
+                e.preventDefault();
+                const payload = {
+                    leaderboard: {
+                        enabled: document.getElementById('leaderboard_enabled').checked,
+                        update_interval: parseInt(document.getElementById('leaderboard_update_interval').value),
+                        scroll_speed: parseFloat(document.getElementById('leaderboard_scroll_speed').value),
+                        scroll_delay: parseFloat(document.getElementById('leaderboard_scroll_delay').value),
+                        display_duration: parseInt(document.getElementById('leaderboard_display_duration').value),
+                        loop: document.getElementById('leaderboard_loop').checked,
+                        request_timeout: parseInt(document.getElementById('leaderboard_request_timeout').value),
+                        dynamic_duration: document.getElementById('leaderboard_dynamic_duration').checked,
+                        min_duration: parseInt(document.getElementById('leaderboard_min_duration').value),
+                        max_duration: parseInt(document.getElementById('leaderboard_max_duration').value),
+                        duration_buffer: parseFloat(document.getElementById('leaderboard_duration_buffer').value),
+                        enabled_sports: {
+                            nfl: {
+                                enabled: document.getElementById('leaderboard_nfl_enabled').checked,
+                                top_teams: parseInt(document.getElementById('leaderboard_nfl_top_teams').value)
+                            },
+                            nba: {
+                                enabled: document.getElementById('leaderboard_nba_enabled').checked,
+                                top_teams: parseInt(document.getElementById('leaderboard_nba_top_teams').value)
+                            },
+                            mlb: {
+                                enabled: document.getElementById('leaderboard_mlb_enabled').checked,
+                                top_teams: parseInt(document.getElementById('leaderboard_mlb_top_teams').value)
+                            },
+                            ncaa_fb: {
+                                enabled: document.getElementById('leaderboard_ncaa_fb_enabled').checked,
+                                top_teams: parseInt(document.getElementById('leaderboard_ncaa_fb_top_teams').value),
+                                show_ranking: document.getElementById('leaderboard_ncaa_fb_show_ranking').checked
+                            },
+                            nhl: {
+                                enabled: document.getElementById('leaderboard_nhl_enabled').checked,
+                                top_teams: parseInt(document.getElementById('leaderboard_nhl_top_teams').value)
+                            },
+                            ncaam_basketball: {
+                                enabled: document.getElementById('leaderboard_ncaam_basketball_enabled').checked,
+                                top_teams: parseInt(document.getElementById('leaderboard_ncaam_basketball_top_teams').value)
+                            }
+                        }
+                    }
+                };
+                await saveConfigJson(payload);
+            });
+        })();
+
+        // Of The Day form submit
+        (function augmentOfTheDayForm(){
+            const form = document.getElementById('of_the_day-form');
+            form.addEventListener('submit', async function(e){
+                e.preventDefault();
+                const categoryOrder = document.getElementById('of_the_day_category_order').value.split(',').map(s => s.trim()).filter(Boolean);
+                const payload = {
+                    of_the_day: {
+                        enabled: document.getElementById('of_the_day_enabled').checked,
+                        update_interval: parseInt(document.getElementById('of_the_day_update_interval').value),
+                        display_rotate_interval: parseInt(document.getElementById('of_the_day_display_rotate_interval').value),
+                        subtitle_rotate_interval: parseInt(document.getElementById('of_the_day_subtitle_rotate_interval').value),
+                        category_order: categoryOrder,
+                        categories: {
+                            word_of_the_day: {
+                                enabled: document.getElementById('of_the_day_word_enabled').checked,
+                                data_file: document.getElementById('of_the_day_word_data_file').value,
+                                display_name: document.getElementById('of_the_day_word_display_name').value
+                            },
+                            slovenian_word_of_the_day: {
+                                enabled: document.getElementById('of_the_day_slovenian_enabled').checked,
+                                data_file: document.getElementById('of_the_day_slovenian_data_file').value,
+                                display_name: document.getElementById('of_the_day_slovenian_display_name').value
+                            }
+                        }
                     }
                 };
                 await saveConfigJson(payload);

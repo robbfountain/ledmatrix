@@ -13,6 +13,14 @@ from src.config_manager import ConfigManager
 from src.odds_manager import OddsManager
 import pytz
 
+# Import the API counter function from web interface
+try:
+    from web_interface_v2 import increment_api_counter
+except ImportError:
+    # Fallback if web interface is not available
+    def increment_api_counter(kind: str, count: int = 1):
+        pass
+
 # Constants
 ESPN_NCAAMB_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard"
 
@@ -35,10 +43,11 @@ class BaseNCAAMBasketballManager:
     
     def __init__(self, config: Dict[str, Any], display_manager: DisplayManager, cache_manager: CacheManager):
         self.display_manager = display_manager
-        self.config_manager = ConfigManager()
+        # Store reference to config instead of creating new ConfigManager
+        self.config_manager = None  # Not used in this class
         self.config = config
         self.cache_manager = cache_manager
-        self.odds_manager = OddsManager(self.cache_manager, self.config)
+        self.odds_manager = OddsManager(self.cache_manager, None)
         self.logger = logging.getLogger(__name__)
         self.ncaam_basketball_config = config.get("ncaam_basketball_scoreboard", {})
         self.is_enabled = self.ncaam_basketball_config.get("enabled", False)
@@ -55,13 +64,9 @@ class BaseNCAAMBasketballManager:
         # Set logging level to INFO to reduce noise
         self.logger.setLevel(logging.INFO)
         
-        # Get display dimensions from config
-        display_config = config.get("display", {})
-        hardware_config = display_config.get("hardware", {})
-        cols = hardware_config.get("cols", 64)
-        chain = hardware_config.get("chain_length", 1)
-        self.display_width = int(cols * chain)
-        self.display_height = hardware_config.get("rows", 32)
+        # Get display dimensions from matrix
+        self.display_width = self.display_manager.matrix.width
+        self.display_height = self.display_manager.matrix.height
         
         # Cache for loaded logos
         self._logo_cache = {}
@@ -99,7 +104,8 @@ class BaseNCAAMBasketballManager:
 
     def _get_timezone(self):
         try:
-            return pytz.timezone(self.config_manager.get_timezone())
+            timezone_str = self.config.get('timezone', 'UTC')
+            return pytz.timezone(timezone_str)
         except pytz.UnknownTimeZoneError:
             return pytz.utc
 
@@ -327,6 +333,9 @@ class BaseNCAAMBasketballManager:
             response = requests.get(url, params=params)
             response.raise_for_status()
             data = response.json()
+            
+            # Increment API counter for sports data
+            increment_api_counter('sports', 1)
             
             if use_cache:
                 self.cache_manager.set(cache_key, data)

@@ -14,6 +14,14 @@ from src.config_manager import ConfigManager
 from src.odds_manager import OddsManager
 import pytz
 
+# Import the API counter function from web interface
+try:
+    from web_interface_v2 import increment_api_counter
+except ImportError:
+    # Fallback if web interface is not available
+    def increment_api_counter(kind: str, count: int = 1):
+        pass
+
 # Constants
 # ESPN_SOCCER_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/scoreboards" # Old URL
 ESPN_SOCCER_LEAGUE_SCOREBOARD_URL_FORMAT = "http://site.api.espn.com/apis/site/v2/sports/soccer/{}/scoreboard" # New format string
@@ -53,11 +61,13 @@ class BaseSoccerManager:
 
     def __init__(self, config: Dict[str, Any], display_manager: DisplayManager, cache_manager: CacheManager):
         self.display_manager = display_manager
+        # Store reference to config instead of creating new ConfigManager
+        self.config_manager = None  # Not used in this class
         self.config = config
         self.soccer_config = config.get("soccer_scoreboard", {}) # Use 'soccer_scoreboard' config
         BaseSoccerManager._soccer_config_shared = self.soccer_config # Store for class methods
         self.cache_manager = cache_manager
-        self.odds_manager = OddsManager(self.cache_manager, self.config)
+        self.odds_manager = OddsManager(self.cache_manager, None)
         self.is_enabled = self.soccer_config.get("enabled", False)
         self.show_odds = self.soccer_config.get("show_odds", False)
         self.test_mode = self.soccer_config.get("test_mode", False)
@@ -75,12 +85,8 @@ class BaseSoccerManager:
         self.team_map_file = self.soccer_config.get("team_map_file", "assets/data/team_league_map.json")
         self.team_map_update_days = self.soccer_config.get("team_map_update_days", 7) # How often to update the map
 
-        display_config = config.get("display", {})
-        hardware_config = display_config.get("hardware", {})
-        cols = hardware_config.get("cols", 64)
-        chain = hardware_config.get("chain_length", 1)
-        self.display_width = int(cols * chain)
-        self.display_height = hardware_config.get("rows", 32)
+        self.display_width = self.display_manager.matrix.width
+        self.display_height = self.display_manager.matrix.height
         
         self._logo_cache = {}
 
@@ -192,6 +198,9 @@ class BaseSoccerManager:
                 response = requests.get(url, params=params, timeout=10) # Add timeout
                 response.raise_for_status()
                 data = response.json()
+                
+                # Increment API counter for sports data
+                increment_api_counter('sports', 1)
                 cls.logger.debug(f"[Soccer Map Build] Fetched data for {league_slug}")
 
                 for event in data.get("events", []):
@@ -264,6 +273,10 @@ class BaseSoccerManager:
                     response = requests.get(url, params=params)
                     response.raise_for_status()
                     data = response.json()
+                    
+                    # Increment API counter for sports data
+                    increment_api_counter('sports', 1)
+                    
                     self.logger.info(f"[Soccer] Fetched data from ESPN API for {league_slug} on {fetch_date}")
                     
                     if use_cache:

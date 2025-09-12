@@ -30,6 +30,15 @@ class DisplayManager:
         self._snapshot_path = "/tmp/led_matrix_preview.png"
         self._snapshot_min_interval_sec = 0.2  # max ~5 fps
         self._last_snapshot_ts = 0.0
+        
+        # Scrolling state tracking for graceful updates
+        self._scrolling_state = {
+            'is_scrolling': False,
+            'last_scroll_activity': 0,
+            'scroll_inactivity_threshold': 2.0,  # seconds of inactivity before considering "not scrolling"
+            'deferred_updates': []
+        }
+        
         self._setup_matrix()
         logger.info("Matrix setup completed in %.3f seconds", time.time() - start_time)
         
@@ -633,6 +642,77 @@ class DisplayManager:
             suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(day % 10, 'th')
         
         return dt.strftime(f"%b %-d{suffix}") 
+
+    def set_scrolling_state(self, is_scrolling: bool):
+        """Set the current scrolling state. Call this when a display starts/stops scrolling."""
+        current_time = time.time()
+        self._scrolling_state['is_scrolling'] = is_scrolling
+        if is_scrolling:
+            self._scrolling_state['last_scroll_activity'] = current_time
+        logger.debug(f"Scrolling state set to: {is_scrolling}")
+
+    def is_currently_scrolling(self) -> bool:
+        """Check if the display is currently in a scrolling state."""
+        current_time = time.time()
+        
+        # If explicitly not scrolling, return False
+        if not self._scrolling_state['is_scrolling']:
+            return False
+            
+        # If we've been inactive for the threshold period, consider it not scrolling
+        if current_time - self._scrolling_state['last_scroll_activity'] > self._scrolling_state['scroll_inactivity_threshold']:
+            self._scrolling_state['is_scrolling'] = False
+            return False
+            
+        return True
+
+    def defer_update(self, update_func, priority: int = 0):
+        """Defer an update function to be called when not scrolling.
+        
+        Args:
+            update_func: Function to call when not scrolling
+            priority: Priority level (lower numbers = higher priority)
+        """
+        self._scrolling_state['deferred_updates'].append({
+            'func': update_func,
+            'priority': priority,
+            'timestamp': time.time()
+        })
+        # Sort by priority (lower numbers first)
+        self._scrolling_state['deferred_updates'].sort(key=lambda x: x['priority'])
+        logger.debug(f"Deferred update added. Total deferred: {len(self._scrolling_state['deferred_updates'])}")
+
+    def process_deferred_updates(self):
+        """Process any deferred updates if not currently scrolling."""
+        if self.is_currently_scrolling():
+            return
+            
+        if not self._scrolling_state['deferred_updates']:
+            return
+            
+        # Process all deferred updates
+        updates_to_process = self._scrolling_state['deferred_updates'].copy()
+        self._scrolling_state['deferred_updates'].clear()
+        
+        logger.debug(f"Processing {len(updates_to_process)} deferred updates")
+        
+        for update_info in updates_to_process:
+            try:
+                update_info['func']()
+                logger.debug("Deferred update executed successfully")
+            except Exception as e:
+                logger.error(f"Error executing deferred update: {e}")
+                # Re-add failed updates for retry
+                self._scrolling_state['deferred_updates'].append(update_info)
+
+    def get_scrolling_stats(self) -> dict:
+        """Get current scrolling statistics for debugging."""
+        return {
+            'is_scrolling': self._scrolling_state['is_scrolling'],
+            'last_activity': self._scrolling_state['last_scroll_activity'],
+            'deferred_count': len(self._scrolling_state['deferred_updates']),
+            'inactivity_threshold': self._scrolling_state['scroll_inactivity_threshold']
+        }
 
     def _write_snapshot_if_due(self) -> None:
         """Write the current image to a PNG snapshot file at a limited frequency."""
