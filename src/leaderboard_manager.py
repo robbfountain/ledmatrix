@@ -891,6 +891,44 @@ class LeaderboardManager:
             # Set total scroll width for dynamic duration calculation
             self.total_scroll_width = total_width
             
+            # Log league positioning for debugging
+            current_x = 0
+            for league_data in self.leaderboard_data:
+                league_key = league_data['league']
+                league_config = league_data['league_config']
+                teams = league_data['teams']
+                league_logo_width = 64
+                teams_width = 0
+                logo_size = int(height * 1.2)
+                
+                for i, team in enumerate(teams):
+                    # Calculate width for bold number/ranking/record (match drawing logic)
+                    if league_key == 'ncaa_fb':
+                        if league_config.get('show_ranking', True):
+                            if 'rank' in team and team['rank'] > 0:
+                                number_text = f"#{team['rank']}"
+                            else:
+                                number_text = f"{i+1}."
+                        else:
+                            if 'record_summary' in team:
+                                number_text = team['record_summary']
+                            else:
+                                number_text = f"{i+1}."
+                    else:
+                        number_text = f"{i+1}."
+                    
+                    number_bbox = self.fonts['xlarge'].getbbox(number_text)
+                    number_width = number_bbox[2] - number_bbox[0]
+                    team_text = team['abbreviation']
+                    text_bbox = self.fonts['large'].getbbox(team_text)
+                    text_width = text_bbox[2] - text_bbox[0]
+                    team_width = number_width + 4 + logo_size + 4 + text_width + 12
+                    teams_width += team_width
+                
+                league_width = league_logo_width + teams_width + 20
+                logger.info(f"League {league_key}: {len(teams)} teams, width {league_width}px, starts at x={current_x}")
+                current_x += league_width + 40  # Add spacing
+            
             # Calculate dynamic duration using proper scroll-based calculation
             if self.dynamic_duration_enabled:
                 self.calculate_dynamic_duration()
@@ -999,7 +1037,7 @@ class LeaderboardManager:
             except Exception as e:
                 logger.error(f"Error updating leaderboard for dynamic duration: {e}")
         
-        logger.debug(f"get_dynamic_duration called, returning: {self.dynamic_duration}s")
+        logger.info(f"get_dynamic_duration called, returning: {self.dynamic_duration}s")
         return self.dynamic_duration
 
     def update(self) -> None:
