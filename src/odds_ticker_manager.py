@@ -1333,7 +1333,8 @@ class OddsTickerManager:
                 display_width = 128  # Default to 128 if not available
             
             # Calculate total scroll distance needed
-            # Text needs to scroll from right edge to completely off left edge
+            # For odds ticker, we need to scroll the entire content width plus display width
+            # to ensure all content is visible from start to finish
             total_scroll_distance = display_width + self.total_scroll_width
             
             # Calculate time based on scroll speed and delay
@@ -1348,11 +1349,15 @@ class OddsTickerManager:
             # and add extra time to ensure we don't cut off mid-scroll
             if self.loop:
                 # Add extra buffer for looping to ensure smooth transition
-                loop_buffer = total_time * 0.2  # 20% extra for looping
+                # Use a larger buffer to ensure complete content display
+                loop_buffer = total_time * 0.3  # 30% extra for looping (increased from 20%)
                 calculated_duration = int(total_time + buffer_time + loop_buffer)
                 logger.debug(f"Looping enabled, added {loop_buffer:.2f}s loop buffer")
             else:
-                calculated_duration = int(total_time + buffer_time)
+                # Even without looping, add extra buffer to ensure complete display
+                extra_buffer = total_time * 0.15  # 15% extra to ensure complete content display
+                calculated_duration = int(total_time + buffer_time + extra_buffer)
+                logger.debug(f"No looping, added {extra_buffer:.2f}s extra buffer for complete display")
             
             # Apply configured min/max limits
             if calculated_duration < self.min_duration:
@@ -1363,11 +1368,20 @@ class OddsTickerManager:
                 logger.debug(f"Duration capped to maximum: {self.max_duration}s")
             else:
                 self.dynamic_duration = calculated_duration
+            
+            # Additional safety check: if the calculated duration seems too short for the content,
+            # ensure we have enough time to display all content properly
+            if self.dynamic_duration < 45 and self.total_scroll_width > 500:
+                # If we have a lot of content but short duration, increase it
+                self.dynamic_duration = max(45, int(self.total_scroll_width / 20))  # At least 45s or 1s per 20px
+                logger.debug(f"Adjusted duration for large content: {self.dynamic_duration}s")
                 
             logger.debug(f"Odds ticker dynamic duration calculation:")
             logger.debug(f"  Display width: {display_width}px")
-            logger.debug(f"  Text width: {self.total_scroll_width}px")
+            logger.debug(f"  Content width: {self.total_scroll_width}px")
             logger.debug(f"  Total scroll distance: {total_scroll_distance}px")
+            logger.debug(f"  Scroll speed: {self.scroll_speed}px/frame")
+            logger.debug(f"  Scroll delay: {self.scroll_delay}s/frame")
             logger.debug(f"  Frames needed: {frames_needed:.1f}")
             logger.debug(f"  Base time: {total_time:.2f}s")
             logger.debug(f"  Buffer time: {buffer_time:.2f}s ({self.duration_buffer*100}%)")
