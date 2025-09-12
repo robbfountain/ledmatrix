@@ -108,6 +108,8 @@ class OfTheDayManager:
             return
             
         logger.info(f"Loading data files for {len(self.categories)} categories")
+        logger.info(f"Current working directory: {os.getcwd()}")
+        logger.info(f"Script directory: {os.path.dirname(__file__)}")
             
         for category_name, category_config in self.categories.items():
             logger.debug(f"Processing category: {category_name}")
@@ -130,16 +132,49 @@ class OfTheDayManager:
                     else:
                         file_path = os.path.join(os.path.dirname(__file__), '..', 'of_the_day', data_file)
                 
+                # Convert to absolute path for better logging
+                file_path = os.path.abspath(file_path)
+                logger.debug(f"Attempting to load {category_name} from: {file_path}")
+                
                 if os.path.exists(file_path):
+                    logger.debug(f"File exists, checking permissions...")
+                    if not os.access(file_path, os.R_OK):
+                        logger.error(f"File exists but is not readable: {file_path}")
+                        self.data_files[category_name] = {}
+                        continue
+                    
+                    # Get file size for debugging
+                    file_size = os.path.getsize(file_path)
+                    logger.debug(f"File size: {file_size} bytes")
+                    
                     with open(file_path, 'r', encoding='utf-8') as f:
                         self.data_files[category_name] = json.load(f)
+                    
                     logger.info(f"Loaded data file for {category_name}: {len(self.data_files[category_name])} items")
                     logger.debug(f"Sample keys from {category_name}: {list(self.data_files[category_name].keys())[:5]}")
+                    
+                    # Validate that we have data
+                    if not self.data_files[category_name]:
+                        logger.warning(f"Loaded data file for {category_name} but it's empty!")
+                    
                 else:
                     logger.error(f"Data file not found for {category_name}: {file_path}")
+                    logger.error(f"Directory contents: {os.listdir(os.path.dirname(file_path)) if os.path.exists(os.path.dirname(file_path)) else 'Parent directory does not exist'}")
                     self.data_files[category_name] = {}
+                    
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON decode error loading data file for {category_name}: {e}")
+                logger.error(f"File path: {file_path}")
+                self.data_files[category_name] = {}
+            except UnicodeDecodeError as e:
+                logger.error(f"Unicode decode error loading data file for {category_name}: {e}")
+                logger.error(f"File path: {file_path}")
+                self.data_files[category_name] = {}
             except Exception as e:
-                logger.error(f"Error loading data file for {category_name}: {e}")
+                logger.error(f"Unexpected error loading data file for {category_name}: {e}")
+                logger.error(f"File path: {file_path}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
                 self.data_files[category_name] = {}
     
     def _load_todays_items(self):
@@ -150,6 +185,7 @@ class OfTheDayManager:
         today = date.today()
         day_of_year = today.timetuple().tm_yday
         logger.info(f"Loading items for day {day_of_year} of the year")
+        logger.debug(f"Available data files: {list(self.data_files.keys())}")
         
         self.current_items = {}
         
@@ -161,9 +197,13 @@ class OfTheDayManager:
             data = self.data_files.get(category_name, {})
             if not data:
                 logger.warning(f"No data loaded for category: {category_name}")
+                logger.debug(f"Data files available: {list(self.data_files.keys())}")
+                logger.debug(f"Category config: {category_config}")
                 continue
                 
             logger.debug(f"Checking category {category_name} for day {day_of_year}")
+            logger.debug(f"Data file contains {len(data)} items")
+            
             # Get item for today (day of year)
             item = data.get(str(day_of_year))
             if item:
@@ -171,7 +211,11 @@ class OfTheDayManager:
                 logger.info(f"Loaded {category_name} item for day {day_of_year}: {item.get('title', 'No title')}")
             else:
                 logger.warning(f"No item found for {category_name} on day {day_of_year}")
-                logger.debug(f"Available days in {category_name}: {list(data.keys())[:10]}...")
+                # Show more detailed information about available days
+                available_days = [k for k in data.keys() if k.isdigit()]
+                nearby_days = [k for k in available_days if abs(int(k) - day_of_year) <= 5]
+                logger.debug(f"Available days in {category_name}: {sorted(available_days)[:10]}...")
+                logger.debug(f"Days near {day_of_year}: {sorted(nearby_days)}")
         
         self.current_day = today
         self.current_category_index = 0
