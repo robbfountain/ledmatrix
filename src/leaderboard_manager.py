@@ -1020,8 +1020,12 @@ class LeaderboardManager:
             
             # Calculate time based on scroll speed and delay
             # scroll_speed = pixels per frame, scroll_delay = seconds per frame
-            frames_needed = total_scroll_distance / self.scroll_speed
-            total_time = frames_needed * self.scroll_delay
+            # However, actual observed speed is slower than theoretical calculation
+            # Based on log analysis: 1950px in 36s = 54.2 px/s actual speed
+            # vs theoretical: 1px/0.01s = 100 px/s
+            # Use actual observed speed for more accurate timing
+            actual_scroll_speed = 54.2  # pixels per second (calculated from logs)
+            total_time = total_scroll_distance / actual_scroll_speed
             
             # Add buffer time for smooth cycling (configurable %)
             buffer_time = total_time * self.duration_buffer
@@ -1061,9 +1065,9 @@ class LeaderboardManager:
             logger.info(f"  Display width: {display_width}px")
             logger.info(f"  Content width: {self.total_scroll_width}px")
             logger.info(f"  Total scroll distance: {total_scroll_distance}px")
-            logger.info(f"  Scroll speed: {self.scroll_speed}px/frame")
-            logger.info(f"  Scroll delay: {self.scroll_delay}s/frame")
-            logger.info(f"  Frames needed: {frames_needed:.1f}")
+            logger.info(f"  Configured scroll speed: {self.scroll_speed}px/frame")
+            logger.info(f"  Configured scroll delay: {self.scroll_delay}s/frame")
+            logger.info(f"  Actual observed scroll speed: {actual_scroll_speed}px/s (from log analysis)")
             logger.info(f"  Base time: {total_time:.2f}s")
             logger.info(f"  Buffer time: {buffer_time:.2f}s ({self.duration_buffer*100}%)")
             logger.info(f"  Looping enabled: {self.loop}")
@@ -1071,7 +1075,7 @@ class LeaderboardManager:
             logger.info(f"Final calculated duration: {self.dynamic_duration}s")
             
             # Verify the duration makes sense for the content
-            expected_scroll_time = self.total_scroll_width / (self.scroll_speed / self.scroll_delay)
+            expected_scroll_time = self.total_scroll_width / actual_scroll_speed
             logger.info(f"  Verification - Time to scroll content: {expected_scroll_time:.1f}s")
             
         except Exception as e:
@@ -1236,15 +1240,18 @@ class LeaderboardManager:
             # If we have less than 2 seconds remaining, check if we can complete the content display
             if remaining_time < 2.0 and self.scroll_position > 0:
                 # Calculate how much time we need to complete the current scroll position
+                # Use actual observed scroll speed (54.2 px/s) instead of theoretical calculation
+                actual_scroll_speed = 54.2  # pixels per second (calculated from logs)
+                
                 if self.loop:
                     # For looping, we need to complete one full cycle
-                    frames_to_complete = (self.leaderboard_image.width - self.scroll_position) / self.scroll_speed
+                    distance_to_complete = self.leaderboard_image.width - self.scroll_position
                 else:
                     # For single pass, we need to reach the end (content width minus display width)
                     end_position = max(0, self.leaderboard_image.width - width)
-                    frames_to_complete = (end_position - self.scroll_position) / self.scroll_speed
+                    distance_to_complete = end_position - self.scroll_position
                 
-                time_to_complete = frames_to_complete * self.scroll_delay
+                time_to_complete = distance_to_complete / actual_scroll_speed
                 
                 if time_to_complete <= remaining_time:
                     # We have enough time to complete the scroll, continue normally
