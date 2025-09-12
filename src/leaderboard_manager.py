@@ -919,7 +919,10 @@ class LeaderboardManager:
                 logger.info(f"Next league will start at x={current_x}px (gap: {20 + spacing}px)")
             
             # Set total scroll width for dynamic duration calculation
-            self.total_scroll_width = total_width
+            # Use actual content width (current_x at end) instead of pre-calculated total_width
+            actual_content_width = current_x - (20 + spacing)  # Remove the final spacing that won't be used
+            self.total_scroll_width = actual_content_width
+            logger.info(f"Content width - Calculated: {total_width}px, Actual: {actual_content_width}px")
             
             # Log league positioning for debugging and verify layout
             debug_x = 0
@@ -1050,18 +1053,22 @@ class LeaderboardManager:
                 self.dynamic_duration = max(45, int(self.total_scroll_width / 20))
                 logger.debug(f"Adjusted duration for content: {self.dynamic_duration}s (content width: {self.total_scroll_width}px)")
                 
-            logger.debug(f"Leaderboard dynamic duration calculation:")
-            logger.debug(f"  Display width: {display_width}px")
-            logger.debug(f"  Content width: {self.total_scroll_width}px")
-            logger.debug(f"  Total scroll distance: {total_scroll_distance}px")
-            logger.debug(f"  Scroll speed: {self.scroll_speed}px/frame")
-            logger.debug(f"  Scroll delay: {self.scroll_delay}s/frame")
-            logger.debug(f"  Frames needed: {frames_needed:.1f}")
-            logger.debug(f"  Base time: {total_time:.2f}s")
-            logger.debug(f"  Buffer time: {buffer_time:.2f}s ({self.duration_buffer*100}%)")
-            logger.debug(f"  Looping enabled: {self.loop}")
-            logger.debug(f"  Calculated duration: {calculated_duration}s")
+            logger.info(f"Leaderboard dynamic duration calculation:")
+            logger.info(f"  Display width: {display_width}px")
+            logger.info(f"  Content width: {self.total_scroll_width}px")
+            logger.info(f"  Total scroll distance: {total_scroll_distance}px")
+            logger.info(f"  Scroll speed: {self.scroll_speed}px/frame")
+            logger.info(f"  Scroll delay: {self.scroll_delay}s/frame")
+            logger.info(f"  Frames needed: {frames_needed:.1f}")
+            logger.info(f"  Base time: {total_time:.2f}s")
+            logger.info(f"  Buffer time: {buffer_time:.2f}s ({self.duration_buffer*100}%)")
+            logger.info(f"  Looping enabled: {self.loop}")
+            logger.info(f"  Calculated duration: {calculated_duration}s")
             logger.info(f"Final calculated duration: {self.dynamic_duration}s")
+            
+            # Verify the duration makes sense for the content
+            expected_scroll_time = self.total_scroll_width / (self.scroll_speed / self.scroll_delay)
+            logger.info(f"  Verification - Time to scroll content: {expected_scroll_time:.1f}s")
             
         except Exception as e:
             logger.error(f"Error calculating dynamic duration: {e}")
@@ -1218,8 +1225,8 @@ class LeaderboardManager:
             elapsed_time = current_time - self._display_start_time
             remaining_time = self.dynamic_duration - elapsed_time
             
-            # Log scroll progress every 10 seconds to help debug
-            if int(elapsed_time) % 10 == 0 and elapsed_time > 0:
+            # Log scroll progress every 50 pixels to help debug (less verbose)
+            if self.scroll_position % 50 == 0 and self.scroll_position > 0:
                 logger.info(f"Leaderboard progress: elapsed={elapsed_time:.1f}s, remaining={remaining_time:.1f}s, scroll_pos={self.scroll_position}/{self.leaderboard_image.width}px")
             
             # If we have less than 2 seconds remaining and we're not at a clean break point,

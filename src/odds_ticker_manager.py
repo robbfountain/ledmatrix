@@ -1667,8 +1667,8 @@ class OddsTickerManager:
             elapsed_time = current_time - self._display_start_time
             remaining_time = self.dynamic_duration - elapsed_time
             
-            # Log timing info every 10 seconds to help debug
-            if int(elapsed_time) % 10 == 0 and elapsed_time > 0:
+            # Log timing info every 50 pixels to help debug (less verbose)
+            if self.scroll_position % 50 == 0 and self.scroll_position > 0:
                 logger.info(f"Odds ticker timing: elapsed={elapsed_time:.1f}s, remaining={remaining_time:.1f}s, duration={self.dynamic_duration}s, scroll_pos={self.scroll_position}")
             
             # If we have less than 2 seconds remaining and we're not at a clean break point,
