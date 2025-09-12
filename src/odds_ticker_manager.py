@@ -1422,11 +1422,11 @@ class OddsTickerManager:
                 calculated_duration = int(total_time + buffer_time + loop_buffer)
                 logger.debug(f"Looping enabled, added {loop_buffer:.2f}s loop buffer")
             else:
-                # For single pass: precise calculation to show content exactly once
-                # Add minimal buffer only to prevent cutting off the last content
-                completion_buffer = total_time * 0.02  # 2% extra to ensure complete display
+                # For single pass: add more buffer to ensure complete display and smooth transition
+                # The issue was that the duration was too short, causing premature mode switching
+                completion_buffer = total_time * 0.1  # 10% extra to ensure complete display
                 calculated_duration = int(total_time + buffer_time + completion_buffer)
-                logger.debug(f"Single pass mode, added {completion_buffer:.2f}s completion buffer for precise timing")
+                logger.debug(f"Single pass mode, added {completion_buffer:.2f}s completion buffer for complete display")
             
             # Apply configured min/max limits
             if calculated_duration < self.min_duration:
@@ -1655,16 +1655,21 @@ class OddsTickerManager:
             else:
                 # Stop scrolling when we reach the end
                 if self.scroll_position >= self.ticker_image.width - width:
-                    logger.debug(f"Odds ticker reached end: scroll_position {self.scroll_position} >= {self.ticker_image.width - width}")
+                    logger.info(f"Odds ticker reached end: scroll_position {self.scroll_position} >= {self.ticker_image.width - width}")
                     self.scroll_position = self.ticker_image.width - width
                     # Signal that scrolling has stopped
                     self.display_manager.set_scrolling_state(False)
+                    logger.info("Odds ticker scrolling stopped - reached end of content")
             
             # Check if we're at a natural break point for mode switching
             # If we're near the end of the display duration and not at a clean break point,
             # adjust the scroll position to complete the current game display
             elapsed_time = current_time - self._display_start_time
             remaining_time = self.dynamic_duration - elapsed_time
+            
+            # Log timing info every 10 seconds to help debug
+            if int(elapsed_time) % 10 == 0 and elapsed_time > 0:
+                logger.info(f"Odds ticker timing: elapsed={elapsed_time:.1f}s, remaining={remaining_time:.1f}s, duration={self.dynamic_duration}s, scroll_pos={self.scroll_position}")
             
             # If we have less than 2 seconds remaining and we're not at a clean break point,
             # try to complete the current game display
@@ -1696,7 +1701,35 @@ class OddsTickerManager:
             # Display the cropped image
             self.display_manager.image = visible_image
             self.display_manager.draw = ImageDraw.Draw(self.display_manager.image)
-            self.display_manager.update_display()
+            
+            # Add timeout protection for display update to prevent hanging
+            try:
+                import threading
+                import queue
+                
+                display_queue = queue.Queue()
+                
+                def update_display():
+                    try:
+                        self.display_manager.update_display()
+                        display_queue.put(('success', None))
+                    except Exception as e:
+                        display_queue.put(('error', e))
+                
+                # Start display update in a separate thread with 1-second timeout
+                display_thread = threading.Thread(target=update_display)
+                display_thread.daemon = True
+                display_thread.start()
+                
+                try:
+                    result_type, result_data = display_queue.get(timeout=1)
+                    if result_type == 'error':
+                        logger.error(f"Display update failed: {result_data}")
+                except queue.Empty:
+                    logger.warning("Display update timed out after 1 second")
+                
+            except Exception as e:
+                logger.error(f"Error during display update: {e}")
             
         except Exception as e:
             logger.error(f"Error displaying odds ticker: {e}", exc_info=True)
