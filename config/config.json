@@ -157,7 +157,7 @@
         "enabled": true,
         "enabled_sports": {
             "nfl": {
-                "enabled": false,
+                "enabled": true,
                 "top_teams": 10
             },
             "nba": {
