@@ -1010,9 +1010,13 @@ class LeaderboardManager:
                 display_width = 128  # Default to 128 if not available
             
             # Calculate total scroll distance needed
-            # For leaderboard, we need to scroll the entire content width plus display width
-            # to ensure all content is visible from start to finish
-            total_scroll_distance = display_width + self.total_scroll_width
+            # For looping content, we need to scroll the entire content width
+            # For non-looping content, we need content width minus display width (since last part shows fully)
+            if self.loop:
+                total_scroll_distance = self.total_scroll_width
+            else:
+                # For single pass, we need to scroll until the last content is fully visible
+                total_scroll_distance = max(0, self.total_scroll_width - display_width)
             
             # Calculate time based on scroll speed and delay
             # scroll_speed = pixels per frame, scroll_delay = seconds per frame
@@ -1030,8 +1034,8 @@ class LeaderboardManager:
                 logger.debug(f"Looping enabled, added {loop_buffer:.2f}s loop buffer")
             else:
                 # For single pass: precise calculation to show content exactly once
-                # Add minimal buffer only to prevent cutting off the last content
-                completion_buffer = total_time * 0.02  # 2% extra to ensure complete display
+                # Add buffer to prevent cutting off the last content - increase from 2% to 5%
+                completion_buffer = total_time * 0.05  # 5% extra to ensure complete display
                 calculated_duration = int(total_time + buffer_time + completion_buffer)
                 logger.debug(f"Single pass mode, added {completion_buffer:.2f}s completion buffer for precise timing")
             
@@ -1229,19 +1233,26 @@ class LeaderboardManager:
             if self.scroll_position % 50 == 0 and self.scroll_position > 0:
                 logger.info(f"Leaderboard progress: elapsed={elapsed_time:.1f}s, remaining={remaining_time:.1f}s, scroll_pos={self.scroll_position}/{self.leaderboard_image.width}px")
             
-            # If we have less than 2 seconds remaining and we're not at a clean break point,
-            # try to complete the current league display
+            # If we have less than 2 seconds remaining, check if we can complete the content display
             if remaining_time < 2.0 and self.scroll_position > 0:
                 # Calculate how much time we need to complete the current scroll position
-                frames_to_complete = (self.leaderboard_image.width - self.scroll_position) / self.scroll_speed
+                if self.loop:
+                    # For looping, we need to complete one full cycle
+                    frames_to_complete = (self.leaderboard_image.width - self.scroll_position) / self.scroll_speed
+                else:
+                    # For single pass, we need to reach the end (content width minus display width)
+                    end_position = max(0, self.leaderboard_image.width - width)
+                    frames_to_complete = (end_position - self.scroll_position) / self.scroll_speed
+                
                 time_to_complete = frames_to_complete * self.scroll_delay
                 
                 if time_to_complete <= remaining_time:
                     # We have enough time to complete the scroll, continue normally
-                    pass
+                    logger.debug(f"Sufficient time remaining ({remaining_time:.1f}s) to complete scroll ({time_to_complete:.1f}s)")
                 else:
                     # Not enough time, reset to beginning for clean transition
-                    logger.debug(f"Display ending soon, resetting scroll position for clean transition")
+                    logger.warning(f"Not enough time to complete content display - remaining: {remaining_time:.1f}s, needed: {time_to_complete:.1f}s")
+                    logger.debug(f"Resetting scroll position for clean transition")
                     self.scroll_position = 0
             
             # Create the visible part of the image by cropping from the leaderboard_image
