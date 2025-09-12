@@ -1032,13 +1032,12 @@ class LeaderboardManager:
             
             # Calculate duration for single complete pass
             if self.loop:
-                # For looping: add buffer to ensure smooth transition
-                loop_buffer = total_time * 0.05  # 5% extra for looping
-                calculated_duration = int(total_time + buffer_time + loop_buffer)
-                logger.debug(f"Looping enabled, added {loop_buffer:.2f}s loop buffer")
+                # For looping: set duration to exactly one loop cycle (no extra time to prevent multiple loops)
+                calculated_duration = int(total_time)
+                logger.debug(f"Looping enabled, duration set to exactly one loop cycle: {calculated_duration}s")
             else:
                 # For single pass: precise calculation to show content exactly once
-                # Add buffer to prevent cutting off the last content - increase from 2% to 5%
+                # Add buffer to prevent cutting off the last content
                 completion_buffer = total_time * 0.05  # 5% extra to ensure complete display
                 calculated_duration = int(total_time + buffer_time + completion_buffer)
                 logger.debug(f"Single pass mode, added {completion_buffer:.2f}s completion buffer for precise timing")
