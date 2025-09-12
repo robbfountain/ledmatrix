@@ -733,6 +733,7 @@ class LeaderboardManager:
             
             # Calculate width for each league section
             for league_data in self.leaderboard_data:
+                league_key = league_data['league']
                 league_config = league_data['league_config']
                 teams = league_data['teams']
                 
