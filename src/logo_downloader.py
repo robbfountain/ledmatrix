@@ -75,7 +75,20 @@ class LogoDownloader:
     
     def normalize_abbreviation(self, abbreviation: str) -> str:
         """Normalize team abbreviation for consistent filename usage."""
-        return abbreviation.upper()
+        # Handle special characters that can cause filesystem issues
+        normalized = abbreviation.upper()
+        # Replace problematic characters with safe alternatives
+        normalized = normalized.replace('&', 'AND')
+        normalized = normalized.replace('/', '_')
+        normalized = normalized.replace('\\', '_')
+        normalized = normalized.replace(':', '_')
+        normalized = normalized.replace('*', '_')
+        normalized = normalized.replace('?', '_')
+        normalized = normalized.replace('"', '_')
+        normalized = normalized.replace('<', '_')
+        normalized = normalized.replace('>', '_')
+        normalized = normalized.replace('|', '_')
+        return normalized
     
     def get_logo_directory(self, league: str) -> str:
         """Get the logo directory for a given league."""
@@ -249,6 +262,42 @@ class LogoDownloader:
         # Default to FBS for unknown conferences
         return 'FBS'
     
+    def _get_team_name_variations(self, abbreviation: str) -> List[str]:
+        """Generate common variations of a team abbreviation for matching."""
+        variations = set()
+        abbr = abbreviation.upper()
+        variations.add(abbr)
+        
+        # Add normalized version
+        variations.add(self.normalize_abbreviation(abbr))
+        
+        # Common substitutions
+        substitutions = {
+            '&': ['AND', 'A'],
+            'A&M': ['TAMU', 'TA&M', 'TEXASAM'],
+            'STATE': ['ST', 'ST.'],
+            'UNIVERSITY': ['U', 'UNIV'],
+            'COLLEGE': ['C', 'COL'],
+            'TECHNICAL': ['TECH', 'T'],
+            'NORTHERN': ['NORTH', 'N'],
+            'SOUTHERN': ['SOUTH', 'S'],
+            'EASTERN': ['EAST', 'E'],
+            'WESTERN': ['WEST', 'W']
+        }
+        
+        # Apply substitutions
+        for original, replacements in substitutions.items():
+            if original in abbr:
+                for replacement in replacements:
+                    variations.add(abbr.replace(original, replacement))
+                    variations.add(abbr.replace(original, ''))  # Remove the word entirely
+        
+        # Add common abbreviations for Texas A&M
+        if 'A&M' in abbr or 'TAMU' in abbr:
+            variations.update(['TAMU', 'TA&M', 'TEXASAM', 'TEXAS_A&M', 'TEXAS_AM'])
+        
+        return list(variations)
+    
     def download_missing_logos_for_league(self, league: str, force_download: bool = False) -> Tuple[int, int]:
         """Download missing logos for a specific league."""
         logger.info(f"Starting logo download for league: {league}")
@@ -384,12 +433,33 @@ class LogoDownloader:
         
         teams = self.extract_teams_from_data(data, league)
         
-        # Find the specific team
+        # Find the specific team with improved matching
         target_team = None
+        normalized_search = self.normalize_abbreviation(team_abbreviation)
+        
+        # First try exact match
         for team in teams:
             if team['abbreviation'].upper() == team_abbreviation.upper():
                 target_team = team
                 break
+        
+        # If not found, try normalized match
+        if not target_team:
+            for team in teams:
+                normalized_team_abbr = self.normalize_abbreviation(team['abbreviation'])
+                if normalized_team_abbr == normalized_search:
+                    target_team = team
+                    break
+        
+        # If still not found, try partial matching for common variations
+        if not target_team:
+            search_variations = self._get_team_name_variations(team_abbreviation)
+            for team in teams:
+                team_variations = self._get_team_name_variations(team['abbreviation'])
+                if any(var in team_variations for var in search_variations):
+                    target_team = team
+                    logger.info(f"Found team {team_abbreviation} as {team['abbreviation']} ({team['display_name']})")
+                    break
         
         if not target_team:
             logger.warning(f"Team {team_abbreviation} not found in {league} data")
@@ -426,8 +496,26 @@ class LogoDownloader:
     def create_placeholder_logo(self, team_abbreviation: str, logo_dir: str, team_name: str = None) -> bool:
         """Create a placeholder logo when real logo cannot be downloaded."""
         try:
+            # Ensure the logo directory exists
+            if not self.ensure_logo_directory(logo_dir):
+                logger.error(f"Failed to create logo directory: {logo_dir}")
+                return False
+            
             filename = f"{self.normalize_abbreviation(team_abbreviation)}.png"
             filepath = Path(logo_dir) / filename
+            
+            # Check if we can write to the directory
+            try:
+                # Test write permissions by creating a temporary file
+                test_file = filepath.parent / "test_write.tmp"
+                test_file.touch()
+                test_file.unlink()  # Remove the test file
+            except PermissionError:
+                logger.error(f"Permission denied: Cannot write to directory {logo_dir}")
+                return False
+            except Exception as e:
+                logger.error(f"Directory access error for {logo_dir}: {e}")
+                return False
             
             # Create a simple placeholder logo
             logo = Image.new('RGBA', (64, 64), (100, 100, 100, 255))  # Gray background
@@ -471,7 +559,7 @@ def download_missing_logo(team_abbreviation: str, league: str, team_name: str = 
     Convenience function to download a missing team logo.
     
     Args:
-        team_abbreviation: Team abbreviation (e.g., 'UGA', 'BAMA')
+        team_abbreviation: Team abbreviation (e.g., 'UGA', 'BAMA', 'TA&M')
         league: League identifier (e.g., 'ncaa_fb', 'nfl')
         team_name: Optional team name for logging
         create_placeholder: Whether to create a placeholder if download fails
@@ -481,13 +569,28 @@ def download_missing_logo(team_abbreviation: str, league: str, team_name: str = 
     """
     downloader = LogoDownloader()
     
+    # Check if logo already exists
+    logo_dir = downloader.get_logo_directory(league)
+    filename = f"{downloader.normalize_abbreviation(team_abbreviation)}.png"
+    filepath = Path(logo_dir) / filename
+    
+    if filepath.exists():
+        logger.debug(f"Logo already exists for {team_abbreviation} ({league})")
+        return True
+    
     # Try to download the real logo first
+    logger.info(f"Attempting to download logo for {team_abbreviation} ({team_name or 'Unknown'}) from {league}")
     success = downloader.download_missing_logo_for_team(team_abbreviation, league, team_name)
     
     if not success and create_placeholder:
+        logger.info(f"Creating placeholder logo for {team_abbreviation} ({team_name or 'Unknown'})")
         # Create placeholder as fallback
-        logo_dir = downloader.get_logo_directory(league)
         success = downloader.create_placeholder_logo(team_abbreviation, logo_dir, team_name)
+    
+    if success:
+        logger.info(f"Successfully handled logo for {team_abbreviation} ({team_name or 'Unknown'})")
+    else:
+        logger.warning(f"Failed to download or create logo for {team_abbreviation} ({team_name or 'Unknown'})")
     
     return success
 
