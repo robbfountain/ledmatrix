@@ -252,6 +252,53 @@ class OddsTickerManager:
             logger.error(f"Error fetching record for {team_abbr} in league {league}: {e}")
             return "N/A"
 
+    def _fetch_team_rankings(self) -> Dict[str, int]:
+        """Fetch current team rankings from ESPN API for NCAA football."""
+        current_time = time.time()
+        
+        # Check if we have cached rankings that are still valid
+        if (hasattr(self, '_team_rankings_cache') and 
+            hasattr(self, '_rankings_cache_timestamp') and
+            self._team_rankings_cache and 
+            current_time - self._rankings_cache_timestamp < 3600):  # Cache for 1 hour
+            return self._team_rankings_cache
+        
+        try:
+            rankings_url = "https://site.api.espn.com/apis/site/v2/sports/football/college-football/rankings"
+            response = requests.get(rankings_url, timeout=self.request_timeout)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Increment API counter for sports data
+            increment_api_counter('sports', 1)
+            
+            rankings = {}
+            rankings_data = data.get('rankings', [])
+            
+            if rankings_data:
+                # Use the first ranking (usually AP Top 25)
+                first_ranking = rankings_data[0]
+                teams = first_ranking.get('ranks', [])
+                
+                for team_data in teams:
+                    team_info = team_data.get('team', {})
+                    team_abbr = team_info.get('abbreviation', '')
+                    current_rank = team_data.get('current', 0)
+                    
+                    if team_abbr and current_rank > 0:
+                        rankings[team_abbr] = current_rank
+            
+            # Cache the results
+            self._team_rankings_cache = rankings
+            self._rankings_cache_timestamp = current_time
+            
+            logger.debug(f"Fetched rankings for {len(rankings)} teams")
+            return rankings
+            
+        except Exception as e:
+            logger.error(f"Error fetching team rankings: {e}")
+            return {}
+
     def _get_team_logo(self, team_abbr: str, logo_dir: str, league: str = None, team_name: str = None) -> Optional[Image.Image]:
         """Get team logo from the configured directory, downloading if missing."""
         if not team_abbr or not logo_dir:
@@ -714,32 +761,56 @@ class OddsTickerManager:
                     sport = config.get('sport')
                     break
             
+            # Get team names with rankings for NCAA football
+            away_team_name = game.get('away_team_name', game['away_team'])
+            home_team_name = game.get('home_team_name', game['home_team'])
+            away_team_abbr = game.get('away_team', '')
+            home_team_abbr = game.get('home_team', '')
+            
+            # Check if this is NCAA football and add rankings
+            league_key = None
+            for key, config in self.league_configs.items():
+                if config.get('logo_dir') == game.get('logo_dir'):
+                    league_key = key
+                    break
+            
+            if league_key == 'ncaa_fb':
+                rankings = self._fetch_team_rankings()
+                
+                # Add ranking to away team name if ranked
+                if away_team_abbr in rankings and rankings[away_team_abbr] > 0:
+                    away_team_name = f"{rankings[away_team_abbr]}. {away_team_name}"
+                
+                # Add ranking to home team name if ranked
+                if home_team_abbr in rankings and rankings[home_team_abbr] > 0:
+                    home_team_name = f"{rankings[home_team_abbr]}. {home_team_name}"
+            
             if sport == 'baseball':
                 inning_half_indicator = "▲" if live_info.get('inning_half') == 'top' else "▼"
                 inning_text = f"{inning_half_indicator}{live_info.get('inning', 1)}"
                 count_text = f"{live_info.get('balls', 0)}-{live_info.get('strikes', 0)}"
                 outs_count = live_info.get('outs', 0)
                 outs_text = f"{outs_count} out" if outs_count == 1 else f"{outs_count} outs"
-                return f"[LIVE] {game.get('away_team_name', game['away_team'])} {away_score} vs {game.get('home_team_name', game['home_team'])} {home_score} - {inning_text} {count_text} {outs_text}"
+                return f"[LIVE] {away_team_name} {away_score} vs {home_team_name} {home_score} - {inning_text} {count_text} {outs_text}"
                 
             elif sport == 'football':
                 quarter_text = f"Q{live_info.get('quarter', 1)}"
                 down_text = f"{live_info.get('down', 0)}&{live_info.get('distance', 0)}"
                 clock_text = live_info.get('clock', '')
-                return f"[LIVE] {game.get('away_team_name', game['away_team'])} {away_score} vs {game.get('home_team_name', game['home_team'])} {home_score} - {quarter_text} {down_text} {clock_text}"
+                return f"[LIVE] {away_team_name} {away_score} vs {home_team_name} {home_score} - {quarter_text} {down_text} {clock_text}"
                 
             elif sport == 'basketball':
                 quarter_text = f"Q{live_info.get('quarter', 1)}"
                 clock_text = live_info.get('time_remaining', '')
-                return f"[LIVE] {game.get('away_team_name', game['away_team'])} {away_score} vs {game.get('home_team_name', game['home_team'])} {home_score} - {quarter_text} {clock_text}"
+                return f"[LIVE] {away_team_name} {away_score} vs {home_team_name} {home_score} - {quarter_text} {clock_text}"
                 
             elif sport == 'hockey':
                 period_text = f"P{live_info.get('period', 1)}"
                 clock_text = live_info.get('time_remaining', '')
-                return f"[LIVE] {game.get('away_team_name', game['away_team'])} {away_score} vs {game.get('home_team_name', game['home_team'])} {home_score} - {period_text} {clock_text}"
+                return f"[LIVE] {away_team_name} {away_score} vs {home_team_name} {home_score} - {period_text} {clock_text}"
                 
             else:
-                return f"[LIVE] {game.get('away_team_name', game['away_team'])} {away_score} vs {game.get('home_team_name', game['home_team'])} {home_score}"
+                return f"[LIVE] {away_team_name} {away_score} vs {home_team_name} {home_score}"
         
         # Original odds formatting for non-live games
         odds = game.get('odds', {})
@@ -757,7 +828,31 @@ class OddsTickerManager:
             local_time = game_time.astimezone(tz)
             time_str = local_time.strftime("%I:%M%p").lstrip('0')
             
-            return f"[{time_str}] {game.get('away_team_name', game['away_team'])} vs {game.get('home_team_name', game['home_team'])} (No odds)"
+            # Get team names with rankings for NCAA football
+            away_team_name = game.get('away_team_name', game['away_team'])
+            home_team_name = game.get('home_team_name', game['home_team'])
+            away_team_abbr = game.get('away_team', '')
+            home_team_abbr = game.get('home_team', '')
+            
+            # Check if this is NCAA football and add rankings
+            league_key = None
+            for key, config in self.league_configs.items():
+                if config.get('logo_dir') == game.get('logo_dir'):
+                    league_key = key
+                    break
+            
+            if league_key == 'ncaa_fb':
+                rankings = self._fetch_team_rankings()
+                
+                # Add ranking to away team name if ranked
+                if away_team_abbr in rankings and rankings[away_team_abbr] > 0:
+                    away_team_name = f"{rankings[away_team_abbr]}. {away_team_name}"
+                
+                # Add ranking to home team name if ranked
+                if home_team_abbr in rankings and rankings[home_team_abbr] > 0:
+                    home_team_name = f"{rankings[home_team_abbr]}. {home_team_name}"
+            
+            return f"[{time_str}] {away_team_name} vs {home_team_name} (No odds)"
         
         # Extract odds data
         home_team_odds = odds.get('home_team_odds', {})
@@ -785,8 +880,32 @@ class OddsTickerManager:
         # Build odds string
         odds_parts = [f"[{time_str}]"]
         
+        # Get team names with rankings for NCAA football
+        away_team_name = game.get('away_team_name', game['away_team'])
+        home_team_name = game.get('home_team_name', game['home_team'])
+        away_team_abbr = game.get('away_team', '')
+        home_team_abbr = game.get('home_team', '')
+        
+        # Check if this is NCAA football and add rankings
+        league_key = None
+        for key, config in self.league_configs.items():
+            if config.get('logo_dir') == game.get('logo_dir'):
+                league_key = key
+                break
+        
+        if league_key == 'ncaa_fb':
+            rankings = self._fetch_team_rankings()
+            
+            # Add ranking to away team name if ranked
+            if away_team_abbr in rankings and rankings[away_team_abbr] > 0:
+                away_team_name = f"{rankings[away_team_abbr]}. {away_team_name}"
+            
+            # Add ranking to home team name if ranked
+            if home_team_abbr in rankings and rankings[home_team_abbr] > 0:
+                home_team_name = f"{rankings[home_team_abbr]}. {home_team_name}"
+        
         # Add away team and odds
-        odds_parts.append(game.get('away_team_name', game['away_team']))
+        odds_parts.append(away_team_name)
         if away_spread is not None:
             spread_str = f"{away_spread:+.1f}" if away_spread > 0 else f"{away_spread:.1f}"
             odds_parts.append(spread_str)
@@ -797,7 +916,7 @@ class OddsTickerManager:
         odds_parts.append("vs")
         
         # Add home team and odds
-        odds_parts.append(game.get('home_team_name', game['home_team']))
+        odds_parts.append(home_team_name)
         if home_spread is not None:
             spread_str = f"{home_spread:+.1f}" if home_spread > 0 else f"{home_spread:.1f}"
             odds_parts.append(spread_str)
@@ -1047,16 +1166,40 @@ class OddsTickerManager:
         vs_text = "vs."
         vs_width = int(temp_draw.textlength(vs_text, font=vs_font))
 
-        # Team and record text
-        away_team_text = f"{game.get('away_team_name', game.get('away_team', 'N/A'))} ({game.get('away_record', '') or 'N/A'})"
-        home_team_text = f"{game.get('home_team_name', game.get('home_team', 'N/A'))} ({game.get('home_record', '') or 'N/A'})"
+        # Team and record text with rankings
+        away_team_name = game.get('away_team_name', game.get('away_team', 'N/A'))
+        home_team_name = game.get('home_team_name', game.get('home_team', 'N/A'))
+        away_team_abbr = game.get('away_team', '')
+        home_team_abbr = game.get('home_team', '')
+        
+        # Check if this is NCAA football and fetch rankings
+        league_key = None
+        for key, config in self.league_configs.items():
+            if config.get('logo_dir') == game.get('logo_dir'):
+                league_key = key
+                break
+        
+        # Add ranking prefix for NCAA football teams
+        if league_key == 'ncaa_fb':
+            rankings = self._fetch_team_rankings()
+            
+            # Add ranking to away team name if ranked
+            if away_team_abbr in rankings and rankings[away_team_abbr] > 0:
+                away_team_name = f"{rankings[away_team_abbr]}. {away_team_name}"
+            
+            # Add ranking to home team name if ranked
+            if home_team_abbr in rankings and rankings[home_team_abbr] > 0:
+                home_team_name = f"{rankings[home_team_abbr]}. {home_team_name}"
+        
+        away_team_text = f"{away_team_name} ({game.get('away_record', '') or 'N/A'})"
+        home_team_text = f"{home_team_name} ({game.get('home_record', '') or 'N/A'})"
         
         # For live games, show scores instead of records
         if is_live and live_info:
             away_score = live_info.get('away_score', 0)
             home_score = live_info.get('home_score', 0)
-            away_team_text = f"{game.get('away_team_name', game.get('away_team', 'N/A'))}:{away_score} "
-            home_team_text = f"{game.get('home_team_name', game.get('home_team', 'N/A'))}:{home_score} "
+            away_team_text = f"{away_team_name}:{away_score} "
+            home_team_text = f"{home_team_name}:{home_score} "
         
         away_team_width = int(temp_draw.textlength(away_team_text, font=team_font))
         home_team_width = int(temp_draw.textlength(home_team_text, font=team_font))
