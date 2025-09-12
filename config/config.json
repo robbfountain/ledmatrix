@@ -130,7 +130,7 @@
         "duration_buffer": 0.1
     },
     "odds_ticker": {
-        "enabled": true,
+        "enabled": false,
         "show_favorite_teams_only": true,
         "games_per_favorite_team": 1,
         "max_games_per_league": 5,
