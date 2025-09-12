@@ -777,7 +777,7 @@ class LeaderboardManager:
                     team_width = number_width + 4 + logo_size + 4 + text_width + 12  # Spacing between teams
                     teams_width += team_width
                 
-                # Total league width: logo width + teams width + spacing
+                # Total league width: logo width + teams width + spacing (match drawing logic)
                 league_width = league_logo_width + teams_width + 20
                 total_width += league_width + spacing
             
@@ -891,12 +891,14 @@ class LeaderboardManager:
             # Set total scroll width for dynamic duration calculation
             self.total_scroll_width = total_width
             
-            # Log league positioning for debugging
+            # Log league positioning for debugging (use same calculation as main logic)
             current_x = 0
             for league_data in self.leaderboard_data:
                 league_key = league_data['league']
                 league_config = league_data['league_config']
                 teams = league_data['teams']
+                
+                # Use the same calculation as the main width calculation
                 league_logo_width = 64
                 teams_width = 0
                 logo_size = int(height * 1.2)
@@ -927,7 +929,7 @@ class LeaderboardManager:
                 
                 league_width = league_logo_width + teams_width + 20
                 logger.info(f"League {league_key}: {len(teams)} teams, width {league_width}px, starts at x={current_x}")
-                current_x += league_width + 40  # Add spacing
+                current_x += league_width + spacing  # Use same spacing as main calculation
             
             # Calculate dynamic duration using proper scroll-based calculation
             if self.dynamic_duration_enabled:
