@@ -260,6 +260,9 @@ class OddsTickerManager:
             logger.debug(f"Attempting to load logo from path: {logo_path}")
             if os.path.exists(logo_path):
                 logo = Image.open(logo_path)
+                # Convert palette images with transparency to RGBA to avoid PIL warnings
+                if logo.mode == 'P' and 'transparency' in logo.info:
+                    logo = logo.convert('RGBA')
                 logger.debug(f"Successfully loaded logo for {team_abbr} from {logo_path}")
                 return logo
             else:
@@ -273,6 +276,9 @@ class OddsTickerManager:
                         # Try to load the downloaded logo
                         if os.path.exists(logo_path):
                             logo = Image.open(logo_path)
+                            # Convert palette images with transparency to RGBA to avoid PIL warnings
+                            if logo.mode == 'P' and 'transparency' in logo.info:
+                                logo = logo.convert('RGBA')
                             logger.info(f"Successfully downloaded and loaded logo for {team_abbr}")
                             return logo
                 
