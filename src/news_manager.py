@@ -29,9 +29,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class NewsManager:
-    def __init__(self, config: Dict[str, Any], display_manager):
+    def __init__(self, config: Dict[str, Any], display_manager, config_manager=None):
         self.config = config
-        self.config_manager = ConfigManager()
+        # Use provided config_manager or create a new one if none provided
+        self.config_manager = config_manager or ConfigManager()
         self.display_manager = display_manager
         self.news_config = config.get('news_manager', {})
         self.last_update = time.time()  # Initialize to current time

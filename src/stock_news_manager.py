@@ -29,7 +29,8 @@ logger = logging.getLogger(__name__)
 class StockNewsManager:
     def __init__(self, config: Dict[str, Any], display_manager):
         self.config = config
-        self.config_manager = ConfigManager()
+        # Store reference to config instead of creating new ConfigManager
+        self.config_manager = None  # Not used in this class
         self.display_manager = display_manager
         self.stocks_config = config.get('stocks', {})
         self.stock_news_config = config.get('stock_news', {})

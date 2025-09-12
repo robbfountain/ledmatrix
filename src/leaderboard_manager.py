@@ -58,7 +58,8 @@ class LeaderboardManager:
         
         # Initialize managers
         self.cache_manager = CacheManager()
-        self.config_manager = ConfigManager()
+        # Store reference to config instead of creating new ConfigManager
+        self.config = config
         
         # State variables
         self.last_update = 0

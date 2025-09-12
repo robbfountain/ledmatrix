@@ -107,7 +107,8 @@ class OddsTickerManager:
         
         # Initialize managers
         self.cache_manager = CacheManager()
-        self.odds_manager = OddsManager(self.cache_manager, ConfigManager())
+        # OddsManager doesn't actually use the config_manager parameter, so pass None
+        self.odds_manager = OddsManager(self.cache_manager, None)
         
         # State variables
         self.last_update = 0

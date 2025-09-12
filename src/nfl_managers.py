@@ -37,10 +37,11 @@ class BaseNFLManager: # Renamed class
     
     def __init__(self, config: Dict[str, Any], display_manager: DisplayManager, cache_manager: CacheManager):
         self.display_manager = display_manager
-        self.config_manager = ConfigManager()
+        # Store reference to config instead of creating new ConfigManager
+        self.config_manager = None  # Not used in this class
         self.config = config
         self.cache_manager = cache_manager
-        self.odds_manager = OddsManager(self.cache_manager, self.config_manager)
+        self.odds_manager = OddsManager(self.cache_manager, None)
         self.logger = logging.getLogger(__name__)
         self.nfl_config = config.get("nfl_scoreboard", {}) # Changed config key
         self.is_enabled = self.nfl_config.get("enabled", False)

@@ -43,10 +43,11 @@ class BaseNBAManager:
     
     def __init__(self, config: Dict[str, Any], display_manager: DisplayManager, cache_manager: CacheManager):
         self.display_manager = display_manager
-        self.config_manager = ConfigManager()
+        # Store reference to config instead of creating new ConfigManager
+        self.config_manager = None  # Not used in this class
         self.config = config
         self.cache_manager = cache_manager
-        self.odds_manager = OddsManager(self.cache_manager, self.config_manager)
+        self.odds_manager = OddsManager(self.cache_manager, None)
         self.logger = logging.getLogger(__name__)
         self.nba_config = config.get("nba_scoreboard", {})
         self.is_enabled = self.nba_config.get("enabled", False)

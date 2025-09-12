@@ -56,7 +56,7 @@ class DisplayController:
         
         # Initialize display modes
         init_time = time.time()
-        self.clock = Clock(self.display_manager) if self.config.get('clock', {}).get('enabled', True) else None
+        self.clock = Clock(self.display_manager, self.config) if self.config.get('clock', {}).get('enabled', True) else None
         self.weather = WeatherManager(self.config, self.display_manager) if self.config.get('weather', {}).get('enabled', False) else None
         self.stocks = StockManager(self.config, self.display_manager) if self.config.get('stocks', {}).get('enabled', False) else None
         self.news = StockNewsManager(self.config, self.display_manager) if self.config.get('stock_news', {}).get('enabled', False) else None
@@ -66,7 +66,7 @@ class DisplayController:
         self.youtube = YouTubeDisplay(self.display_manager, self.config) if self.config.get('youtube', {}).get('enabled', False) else None
         self.text_display = TextDisplay(self.display_manager, self.config) if self.config.get('text_display', {}).get('enabled', False) else None
         self.of_the_day = OfTheDayManager(self.display_manager, self.config) if self.config.get('of_the_day', {}).get('enabled', False) else None
-        self.news_manager = NewsManager(self.config, self.display_manager) if self.config.get('news_manager', {}).get('enabled', False) else None
+        self.news_manager = NewsManager(self.config, self.display_manager, self.config_manager) if self.config.get('news_manager', {}).get('enabled', False) else None
         logger.info(f"Calendar Manager initialized: {'Object' if self.calendar else 'None'}")
         logger.info(f"Text Display initialized: {'Object' if self.text_display else 'None'}")
         logger.info(f"OfTheDay Manager initialized: {'Object' if self.of_the_day else 'None'}")
