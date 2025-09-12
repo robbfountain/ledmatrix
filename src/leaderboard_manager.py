@@ -208,6 +208,10 @@ class LeaderboardManager:
             logger.info(f"Using cached leaderboard data for {league_key}")
             return cached_data.get('standings', [])
         
+        # Special handling for college football - use rankings endpoint
+        if league_key == 'college-football':
+            return self._fetch_ncaa_fb_rankings(league_config)
+        
         try:
             logger.info(f"Fetching fresh leaderboard data for {league_key}")
             
@@ -279,6 +283,111 @@ class LeaderboardManager:
             
         except Exception as e:
             logger.error(f"Error fetching standings for {league_config['league']}: {e}")
+            return []
+
+    def _fetch_ncaa_fb_rankings(self, league_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Fetch NCAA Football rankings from ESPN API using the rankings endpoint."""
+        league_key = league_config['league']
+        cache_key = f"leaderboard_{league_key}_rankings"
+        
+        # Try to get cached data first
+        cached_data = self.cache_manager.get_cached_data_with_strategy(cache_key, 'leaderboard')
+        if cached_data:
+            logger.info(f"Using cached rankings data for {league_key}")
+            return cached_data.get('standings', [])
+        
+        try:
+            logger.info(f"Fetching fresh rankings data for {league_key}")
+            rankings_url = "https://site.api.espn.com/apis/site/v2/sports/football/college-football/rankings"
+            
+            # Get rankings data
+            response = requests.get(rankings_url, timeout=self.request_timeout)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Increment API counter for sports data
+            increment_api_counter('sports', 1)
+            
+            logger.info(f"Available rankings: {[rank['name'] for rank in data.get('availableRankings', [])]}")
+            logger.info(f"Latest season: {data.get('latestSeason', {})}")
+            logger.info(f"Latest week: {data.get('latestWeek', {})}")
+            
+            rankings_data = data.get('rankings', [])
+            if not rankings_data:
+                logger.warning("No rankings data found")
+                return []
+            
+            # Use the first ranking (usually AP Top 25)
+            first_ranking = rankings_data[0]
+            ranking_name = first_ranking.get('name', 'Unknown')
+            ranking_type = first_ranking.get('type', 'Unknown')
+            teams = first_ranking.get('ranks', [])
+            
+            logger.info(f"Using ranking: {ranking_name} ({ranking_type})")
+            logger.info(f"Found {len(teams)} teams in ranking")
+            
+            standings = []
+            
+            # Process each team in the ranking
+            for team_data in teams:
+                team_info = team_data.get('team', {})
+                team_name = team_info.get('name', 'Unknown')
+                team_abbr = team_info.get('abbreviation', 'Unknown')
+                current_rank = team_data.get('current', 0)
+                record_summary = team_data.get('recordSummary', '0-0')
+                
+                logger.debug(f"  {current_rank}. {team_name} ({team_abbr}): {record_summary}")
+                
+                # Parse the record string (e.g., "12-1", "8-4", "10-2-1")
+                wins = 0
+                losses = 0
+                ties = 0
+                win_percentage = 0
+                
+                try:
+                    parts = record_summary.split('-')
+                    if len(parts) >= 2:
+                        wins = int(parts[0])
+                        losses = int(parts[1])
+                        if len(parts) == 3:
+                            ties = int(parts[2])
+                        
+                        # Calculate win percentage
+                        total_games = wins + losses + ties
+                        win_percentage = wins / total_games if total_games > 0 else 0
+                except (ValueError, IndexError):
+                    logger.warning(f"Could not parse record for {team_name}: {record_summary}")
+                    continue
+                
+                standings.append({
+                    'name': team_name,
+                    'abbreviation': team_abbr,
+                    'rank': current_rank,
+                    'wins': wins,
+                    'losses': losses,
+                    'ties': ties,
+                    'win_percentage': win_percentage,
+                    'record_summary': record_summary,
+                    'ranking_name': ranking_name
+                })
+            
+            # Limit to top teams (they're already ranked)
+            top_teams = standings[:league_config['top_teams']]
+            
+            # Cache the results
+            cache_data = {
+                'standings': top_teams,
+                'timestamp': time.time(),
+                'league': league_key,
+                'ranking_name': ranking_name
+            }
+            self.cache_manager.save_cache(cache_key, cache_data)
+            
+            logger.info(f"Fetched and cached {len(top_teams)} teams for {league_key} using {ranking_name}")
+            return top_teams
+            
+        except Exception as e:
+            logger.error(f"Error fetching rankings for {league_key}: {e}")
             return []
 
     def _fetch_team_record(self, team_abbr: str, league_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
