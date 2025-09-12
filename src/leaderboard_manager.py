@@ -100,7 +100,8 @@ class LeaderboardManager:
                 'league_logo': 'assets/sports/ncaa_fbs_logos/ncaa_fb.png',
                 'teams_url': 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams',
                 'enabled': self.enabled_sports.get('ncaa_fb', {}).get('enabled', False),
-                'top_teams': self.enabled_sports.get('ncaa_fb', {}).get('top_teams', 25)
+                'top_teams': self.enabled_sports.get('ncaa_fb', {}).get('top_teams', 25),
+                'show_ranking': self.enabled_sports.get('ncaa_fb', {}).get('show_ranking', True)
             },
             'nhl': {
                 'sport': 'hockey',
@@ -568,12 +569,29 @@ class LeaderboardManager:
                 
                 # Draw team standings horizontally in a single line
                 team_x = current_x
-                # Use the same dynamic logo size calculated earlier
-                logo_size = int(height * 0.95)
+                # Use the same dynamic logo size as Odds Manager ticker
+                logo_size = int(height * 1.2)
                 
                 for i, team in enumerate(teams):
-                    # Draw bold team number (centered vertically)
-                    number_text = f"{i+1}."
+                    # Draw bold team number/ranking/record (centered vertically)
+                    if league_key == 'ncaa_fb':
+                        if league_config.get('show_ranking', True):
+                            # Show ranking number if available
+                            if 'rank' in team and team['rank'] > 0:
+                                number_text = f"#{team['rank']}"
+                            else:
+                                # Team is unranked - show position number as fallback
+                                number_text = f"{i+1}."
+                        else:
+                            # Show record instead of ranking
+                            if 'record_summary' in team:
+                                number_text = team['record_summary']
+                            else:
+                                number_text = f"{i+1}."
+                    else:
+                        # For other leagues, show position
+                        number_text = f"{i+1}."
+                    
                     number_bbox = self.fonts['large'].getbbox(number_text)
                     number_width = number_bbox[2] - number_bbox[0]
                     number_height = number_bbox[3] - number_bbox[1]
@@ -593,24 +611,24 @@ class LeaderboardManager:
                         
                         # Draw team abbreviation after the logo (centered vertically)
                         team_text = team['abbreviation']
-                        text_bbox = self.fonts['large'].getbbox(team_text)
+                        text_bbox = self.fonts['medium'].getbbox(team_text)
                         text_width = text_bbox[2] - text_bbox[0]
                         text_height = text_bbox[3] - text_bbox[1]
                         text_x = logo_x + logo_size + 4
                         text_y = (height - text_height) // 2
-                        draw.text((text_x, text_y), team_text, font=self.fonts['large'], fill=(255, 255, 255))
+                        draw.text((text_x, text_y), team_text, font=self.fonts['medium'], fill=(255, 255, 255))
                         
                         # Calculate total width used by this team
                         team_width = number_width + 4 + logo_size + 4 + text_width + 12  # 12px spacing to next team
                     else:
                         # Fallback if no logo - draw team abbreviation after bold number (centered vertically)
                         team_text = team['abbreviation']
-                        text_bbox = self.fonts['large'].getbbox(team_text)
+                        text_bbox = self.fonts['medium'].getbbox(team_text)
                         text_width = text_bbox[2] - text_bbox[0]
                         text_height = text_bbox[3] - text_bbox[1]
                         text_x = team_x + number_width + 4
                         text_y = (height - text_height) // 2
-                        draw.text((text_x, text_y), team_text, font=self.fonts['large'], fill=(255, 255, 255))
+                        draw.text((text_x, text_y), team_text, font=self.fonts['medium'], fill=(255, 255, 255))
                         
                         # Calculate total width used by this team
                         team_width = number_width + 4 + text_width + 12  # 12px spacing to next team

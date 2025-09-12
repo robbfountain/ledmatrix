@@ -170,7 +170,8 @@
             },
             "ncaa_fb": {
                 "enabled": true,
-                "top_teams": 25
+                "top_teams": 25,
+                "show_ranking": true
             },
             "nhl": {
                 "enabled": false,
@@ -299,6 +300,7 @@
         ],
         "logo_dir": "assets/sports/ncaa_fbs_logos",
         "show_records": true,
+        "show_ranking": false,
         "display_modes": {
             "ncaa_fb_live": true,
             "ncaa_fb_recent": true ,
