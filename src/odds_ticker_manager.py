@@ -84,6 +84,7 @@ class OddsTickerManager:
         self.games_per_favorite_team = self.odds_ticker_config.get('games_per_favorite_team', 1)
         self.max_games_per_league = self.odds_ticker_config.get('max_games_per_league', 5)
         self.show_odds_only = self.odds_ticker_config.get('show_odds_only', False)
+        self.fetch_odds = self.odds_ticker_config.get('fetch_odds', True)  # New option to disable odds fetching
         self.sort_order = self.odds_ticker_config.get('sort_order', 'soonest')
         self.enabled_leagues = self.odds_ticker_config.get('enabled_leagues', ['nfl', 'nba', 'mlb'])
         self.update_interval = self.odds_ticker_config.get('update_interval', 3600)
@@ -506,12 +507,49 @@ class OddsTickerManager:
                                 
                                 logger.debug(f"Game {game_id} starts in {time_until_game}. Setting odds update interval to {update_interval_seconds}s.")
                                 
-                                odds_data = self.odds_manager.get_odds(
-                                    sport=sport,
-                                    league=league,
-                                    event_id=game_id,
-                                    update_interval_seconds=update_interval_seconds
-                                )
+                                # Fetch odds with timeout protection to prevent freezing (if enabled)
+                                if self.fetch_odds:
+                                    try:
+                                        import threading
+                                        import queue
+                                        
+                                        result_queue = queue.Queue()
+                                        
+                                        def fetch_odds():
+                                            try:
+                                                odds_result = self.odds_manager.get_odds(
+                                                    sport=sport,
+                                                    league=league,
+                                                    event_id=game_id,
+                                                    update_interval_seconds=update_interval_seconds
+                                                )
+                                                result_queue.put(('success', odds_result))
+                                            except Exception as e:
+                                                result_queue.put(('error', e))
+                                        
+                                        # Start odds fetch in a separate thread
+                                        odds_thread = threading.Thread(target=fetch_odds)
+                                        odds_thread.daemon = True
+                                        odds_thread.start()
+                                        
+                                        # Wait for result with 3-second timeout
+                                        try:
+                                            result_type, result_data = result_queue.get(timeout=3)
+                                            if result_type == 'success':
+                                                odds_data = result_data
+                                            else:
+                                                logger.warning(f"Odds fetch failed for game {game_id}: {result_data}")
+                                                odds_data = None
+                                        except queue.Empty:
+                                            logger.warning(f"Odds fetch timed out for game {game_id}")
+                                            odds_data = None
+                                        
+                                    except Exception as e:
+                                        logger.warning(f"Odds fetch failed for game {game_id}: {e}")
+                                        odds_data = None
+                                else:
+                                    # Odds fetching is disabled
+                                    odds_data = None
                                 
                                 has_odds = False
                                 if odds_data and not odds_data.get('no_odds'):
@@ -1518,7 +1556,34 @@ class OddsTickerManager:
         logger.debug(f"Number of games in data at start of display method: {len(self.games_data)}")
         if not self.games_data:
             logger.warning("Odds ticker has no games data. Attempting to update...")
-            self.update()
+            try:
+                import threading
+                import queue
+                
+                update_queue = queue.Queue()
+                
+                def perform_update():
+                    try:
+                        self.update()
+                        update_queue.put(('success', None))
+                    except Exception as e:
+                        update_queue.put(('error', e))
+                
+                # Start update in a separate thread with 10-second timeout
+                update_thread = threading.Thread(target=perform_update)
+                update_thread.daemon = True
+                update_thread.start()
+                
+                try:
+                    result_type, result_data = update_queue.get(timeout=10)
+                    if result_type == 'error':
+                        logger.error(f"Update failed: {result_data}")
+                except queue.Empty:
+                    logger.warning("Update timed out after 10 seconds, using fallback")
+                
+            except Exception as e:
+                logger.error(f"Error during update: {e}")
+            
             if not self.games_data:
                 logger.warning("Still no games data after update. Displaying fallback message.")
                 self._display_fallback_message()
@@ -1526,7 +1591,34 @@ class OddsTickerManager:
         
         if self.ticker_image is None:
             logger.warning("Ticker image is not available. Attempting to create it.")
-            self._create_ticker_image()
+            try:
+                import threading
+                import queue
+                
+                image_queue = queue.Queue()
+                
+                def create_image():
+                    try:
+                        self._create_ticker_image()
+                        image_queue.put(('success', None))
+                    except Exception as e:
+                        image_queue.put(('error', e))
+                
+                # Start image creation in a separate thread with 5-second timeout
+                image_thread = threading.Thread(target=create_image)
+                image_thread.daemon = True
+                image_thread.start()
+                
+                try:
+                    result_type, result_data = image_queue.get(timeout=5)
+                    if result_type == 'error':
+                        logger.error(f"Image creation failed: {result_data}")
+                except queue.Empty:
+                    logger.warning("Image creation timed out after 5 seconds")
+                
+            except Exception as e:
+                logger.error(f"Error during image creation: {e}")
+            
             if self.ticker_image is None:
                 logger.error("Failed to create ticker image.")
                 self._display_fallback_message()
