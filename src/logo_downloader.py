@@ -118,15 +118,31 @@ class LogoDownloader:
             with open(filepath, 'wb') as f:
                 f.write(response.content)
             
-            # Verify the downloaded file is a valid image
+            # Verify and convert the downloaded image to RGBA format
             try:
                 with Image.open(filepath) as img:
-                    img.verify()
-                logger.info(f"Successfully downloaded logo for {team_name} -> {filepath.name}")
+                    # Convert to RGBA to avoid PIL warnings about palette images with transparency
+                    if img.mode in ('P', 'LA', 'L'):
+                        # Convert palette or grayscale images to RGBA
+                        img = img.convert('RGBA')
+                    elif img.mode == 'RGB':
+                        # Convert RGB to RGBA (add alpha channel)
+                        img = img.convert('RGBA')
+                    elif img.mode != 'RGBA':
+                        # For any other mode, convert to RGBA
+                        img = img.convert('RGBA')
+                    
+                    # Save the converted image
+                    img.save(filepath, 'PNG')
+                
+                logger.info(f"Successfully downloaded and converted logo for {team_name} -> {filepath.name}")
                 return True
             except Exception as e:
-                logger.error(f"Downloaded file for {team_name} is not a valid image: {e}")
-                os.remove(filepath)  # Remove invalid file
+                logger.error(f"Downloaded file for {team_name} is not a valid image or conversion failed: {e}")
+                try:
+                    os.remove(filepath)  # Remove invalid file
+                except:
+                    pass
                 return False
             
         except requests.exceptions.RequestException as e:
@@ -551,6 +567,42 @@ class LogoDownloader:
         except Exception as e:
             logger.error(f"Failed to create placeholder logo for {team_abbreviation}: {e}")
             return False
+    
+    def convert_image_to_rgba(self, filepath: Path) -> bool:
+        """Convert an image file to RGBA format to avoid PIL warnings."""
+        try:
+            with Image.open(filepath) as img:
+                if img.mode != 'RGBA':
+                    # Convert to RGBA
+                    converted_img = img.convert('RGBA')
+                    converted_img.save(filepath, 'PNG')
+                    logger.debug(f"Converted {filepath.name} from {img.mode} to RGBA")
+                    return True
+                else:
+                    logger.debug(f"{filepath.name} is already in RGBA format")
+                    return True
+        except Exception as e:
+            logger.error(f"Failed to convert {filepath.name} to RGBA: {e}")
+            return False
+    
+    def convert_all_logos_to_rgba(self, league: str) -> Tuple[int, int]:
+        """Convert all logos in a league directory to RGBA format."""
+        logo_dir = Path(self.get_logo_directory(league))
+        if not logo_dir.exists():
+            logger.warning(f"Logo directory does not exist: {logo_dir}")
+            return 0, 0
+        
+        converted_count = 0
+        failed_count = 0
+        
+        for logo_file in logo_dir.glob("*.png"):
+            if self.convert_image_to_rgba(logo_file):
+                converted_count += 1
+            else:
+                failed_count += 1
+        
+        logger.info(f"Converted {converted_count} logos to RGBA format for {league}, {failed_count} failed")
+        return converted_count, failed_count
 
 
 # Convenience function for easy integration

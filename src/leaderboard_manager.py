@@ -159,9 +159,16 @@ class LeaderboardManager:
         """Clear all leaderboard cache data to force fresh data fetch."""
         try:
             for league_key in self.league_configs.keys():
-                cache_key = f"leaderboard_{league_key}"
-                self.cache_manager.clear_cache(cache_key)
-                logger.info(f"Cleared cache for {league_key}")
+                # Clear all leaderboard cache variants
+                cache_keys = [
+                    f"leaderboard_{league_key}",
+                    f"leaderboard_{league_key}_rankings", 
+                    f"leaderboard_{league_key}_standings"
+                ]
+                
+                for cache_key in cache_keys:
+                    self.cache_manager.clear_cache(cache_key)
+                    logger.info(f"Cleared cache for {cache_key}")
             
             # Also clear individual team record caches
             for league_key in self.league_configs.keys():
