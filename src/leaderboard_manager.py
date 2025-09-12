@@ -1002,19 +1002,18 @@ class LeaderboardManager:
             # Add buffer time for smooth cycling (configurable %)
             buffer_time = total_time * self.duration_buffer
             
-            # If looping is enabled, ensure we complete at least one full cycle
-            # and add extra time to ensure we don't cut off mid-scroll
+            # Calculate duration for single complete pass
             if self.loop:
-                # Add extra buffer for looping to ensure smooth transition
-                # Use a more generous buffer to ensure complete content display
-                loop_buffer = total_time * 0.2  # 20% extra for looping (increased from 15%)
+                # For looping: add buffer to ensure smooth transition
+                loop_buffer = total_time * 0.05  # 5% extra for looping
                 calculated_duration = int(total_time + buffer_time + loop_buffer)
                 logger.debug(f"Looping enabled, added {loop_buffer:.2f}s loop buffer")
             else:
-                # Even without looping, add extra buffer to ensure complete display
-                extra_buffer = total_time * 0.15  # 15% extra to ensure complete content display (increased from 10%)
-                calculated_duration = int(total_time + buffer_time + extra_buffer)
-                logger.debug(f"No looping, added {extra_buffer:.2f}s extra buffer for complete display")
+                # For single pass: precise calculation to show content exactly once
+                # Add minimal buffer only to prevent cutting off the last content
+                completion_buffer = total_time * 0.02  # 2% extra to ensure complete display
+                calculated_duration = int(total_time + buffer_time + completion_buffer)
+                logger.debug(f"Single pass mode, added {completion_buffer:.2f}s completion buffer for precise timing")
             
             # Apply configured min/max limits
             if calculated_duration < self.min_duration:

@@ -145,7 +145,7 @@
         "update_interval": 3600,
         "scroll_speed": 1,
         "scroll_delay": 0.01,
-        "loop": true,
+        "loop": false,
         "future_fetch_days": 50,
         "show_channel_logos": true,
         "dynamic_duration": true,
@@ -188,10 +188,10 @@
         "display_duration": 60,
         "loop": false,
         "request_timeout": 30,
-        "dynamic_duration": false,
+        "dynamic_duration": true,
         "min_duration": 45,
         "max_duration": 600,
-        "duration_buffer": 0.3
+        "duration_buffer": 0.1
     },
     "calendar": {
         "enabled": false,
