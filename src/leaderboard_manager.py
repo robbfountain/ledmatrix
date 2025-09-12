@@ -917,33 +917,33 @@ class LeaderboardManager:
             # Set total scroll width for dynamic duration calculation
             self.total_scroll_width = total_width
             
-            # Log league positioning for debugging (use same calculation as main logic)
-            current_x = 0
-            for league_data in self.leaderboard_data:
+            # Log league positioning for debugging and verify layout
+            debug_x = 0
+            for i, league_data in enumerate(self.leaderboard_data):
                 league_key = league_data['league']
                 league_config = league_data['league_config']
                 teams = league_data['teams']
                 
-                # Use the same calculation as the main width calculation
+                # Calculate actual widths used in drawing
                 league_logo_width = 64
                 teams_width = 0
                 logo_size = int(height * 1.2)
                 
-                for i, team in enumerate(teams):
+                for j, team in enumerate(teams):
                     # Calculate width for bold number/ranking/record (match drawing logic)
                     if league_key == 'ncaa_fb':
                         if league_config.get('show_ranking', True):
                             if 'rank' in team and team['rank'] > 0:
                                 number_text = f"#{team['rank']}"
                             else:
-                                number_text = f"{i+1}."
+                                number_text = f"{j+1}."
                         else:
                             if 'record_summary' in team:
                                 number_text = team['record_summary']
                             else:
-                                number_text = f"{i+1}."
+                                number_text = f"{j+1}."
                     else:
-                        number_text = f"{i+1}."
+                        number_text = f"{j+1}."
                     
                     number_bbox = self.fonts['xlarge'].getbbox(number_text)
                     number_width = number_bbox[2] - number_bbox[0]
@@ -953,9 +953,22 @@ class LeaderboardManager:
                     team_width = number_width + 4 + logo_size + 4 + text_width + 12
                     teams_width += team_width
                 
-                league_width = league_logo_width + teams_width + 20
-                logger.info(f"League {league_key}: {len(teams)} teams, width {league_width}px, starts at x={current_x}")
-                current_x += league_width  # No additional spacing - already included in total_width calculation
+                # Calculate where this league should start and end
+                league_start_x = debug_x
+                league_content_width = league_logo_width + 10 + teams_width + 20  # Logo + spacing + teams + internal spacing
+                league_end_x = league_start_x + league_content_width
+                
+                logger.info(f"League {i+1} ({league_key}): {len(teams)} teams")
+                logger.info(f"  Start: {league_start_x}px, Content: {league_content_width}px, End: {league_end_x}px")
+                
+                # Move to next league start position
+                if i < len(self.leaderboard_data) - 1:  # Not the last league
+                    debug_x = league_end_x + spacing  # Add inter-league spacing
+                    logger.info(f"  Next league starts at: {debug_x}px (gap: {spacing}px)")
+                else:
+                    logger.info(f"  Final league ends at: {league_end_x}px")
+            
+            logger.info(f"Total image width: {total_width}px, Display width: {height}px")
             
             # Calculate dynamic duration using proper scroll-based calculation
             if self.dynamic_duration_enabled:
@@ -1185,19 +1198,25 @@ class LeaderboardManager:
             if self.loop:
                 # Reset position when we've scrolled past the end for a continuous loop
                 if self.scroll_position >= self.leaderboard_image.width:
-                    logger.debug(f"Leaderboard loop reset: scroll_position {self.scroll_position} >= image width {self.leaderboard_image.width}")
+                    logger.info(f"Leaderboard loop reset: scroll_position {self.scroll_position} >= image width {self.leaderboard_image.width}")
                     self.scroll_position = 0
+                    logger.info("Leaderboard starting new loop cycle")
             else:
                 # Stop scrolling when we reach the end
                 if self.scroll_position >= self.leaderboard_image.width - width:
-                    logger.debug(f"Leaderboard reached end: scroll_position {self.scroll_position} >= {self.leaderboard_image.width - width}")
+                    logger.info(f"Leaderboard reached end: scroll_position {self.scroll_position} >= {self.leaderboard_image.width - width}")
                     self.scroll_position = self.leaderboard_image.width - width
                     # Signal that scrolling has stopped
                     self.display_manager.set_scrolling_state(False)
+                    logger.info("Leaderboard scrolling stopped - reached end of content")
             
             # Check if we're at a natural break point for mode switching
             elapsed_time = current_time - self._display_start_time
             remaining_time = self.dynamic_duration - elapsed_time
+            
+            # Log scroll progress every 10 seconds to help debug
+            if int(elapsed_time) % 10 == 0 and elapsed_time > 0:
+                logger.info(f"Leaderboard progress: elapsed={elapsed_time:.1f}s, remaining={remaining_time:.1f}s, scroll_pos={self.scroll_position}/{self.leaderboard_image.width}px")
             
             # If we have less than 2 seconds remaining and we're not at a clean break point,
             # try to complete the current league display
