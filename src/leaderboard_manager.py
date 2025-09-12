@@ -910,9 +910,9 @@ class LeaderboardManager:
                     # Move to next team position
                     team_x += team_width
                 
-                # Move to next league section
-                current_x += teams_width + 20  # Teams width + spacing
-                # Note: spacing between leagues is already included in total_width calculation
+                # Move to next league section (match width calculation logic)
+                # current_x is currently at end of teams, need to add remaining spacing to next league start
+                current_x += spacing  # Add spacing between leagues
             
             # Set total scroll width for dynamic duration calculation
             self.total_scroll_width = total_width
