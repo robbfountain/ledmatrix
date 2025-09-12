@@ -186,22 +186,49 @@ class LeaderboardManager:
             logger.error(f"Error clearing leaderboard cache: {e}")
 
     def _load_fonts(self) -> Dict[str, ImageFont.FreeTypeFont]:
-        """Load fonts for the leaderboard display."""
+        """Load fonts for the leaderboard display with pixel-perfect rendering."""
+        fonts = {}
         try:
-            return {
-                'small': ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 6),
-                'medium': ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 10),  # Increased from 8 to 10
-                'large': ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 12),  # Increased from 10 to 12
-                'xlarge': ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 14)  # New extra-large font
-            }
+            # Try to load the Press Start 2P font first
+            fonts['small'] = ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 6)
+            fonts['medium'] = ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 10)
+            fonts['large'] = ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 12)
+            fonts['xlarge'] = ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 14)
+            logger.info("[Leaderboard] Successfully loaded Press Start 2P font for all text elements")
+        except IOError:
+            logger.warning("[Leaderboard] Press Start 2P font not found, trying 4x6 font for pixel-perfect rendering.")
+            try:
+                # Try to load the 4x6 font as a fallback for pixel-perfect rendering
+                fonts['small'] = ImageFont.truetype("assets/fonts/4x6-font.ttf", 6)
+                fonts['medium'] = ImageFont.truetype("assets/fonts/4x6-font.ttf", 8)
+                fonts['large'] = ImageFont.truetype("assets/fonts/4x6-font.ttf", 10)
+                fonts['xlarge'] = ImageFont.truetype("assets/fonts/4x6-font.ttf", 12)
+                logger.info("[Leaderboard] Successfully loaded 4x6 font for pixel-perfect rendering")
+            except IOError:
+                logger.warning("[Leaderboard] 4x6 font not found, using default PIL font.")
+                # Use default PIL font as a last resort
+                fonts['small'] = ImageFont.load_default()
+                fonts['medium'] = ImageFont.load_default()
+                fonts['large'] = ImageFont.load_default()
+                fonts['xlarge'] = ImageFont.load_default()
         except Exception as e:
             logger.error(f"Error loading fonts: {e}")
-            return {
+            fonts = {
                 'small': ImageFont.load_default(),
                 'medium': ImageFont.load_default(),
                 'large': ImageFont.load_default(),
                 'xlarge': ImageFont.load_default()
             }
+        return fonts
+
+    def _draw_text_with_outline(self, draw, text, position, font, fill=(255, 255, 255), outline_color=(0, 0, 0)):
+        """Draw text with a black outline for better readability on LED matrix."""
+        x, y = position
+        # Draw outline
+        for dx, dy in [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]:
+            draw.text((x + dx, y + dy), text, font=font, fill=outline_color)
+        # Draw text
+        draw.text((x, y), text, font=font, fill=fill)
 
     def _get_team_logo(self, team_abbr: str, logo_dir: str, league: str = None, team_name: str = None) -> Optional[Image.Image]:
         """Get team logo from the configured directory, downloading if missing."""
@@ -844,7 +871,7 @@ class LeaderboardManager:
                     number_width = number_bbox[2] - number_bbox[0]
                     number_height = number_bbox[3] - number_bbox[1]
                     number_y = (height - number_height) // 2
-                    draw.text((team_x, number_y), number_text, font=self.fonts['xlarge'], fill=(255, 255, 0))
+                    self._draw_text_with_outline(draw, number_text, (team_x, number_y), self.fonts['xlarge'], fill=(255, 255, 0))
                     
                     # Draw team logo (95% of display height, centered vertically)
                     team_logo = self._get_team_logo(team['abbreviation'], league_config['logo_dir'], 
@@ -865,7 +892,7 @@ class LeaderboardManager:
                         text_height = text_bbox[3] - text_bbox[1]
                         text_x = logo_x + logo_size + 4
                         text_y = (height - text_height) // 2
-                        draw.text((text_x, text_y), team_text, font=self.fonts['large'], fill=(255, 255, 255))
+                        self._draw_text_with_outline(draw, team_text, (text_x, text_y), self.fonts['large'], fill=(255, 255, 255))
                         
                         # Calculate total width used by this team
                         team_width = number_width + 4 + logo_size + 4 + text_width + 12  # 12px spacing to next team
@@ -877,7 +904,7 @@ class LeaderboardManager:
                         text_height = text_bbox[3] - text_bbox[1]
                         text_x = team_x + number_width + 4
                         text_y = (height - text_height) // 2
-                        draw.text((text_x, text_y), team_text, font=self.fonts['large'], fill=(255, 255, 255))
+                        self._draw_text_with_outline(draw, team_text, (text_x, text_y), self.fonts['large'], fill=(255, 255, 255))
                         
                         # Calculate total width used by this team
                         team_width = number_width + 4 + text_width + 12  # 12px spacing to next team
@@ -1082,7 +1109,7 @@ class LeaderboardManager:
             x = (width - text_width) // 2
             y = (height - text_height) // 2
             
-            draw.text((x, y), text, font=self.fonts['medium'], fill=(255, 255, 255))
+            self._draw_text_with_outline(draw, text, (x, y), self.fonts['medium'], fill=(255, 255, 255))
             
             self.display_manager.image = image
             self.display_manager.draw = ImageDraw.Draw(self.display_manager.image)
