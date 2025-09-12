@@ -1568,9 +1568,10 @@ class OddsTickerManager:
             
             # Calculate duration for single complete pass
             if self.loop:
-                # For looping: set duration to exactly one loop cycle (no extra time to prevent multiple loops)
-                calculated_duration = int(total_time)
-                logger.debug(f"Looping enabled, duration set to exactly one loop cycle: {calculated_duration}s")
+                # For looping: add 5-second buffer to ensure complete scroll before switching
+                fixed_buffer = 5  # 5 seconds of additional buffer
+                calculated_duration = int(total_time + fixed_buffer)
+                logger.debug(f"Looping enabled, duration set to one loop cycle plus 5s buffer: {calculated_duration}s")
             else:
                 # For single pass: precise calculation to show content exactly once
                 # Add buffer to prevent cutting off the last content
@@ -1606,6 +1607,8 @@ class OddsTickerManager:
             logger.info(f"  Base time: {total_time:.2f}s")
             logger.info(f"  Buffer time: {buffer_time:.2f}s ({self.duration_buffer*100}%)")
             logger.info(f"  Looping enabled: {self.loop}")
+            if self.loop:
+                logger.info(f"  Fixed buffer added: 5s")
             logger.info(f"  Calculated duration: {calculated_duration}s")
             logger.info(f"Final calculated duration: {self.dynamic_duration}s")
             
