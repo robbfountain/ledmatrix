@@ -1055,7 +1055,7 @@ class LeaderboardManager:
         logger.debug(f"Leaderboard enabled: {self.is_enabled}")
         logger.debug(f"Current scroll position: {self.scroll_position}")
         logger.debug(f"Leaderboard image width: {self.leaderboard_image.width if self.leaderboard_image else 'None'}")
-        logger.info(f"Using dynamic duration for leaderboard: {self.dynamic_duration}s")
+        logger.debug(f"Using dynamic duration for leaderboard: {self.dynamic_duration}s")
         
         if not self.is_enabled:
             logger.debug("Leaderboard is disabled, exiting display method.")
