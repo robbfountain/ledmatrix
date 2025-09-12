@@ -1380,14 +1380,14 @@ class OddsTickerManager:
             # If looping is enabled, ensure we complete at least one full cycle
             # and add extra time to ensure we don't cut off mid-scroll
             if self.loop:
-                # Add extra buffer for looping to ensure smooth transition
-                # Use a more generous buffer to ensure complete content display
-                loop_buffer = total_time * 0.2  # 20% extra for looping (increased from 15%)
+                # Add minimal buffer for looping to ensure smooth transition
+                # Reduced buffer to prevent excessive duration while maintaining smoothness
+                loop_buffer = total_time * 0.05  # 5% extra for looping (reduced from 20%)
                 calculated_duration = int(total_time + buffer_time + loop_buffer)
                 logger.debug(f"Looping enabled, added {loop_buffer:.2f}s loop buffer")
             else:
-                # Even without looping, add extra buffer to ensure complete display
-                extra_buffer = total_time * 0.15  # 15% extra to ensure complete content display (increased from 10%)
+                # Even without looping, add minimal buffer to ensure complete display
+                extra_buffer = total_time * 0.05  # 5% extra to ensure complete content display (reduced from 15%)
                 calculated_duration = int(total_time + buffer_time + extra_buffer)
                 logger.debug(f"No looping, added {extra_buffer:.2f}s extra buffer for complete display")
             
