@@ -741,16 +741,33 @@ class LeaderboardManager:
                 
                 # Calculate total width for all teams in horizontal layout
                 teams_width = 0
-                # Calculate dynamic logo size (95% of display height)
-                logo_size = int(height * 0.95)
+                # Calculate dynamic logo size (match drawing logic: 120% of display height)
+                logo_size = int(height * 1.2)
                 
                 for i, team in enumerate(teams):
-                    # Calculate width for bold number
-                    number_text = f"{i+1}."
-                    number_bbox = self.fonts['large'].getbbox(number_text)
+                    # Calculate width for bold number/ranking/record (match drawing logic)
+                    if league_key == 'ncaa_fb':
+                        if league_config.get('show_ranking', True):
+                            # Show ranking number if available
+                            if 'rank' in team and team['rank'] > 0:
+                                number_text = f"#{team['rank']}"
+                            else:
+                                # Team is unranked - show position number as fallback
+                                number_text = f"{i+1}."
+                        else:
+                            # Show record instead of ranking
+                            if 'record_summary' in team:
+                                number_text = team['record_summary']
+                            else:
+                                number_text = f"{i+1}."
+                    else:
+                        # For other leagues, show position
+                        number_text = f"{i+1}."
+                    
+                    number_bbox = self.fonts['xlarge'].getbbox(number_text)
                     number_width = number_bbox[2] - number_bbox[0]
                     
-                    # Calculate width for team abbreviation only
+                    # Calculate width for team abbreviation (use large font like in drawing)
                     team_text = team['abbreviation']
                     text_bbox = self.fonts['large'].getbbox(team_text)
                     text_width = text_bbox[2] - text_bbox[0]
@@ -884,7 +901,7 @@ class LeaderboardManager:
 
     def calculate_dynamic_duration(self):
         """Calculate the exact time needed to display all leaderboard content"""
-        logger.debug(f"calculate_dynamic_duration called - dynamic_duration_enabled: {self.dynamic_duration_enabled}, total_scroll_width: {self.total_scroll_width}")
+        logger.info(f"Calculating dynamic duration - enabled: {self.dynamic_duration_enabled}, content width: {self.total_scroll_width}px")
         
         # If dynamic duration is disabled, use fixed duration from config
         if not self.dynamic_duration_enabled:
@@ -960,7 +977,7 @@ class LeaderboardManager:
             logger.debug(f"  Buffer time: {buffer_time:.2f}s ({self.duration_buffer*100}%)")
             logger.debug(f"  Looping enabled: {self.loop}")
             logger.debug(f"  Calculated duration: {calculated_duration}s")
-            logger.debug(f"  Final duration: {self.dynamic_duration}s")
+            logger.info(f"Final calculated duration: {self.dynamic_duration}s")
             
         except Exception as e:
             logger.error(f"Error calculating dynamic duration: {e}")
@@ -1037,7 +1054,7 @@ class LeaderboardManager:
         logger.debug(f"Leaderboard enabled: {self.is_enabled}")
         logger.debug(f"Current scroll position: {self.scroll_position}")
         logger.debug(f"Leaderboard image width: {self.leaderboard_image.width if self.leaderboard_image else 'None'}")
-        logger.debug(f"Dynamic duration: {self.dynamic_duration}s")
+        logger.info(f"Using dynamic duration for leaderboard: {self.dynamic_duration}s")
         
         if not self.is_enabled:
             logger.debug("Leaderboard is disabled, exiting display method.")
