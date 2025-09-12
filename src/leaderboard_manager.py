@@ -813,10 +813,12 @@ class LeaderboardManager:
             
             current_x = 0
             
-            for league_data in self.leaderboard_data:
+            for league_idx, league_data in enumerate(self.leaderboard_data):
                 league_key = league_data['league']
                 league_config = league_data['league_config']
                 teams = league_data['teams']
+                
+                logger.info(f"Drawing League {league_idx+1} ({league_key}) starting at x={current_x}px")
                 
                 # Draw league logo section (full height)
                 league_logo = self._get_league_logo(league_config['league_logo'])
@@ -911,8 +913,10 @@ class LeaderboardManager:
                     team_x += team_width
                 
                 # Move to next league section (match width calculation logic)
-                # current_x is currently at start of teams section, need to move to end of teams + spacing
-                current_x += teams_width + 20 + spacing  # Teams width + internal spacing + inter-league spacing
+                # Update current_x to where team drawing actually ended
+                logger.info(f"League {league_idx+1} ({league_key}) teams ended at x={team_x}px")
+                current_x = team_x + 20 + spacing  # team_x is at end of teams, add internal spacing + inter-league spacing
+                logger.info(f"Next league will start at x={current_x}px (gap: {20 + spacing}px)")
             
             # Set total scroll width for dynamic duration calculation
             self.total_scroll_width = total_width
