@@ -7,9 +7,15 @@ from datetime import datetime, timedelta, timezone
 import os
 from PIL import Image, ImageDraw, ImageFont
 import pytz
-from .display_manager import DisplayManager
-from .cache_manager import CacheManager
-from .config_manager import ConfigManager
+try:
+    from .display_manager import DisplayManager
+    from .cache_manager import CacheManager
+    from .config_manager import ConfigManager
+except ImportError:
+    # Fallback for direct imports
+    from display_manager import DisplayManager
+    from cache_manager import CacheManager
+    from config_manager import ConfigManager
 
 # Import the API counter function from web interface
 try:
@@ -71,9 +77,12 @@ class LeaderboardManager:
                 'league': 'nfl',
                 'logo_dir': 'assets/sports/nfl_logos',
                 'league_logo': 'assets/sports/nfl_logos/nfl.png',
-                'teams_url': 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams',
+                'standings_url': 'https://site.api.espn.com/apis/v2/sports/football/nfl/standings',
                 'enabled': self.enabled_sports.get('nfl', {}).get('enabled', False),
-                'top_teams': self.enabled_sports.get('nfl', {}).get('top_teams', 10)
+                'top_teams': self.enabled_sports.get('nfl', {}).get('top_teams', 10),
+                'season': self.enabled_sports.get('nfl', {}).get('season', 2025),
+                'level': self.enabled_sports.get('nfl', {}).get('level', 1),
+                'sort': self.enabled_sports.get('nfl', {}).get('sort', 'winpercent:desc,gamesbehind:asc')
             },
             'nba': {
                 'sport': 'basketball',
@@ -89,9 +98,12 @@ class LeaderboardManager:
                 'league': 'mlb',
                 'logo_dir': 'assets/sports/mlb_logos',
                 'league_logo': 'assets/sports/mlb_logos/mlb.png',
-                'teams_url': 'https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/teams',
+                'standings_url': 'https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings',
                 'enabled': self.enabled_sports.get('mlb', {}).get('enabled', False),
-                'top_teams': self.enabled_sports.get('mlb', {}).get('top_teams', 10)
+                'top_teams': self.enabled_sports.get('mlb', {}).get('top_teams', 10),
+                'season': self.enabled_sports.get('mlb', {}).get('season', 2025),
+                'level': self.enabled_sports.get('mlb', {}).get('level', 1),
+                'sort': self.enabled_sports.get('mlb', {}).get('sort', 'winpercent:desc,gamesbehind:asc')
             },
             'ncaa_fb': {
                 'sport': 'football',
@@ -108,9 +120,12 @@ class LeaderboardManager:
                 'league': 'nhl',
                 'logo_dir': 'assets/sports/nhl_logos',
                 'league_logo': 'assets/sports/nhl_logos/nhl.png',
-                'teams_url': 'https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams',
+                'standings_url': 'https://site.api.espn.com/apis/v2/sports/hockey/nhl/standings',
                 'enabled': self.enabled_sports.get('nhl', {}).get('enabled', False),
-                'top_teams': self.enabled_sports.get('nhl', {}).get('top_teams', 10)
+                'top_teams': self.enabled_sports.get('nhl', {}).get('top_teams', 10),
+                'season': self.enabled_sports.get('nhl', {}).get('season', 2025),
+                'level': self.enabled_sports.get('nhl', {}).get('level', 1),
+                'sort': self.enabled_sports.get('nhl', {}).get('sort', 'winpercent:desc,gamesbehind:asc')
             },
             'ncaam_basketball': {
                 'sport': 'basketball',
@@ -120,6 +135,19 @@ class LeaderboardManager:
                 'teams_url': 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams',
                 'enabled': self.enabled_sports.get('ncaam_basketball', {}).get('enabled', False),
                 'top_teams': self.enabled_sports.get('ncaam_basketball', {}).get('top_teams', 25)
+            },
+            'ncaa_baseball': {
+                'sport': 'baseball',
+                'league': 'college-baseball',
+                'logo_dir': 'assets/sports/ncaa_fbs_logos',
+                'league_logo': 'assets/sports/ncaa_fbs_logos/ncaa_baseball.png',
+                'standings_url': 'https://site.api.espn.com/apis/v2/sports/baseball/college-baseball/standings',
+                'scoreboard_url': 'https://site.api.espn.com/apis/site/v2/sports/baseball/college-baseball/scoreboard',
+                'enabled': self.enabled_sports.get('ncaa_baseball', {}).get('enabled', False),
+                'top_teams': self.enabled_sports.get('ncaa_baseball', {}).get('top_teams', 25),
+                'season': self.enabled_sports.get('ncaa_baseball', {}).get('season', 2025),
+                'level': self.enabled_sports.get('ncaa_baseball', {}).get('level', 1),
+                'sort': self.enabled_sports.get('ncaa_baseball', {}).get('sort', 'winpercent:desc,gamesbehind:asc')
             }
         }
         
@@ -152,15 +180,17 @@ class LeaderboardManager:
         try:
             return {
                 'small': ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 6),
-                'medium': ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 8),
-                'large': ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 10)
+                'medium': ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 10),  # Increased from 8 to 10
+                'large': ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 12),  # Increased from 10 to 12
+                'xlarge': ImageFont.truetype("assets/fonts/PressStart2P-Regular.ttf", 14)  # New extra-large font
             }
         except Exception as e:
             logger.error(f"Error loading fonts: {e}")
             return {
                 'small': ImageFont.load_default(),
                 'medium': ImageFont.load_default(),
-                'large': ImageFont.load_default()
+                'large': ImageFont.load_default(),
+                'xlarge': ImageFont.load_default()
             }
 
     def _get_team_logo(self, team_abbr: str, logo_dir: str) -> Optional[Image.Image]:
@@ -212,6 +242,10 @@ class LeaderboardManager:
         # Special handling for college football - use rankings endpoint
         if league_key == 'college-football':
             return self._fetch_ncaa_fb_rankings(league_config)
+        
+        # Use standings endpoint for NFL, MLB, NHL, and NCAA Baseball
+        if league_key in ['nfl', 'mlb', 'nhl', 'college-baseball']:
+            return self._fetch_standings_data(league_config)
         
         try:
             logger.info(f"Fetching fresh leaderboard data for {league_key}")
@@ -389,6 +423,189 @@ class LeaderboardManager:
             
         except Exception as e:
             logger.error(f"Error fetching rankings for {league_key}: {e}")
+            return []
+
+    def _fetch_standings_data(self, league_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Fetch standings data from ESPN API using the standings endpoint."""
+        league_key = league_config['league']
+        cache_key = f"leaderboard_{league_key}_standings"
+        
+        # Try to get cached data first
+        cached_data = self.cache_manager.get_cached_data_with_strategy(cache_key, 'leaderboard')
+        if cached_data:
+            logger.info(f"Using cached standings data for {league_key}")
+            return cached_data.get('standings', [])
+        
+        try:
+            logger.info(f"Fetching fresh standings data for {league_key}")
+            
+            # Build the standings URL with query parameters
+            standings_url = league_config['standings_url']
+            params = {
+                'season': league_config.get('season', 2025),
+                'level': league_config.get('level', 1),
+                'sort': league_config.get('sort', 'winpercent:desc,gamesbehind:asc')
+            }
+            
+            logger.info(f"Fetching standings from: {standings_url} with params: {params}")
+            
+            response = requests.get(standings_url, params=params, timeout=self.request_timeout)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Increment API counter for sports data
+            increment_api_counter('sports', 1)
+            
+            standings = []
+            
+            # Parse the standings data structure
+            # Check if we have direct standings data or children (divisions/conferences)
+            if 'standings' in data and 'entries' in data['standings']:
+                # Direct standings data (e.g., NFL overall standings)
+                standings_data = data['standings']['entries']
+                logger.info(f"Processing direct standings data with {len(standings_data)} teams")
+                
+                for entry in standings_data:
+                    team_data = entry.get('team', {})
+                    stats = entry.get('stats', [])
+                    
+                    team_name = team_data.get('displayName', 'Unknown')
+                    team_abbr = team_data.get('abbreviation', 'Unknown')
+                    
+                    # Extract record from stats
+                    wins = 0
+                    losses = 0
+                    ties = 0
+                    win_percentage = 0.0
+                    
+                    # First pass: collect all stat values
+                    games_played = 0
+                    for stat in stats:
+                        stat_type = stat.get('type', '')
+                        stat_value = stat.get('value', 0)
+                        
+                        if stat_type == 'wins':
+                            wins = int(stat_value)
+                        elif stat_type == 'losses':
+                            losses = int(stat_value)
+                        elif stat_type == 'ties':
+                            ties = int(stat_value)
+                        elif stat_type == 'winpercent':
+                            win_percentage = float(stat_value)
+                        # NHL specific stats
+                        elif stat_type == 'overtimelosses' and league_key == 'nhl':
+                            ties = int(stat_value)  # NHL uses overtime losses as ties
+                        elif stat_type == 'gamesplayed' and league_key == 'nhl':
+                            games_played = float(stat_value)
+                    
+                    # Second pass: calculate win percentage for NHL if not already set
+                    if league_key == 'nhl' and win_percentage == 0.0 and games_played > 0:
+                        win_percentage = wins / games_played
+                    
+                    # Create record summary
+                    if ties > 0:
+                        record_summary = f"{wins}-{losses}-{ties}"
+                    else:
+                        record_summary = f"{wins}-{losses}"
+                    
+                    standings.append({
+                        'name': team_name,
+                        'abbreviation': team_abbr,
+                        'wins': wins,
+                        'losses': losses,
+                        'ties': ties,
+                        'win_percentage': win_percentage,
+                        'record_summary': record_summary,
+                        'division': 'Overall'
+                    })
+            
+            elif 'children' in data:
+                # Children structure (divisions/conferences)
+                children = data.get('children', [])
+                logger.info(f"Processing {len(children)} divisions/conferences")
+                
+                for child in children:
+                    child_name = child.get('displayName', 'Unknown')
+                    logger.info(f"Processing {child_name}")
+                    
+                    standings_data = child.get('standings', {}).get('entries', [])
+                    
+                    for entry in standings_data:
+                        team_data = entry.get('team', {})
+                        stats = entry.get('stats', [])
+                        
+                        team_name = team_data.get('displayName', 'Unknown')
+                        team_abbr = team_data.get('abbreviation', 'Unknown')
+                        
+                        # Extract record from stats
+                        wins = 0
+                        losses = 0
+                        ties = 0
+                        win_percentage = 0.0
+                        
+                        # First pass: collect all stat values
+                        games_played = 0
+                        for stat in stats:
+                            stat_type = stat.get('type', '')
+                            stat_value = stat.get('value', 0)
+                            
+                            if stat_type == 'wins':
+                                wins = int(stat_value)
+                            elif stat_type == 'losses':
+                                losses = int(stat_value)
+                            elif stat_type == 'ties':
+                                ties = int(stat_value)
+                            elif stat_type == 'winpercent':
+                                win_percentage = float(stat_value)
+                            # NHL specific stats
+                            elif stat_type == 'overtimelosses' and league_key == 'nhl':
+                                ties = int(stat_value)  # NHL uses overtime losses as ties
+                            elif stat_type == 'gamesplayed' and league_key == 'nhl':
+                                games_played = float(stat_value)
+                        
+                        # Second pass: calculate win percentage for NHL if not already set
+                        if league_key == 'nhl' and win_percentage == 0.0 and games_played > 0:
+                            win_percentage = wins / games_played
+                        
+                        # Create record summary
+                        if ties > 0:
+                            record_summary = f"{wins}-{losses}-{ties}"
+                        else:
+                            record_summary = f"{wins}-{losses}"
+                        
+                        standings.append({
+                            'name': team_name,
+                            'abbreviation': team_abbr,
+                            'wins': wins,
+                            'losses': losses,
+                            'ties': ties,
+                            'win_percentage': win_percentage,
+                            'record_summary': record_summary,
+                            'division': child_name
+                        })
+            else:
+                logger.warning(f"No standings or children data found for {league_key}")
+                return []
+            
+            # Sort by win percentage (descending) and limit to top teams
+            standings.sort(key=lambda x: x['win_percentage'], reverse=True)
+            top_teams = standings[:league_config['top_teams']]
+            
+            # Cache the results
+            cache_data = {
+                'standings': top_teams,
+                'timestamp': time.time(),
+                'league': league_key,
+                'season': params['season'],
+                'level': params['level']
+            }
+            self.cache_manager.save_cache(cache_key, cache_data)
+            
+            logger.info(f"Fetched and cached {len(top_teams)} teams for {league_key} standings")
+            return top_teams
+            
+        except Exception as e:
+            logger.error(f"Error fetching standings for {league_key}: {e}")
             return []
 
     def _fetch_team_record(self, team_abbr: str, league_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -592,11 +809,11 @@ class LeaderboardManager:
                         # For other leagues, show position
                         number_text = f"{i+1}."
                     
-                    number_bbox = self.fonts['large'].getbbox(number_text)
+                    number_bbox = self.fonts['xlarge'].getbbox(number_text)
                     number_width = number_bbox[2] - number_bbox[0]
                     number_height = number_bbox[3] - number_bbox[1]
                     number_y = (height - number_height) // 2
-                    draw.text((team_x, number_y), number_text, font=self.fonts['large'], fill=(255, 255, 0))
+                    draw.text((team_x, number_y), number_text, font=self.fonts['xlarge'], fill=(255, 255, 0))
                     
                     # Draw team logo (95% of display height, centered vertically)
                     team_logo = self._get_team_logo(team['abbreviation'], league_config['logo_dir'])
@@ -611,24 +828,24 @@ class LeaderboardManager:
                         
                         # Draw team abbreviation after the logo (centered vertically)
                         team_text = team['abbreviation']
-                        text_bbox = self.fonts['medium'].getbbox(team_text)
+                        text_bbox = self.fonts['large'].getbbox(team_text)
                         text_width = text_bbox[2] - text_bbox[0]
                         text_height = text_bbox[3] - text_bbox[1]
                         text_x = logo_x + logo_size + 4
                         text_y = (height - text_height) // 2
-                        draw.text((text_x, text_y), team_text, font=self.fonts['medium'], fill=(255, 255, 255))
+                        draw.text((text_x, text_y), team_text, font=self.fonts['large'], fill=(255, 255, 255))
                         
                         # Calculate total width used by this team
                         team_width = number_width + 4 + logo_size + 4 + text_width + 12  # 12px spacing to next team
                     else:
                         # Fallback if no logo - draw team abbreviation after bold number (centered vertically)
                         team_text = team['abbreviation']
-                        text_bbox = self.fonts['medium'].getbbox(team_text)
+                        text_bbox = self.fonts['large'].getbbox(team_text)
                         text_width = text_bbox[2] - text_bbox[0]
                         text_height = text_bbox[3] - text_bbox[1]
                         text_x = team_x + number_width + 4
                         text_y = (height - text_height) // 2
-                        draw.text((text_x, text_y), team_text, font=self.fonts['medium'], fill=(255, 255, 255))
+                        draw.text((text_x, text_y), team_text, font=self.fonts['large'], fill=(255, 255, 255))
                         
                         # Calculate total width used by this team
                         team_width = number_width + 4 + text_width + 12  # 12px spacing to next team
@@ -640,36 +857,118 @@ class LeaderboardManager:
                 current_x += teams_width + 20  # Teams width + spacing
                 current_x += spacing  # Add spacing between leagues
             
-            # Calculate dynamic duration based on number of teams and content
-            if self.dynamic_duration_enabled:
-                # Count total teams across all leagues
-                total_teams = sum(len(league_data['teams']) for league_data in self.leaderboard_data)
-                total_leagues = len(self.leaderboard_data)
-                
-                # Use configurable time per team and league
-                time_per_team = self.time_per_team
-                time_per_league = self.time_per_league
-                
-                # Calculate base duration from teams and leagues
-                base_duration = (total_teams * time_per_team) + (total_leagues * time_per_league)
-                
-                # Add scroll time based on content width
-                scroll_time = (total_width / self.scroll_speed) * self.scroll_delay
-                
-                # Use the maximum of base duration and scroll time, with buffer
-                calculated_duration = max(base_duration, scroll_time) + self.duration_buffer
-                
-                # Apply min/max constraints
-                self.dynamic_duration = max(self.min_duration, min(self.max_duration, calculated_duration))
-                
-                logger.info(f"Calculated dynamic duration: {self.dynamic_duration:.1f}s for {total_teams} teams across {total_leagues} leagues (width: {total_width})")
-            
+            # Set total scroll width for dynamic duration calculation
             self.total_scroll_width = total_width
+            
+            # Calculate dynamic duration using proper scroll-based calculation
+            if self.dynamic_duration_enabled:
+                self.calculate_dynamic_duration()
             logger.info(f"Created leaderboard image with width {total_width}")
             
         except Exception as e:
             logger.error(f"Error creating leaderboard image: {e}")
             self.leaderboard_image = None
+
+    def calculate_dynamic_duration(self):
+        """Calculate the exact time needed to display all leaderboard content"""
+        logger.debug(f"calculate_dynamic_duration called - dynamic_duration_enabled: {self.dynamic_duration_enabled}, total_scroll_width: {self.total_scroll_width}")
+        
+        # If dynamic duration is disabled, use fixed duration from config
+        if not self.dynamic_duration_enabled:
+            self.dynamic_duration = self.leaderboard_config.get('display_duration', 60)
+            logger.debug(f"Dynamic duration disabled, using fixed duration: {self.dynamic_duration}s")
+            return
+            
+        if not self.total_scroll_width:
+            self.dynamic_duration = self.min_duration  # Use configured minimum
+            logger.debug(f"total_scroll_width is 0, using minimum duration: {self.min_duration}s")
+            return
+            
+        try:
+            # Get display width (assume full width of display)
+            display_width = getattr(self.display_manager, 'matrix', None)
+            if display_width:
+                display_width = display_width.width
+            else:
+                display_width = 128  # Default to 128 if not available
+            
+            # Calculate total scroll distance needed
+            # For leaderboard, we need to scroll the entire content width plus display width
+            # to ensure all content is visible from start to finish
+            total_scroll_distance = display_width + self.total_scroll_width
+            
+            # Calculate time based on scroll speed and delay
+            # scroll_speed = pixels per frame, scroll_delay = seconds per frame
+            frames_needed = total_scroll_distance / self.scroll_speed
+            total_time = frames_needed * self.scroll_delay
+            
+            # Add buffer time for smooth cycling (configurable %)
+            buffer_time = total_time * self.duration_buffer
+            
+            # If looping is enabled, ensure we complete at least one full cycle
+            # and add extra time to ensure we don't cut off mid-scroll
+            if self.loop:
+                # Add extra buffer for looping to ensure smooth transition
+                # Use a more reasonable buffer to prevent excessive looping
+                loop_buffer = total_time * 0.15  # 15% extra for looping (reduced from 30%)
+                calculated_duration = int(total_time + buffer_time + loop_buffer)
+                logger.debug(f"Looping enabled, added {loop_buffer:.2f}s loop buffer")
+            else:
+                # Even without looping, add extra buffer to ensure complete display
+                extra_buffer = total_time * 0.1  # 10% extra to ensure complete content display (reduced from 15%)
+                calculated_duration = int(total_time + buffer_time + extra_buffer)
+                logger.debug(f"No looping, added {extra_buffer:.2f}s extra buffer for complete display")
+            
+            # Apply configured min/max limits
+            if calculated_duration < self.min_duration:
+                self.dynamic_duration = self.min_duration
+                logger.debug(f"Duration capped to minimum: {self.min_duration}s")
+            elif calculated_duration > self.max_duration:
+                self.dynamic_duration = self.max_duration
+                logger.debug(f"Duration capped to maximum: {self.max_duration}s")
+            else:
+                self.dynamic_duration = calculated_duration
+            
+            # Additional safety check: if the calculated duration seems too short for the content,
+            # ensure we have enough time to display all content properly
+            if self.dynamic_duration < 30 and self.total_scroll_width > 800:
+                # If we have a lot of content but short duration, increase it
+                self.dynamic_duration = max(30, int(self.total_scroll_width / 30))  # At least 30s or 1s per 30px
+                logger.debug(f"Adjusted duration for large content: {self.dynamic_duration}s")
+                
+            logger.debug(f"Leaderboard dynamic duration calculation:")
+            logger.debug(f"  Display width: {display_width}px")
+            logger.debug(f"  Content width: {self.total_scroll_width}px")
+            logger.debug(f"  Total scroll distance: {total_scroll_distance}px")
+            logger.debug(f"  Scroll speed: {self.scroll_speed}px/frame")
+            logger.debug(f"  Scroll delay: {self.scroll_delay}s/frame")
+            logger.debug(f"  Frames needed: {frames_needed:.1f}")
+            logger.debug(f"  Base time: {total_time:.2f}s")
+            logger.debug(f"  Buffer time: {buffer_time:.2f}s ({self.duration_buffer*100}%)")
+            logger.debug(f"  Looping enabled: {self.loop}")
+            logger.debug(f"  Calculated duration: {calculated_duration}s")
+            logger.debug(f"  Final duration: {self.dynamic_duration}s")
+            
+        except Exception as e:
+            logger.error(f"Error calculating dynamic duration: {e}")
+            self.dynamic_duration = self.min_duration  # Use configured minimum as fallback
+
+    def get_dynamic_duration(self) -> int:
+        """Get the calculated dynamic duration for display"""
+        # If we don't have a valid dynamic duration yet (total_scroll_width is 0),
+        # try to update the data first
+        if self.total_scroll_width == 0 and self.is_enabled:
+            logger.debug("get_dynamic_duration called but total_scroll_width is 0, attempting update...")
+            try:
+                # Force an update to get the data and calculate proper duration
+                # Bypass the update interval check for duration calculation
+                self.update()
+                logger.debug(f"Force update completed, total_scroll_width: {self.total_scroll_width}px")
+            except Exception as e:
+                logger.error(f"Error updating leaderboard for dynamic duration: {e}")
+        
+        logger.debug(f"get_dynamic_duration called, returning: {self.dynamic_duration}s")
+        return self.dynamic_duration
 
     def update(self) -> None:
         """Update leaderboard data."""
