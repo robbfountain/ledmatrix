@@ -183,8 +183,8 @@
             }
         },
         "update_interval": 3600,
-        "scroll_speed": 2,
-        "scroll_delay": 0.05,
+        "scroll_speed": 1,
+        "scroll_delay": 0.01,
         "display_duration": 60,
         "loop": true,
         "request_timeout": 30,
@@ -300,7 +300,7 @@
         ],
         "logo_dir": "assets/sports/ncaa_fbs_logos",
         "show_records": true,
-        "show_ranking": false,
+        "show_ranking": true,
         "display_modes": {
             "ncaa_fb_live": true,
             "ncaa_fb_recent": true ,
