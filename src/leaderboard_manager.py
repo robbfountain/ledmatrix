@@ -887,7 +887,7 @@ class LeaderboardManager:
                 
                 # Move to next league section
                 current_x += teams_width + 20  # Teams width + spacing
-                current_x += spacing  # Add spacing between leagues
+                # Note: spacing between leagues is already included in total_width calculation
             
             # Set total scroll width for dynamic duration calculation
             self.total_scroll_width = total_width
@@ -930,7 +930,7 @@ class LeaderboardManager:
                 
                 league_width = league_logo_width + teams_width + 20
                 logger.info(f"League {league_key}: {len(teams)} teams, width {league_width}px, starts at x={current_x}")
-                current_x += league_width + spacing  # Use same spacing as main calculation
+                current_x += league_width  # No additional spacing - already included in total_width calculation
             
             # Calculate dynamic duration using proper scroll-based calculation
             if self.dynamic_duration_enabled:
@@ -1040,7 +1040,7 @@ class LeaderboardManager:
             except Exception as e:
                 logger.error(f"Error updating leaderboard for dynamic duration: {e}")
         
-        logger.info(f"get_dynamic_duration called, returning: {self.dynamic_duration}s")
+        logger.debug(f"get_dynamic_duration called, returning: {self.dynamic_duration}s")
         return self.dynamic_duration
 
     def update(self) -> None:

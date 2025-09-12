@@ -430,11 +430,9 @@ class DisplayController:
         logger.info(f"Initial display mode: {self.current_display_mode}")
         logger.info("DisplayController initialized with display_manager: %s", id(self.display_manager))
 
-        # --- SCHEDULING & CONFIG REFRESH ---
-        self.config_check_interval = 30
-        self.last_config_check = 0
+        # --- SCHEDULING ---
         self.is_display_active = True
-        self._load_config() # Initial load of schedule
+        self._load_schedule_config() # Load schedule config once at startup
 
     def _handle_music_update(self, track_info: Dict[str, Any], significant_change: bool = False):
         """Callback for when music track info changes."""
@@ -865,14 +863,14 @@ class DisplayController:
                 self.ncaa_fb_showing_recent = True # Reset to recent for the new team
 
     # --- SCHEDULING METHODS ---
-    def _load_config(self):
-        """Load configuration from the config manager and parse schedule settings."""
-        self.config = self.config_manager.load_config()
+    def _load_schedule_config(self):
+        """Load schedule configuration once at startup."""
         schedule_config = self.config.get('schedule', {})
         self.schedule_enabled = schedule_config.get('enabled', False)
         try:
             self.start_time = datetime.strptime(schedule_config.get('start_time', '07:00'), '%H:%M').time()
             self.end_time = datetime.strptime(schedule_config.get('end_time', '22:00'), '%H:%M').time()
+            logger.info(f"Schedule loaded: enabled={self.schedule_enabled}, start={self.start_time}, end={self.end_time}")
         except (ValueError, TypeError):
             logger.warning("Invalid time format in schedule config. Using defaults.")
             self.start_time = time_obj(7, 0)
@@ -962,12 +960,7 @@ class DisplayController:
             while True:
                 current_time = time.time()
 
-                # Periodically check for config changes
-                if current_time - self.last_config_check > self.config_check_interval:
-                    self._load_config()
-                    self.last_config_check = current_time
-
-                # Enforce the schedule
+                # Check the schedule (no config reload needed)
                 self._check_schedule()
                 if not self.is_display_active:
                     time.sleep(60)
