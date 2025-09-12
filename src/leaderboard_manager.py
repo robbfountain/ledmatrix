@@ -51,8 +51,6 @@ class LeaderboardManager:
         self.min_duration = self.leaderboard_config.get('min_duration', 30)
         self.max_duration = self.leaderboard_config.get('max_duration', 300)
         self.duration_buffer = self.leaderboard_config.get('duration_buffer', 0.1)
-        self.time_per_team = self.leaderboard_config.get('time_per_team', 2.0)  # Seconds per team
-        self.time_per_league = self.leaderboard_config.get('time_per_league', 3.0)  # Seconds per league logo
         self.dynamic_duration = 60  # Default duration in seconds
         self.total_scroll_width = 0  # Track total width for dynamic duration calculation
         

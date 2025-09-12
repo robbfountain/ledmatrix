@@ -186,14 +186,12 @@
         "scroll_speed": 1,
         "scroll_delay": 0.01,
         "display_duration": 60,
-        "loop": true,
+        "loop": false,
         "request_timeout": 30,
         "dynamic_duration": true,
         "min_duration": 45,
         "max_duration": 600,
-        "duration_buffer": 0.3,
-        "time_per_team": 2.0,
-        "time_per_league": 3.0
+        "duration_buffer": 0.3
     },
     "calendar": {
         "enabled": false,
