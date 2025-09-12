@@ -130,7 +130,7 @@
         "duration_buffer": 0.1
     },
     "odds_ticker": {
-        "enabled": false,
+        "enabled": true,
         "show_favorite_teams_only": true,
         "games_per_favorite_team": 1,
         "max_games_per_league": 5,
@@ -187,7 +187,7 @@
         "scroll_speed": 1,
         "scroll_delay": 0.01,
         "display_duration": 60,
-        "loop": true,
+        "loop": false,
         "request_timeout": 30,
         "dynamic_duration": true,
         "min_duration": 45,

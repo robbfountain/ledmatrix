@@ -1546,30 +1546,37 @@ class OddsTickerManager:
                 display_width = 128  # Default to 128 if not available
             
             # Calculate total scroll distance needed
-            # For odds ticker, we need to scroll the entire content width plus display width
-            # to ensure all content is visible from start to finish
-            total_scroll_distance = display_width + self.total_scroll_width
+            # For looping content, we need to scroll the entire content width
+            # For non-looping content, we need content width minus display width (since last part shows fully)
+            if self.loop:
+                total_scroll_distance = self.total_scroll_width
+            else:
+                # For single pass, we need to scroll until the last content is fully visible
+                total_scroll_distance = max(0, self.total_scroll_width - display_width)
             
             # Calculate time based on scroll speed and delay
             # scroll_speed = pixels per frame, scroll_delay = seconds per frame
-            frames_needed = total_scroll_distance / self.scroll_speed
-            total_time = frames_needed * self.scroll_delay
+            # However, actual observed speed is slower than theoretical calculation
+            # Based on log analysis: 1950px in 36s = 54.2 px/s actual speed
+            # vs theoretical: 1px/0.01s = 100 px/s
+            # Use actual observed speed for more accurate timing
+            actual_scroll_speed = 54.2  # pixels per second (calculated from logs)
+            total_time = total_scroll_distance / actual_scroll_speed
             
             # Add buffer time for smooth cycling (configurable %)
             buffer_time = total_time * self.duration_buffer
             
             # Calculate duration for single complete pass
             if self.loop:
-                # For looping: add minimal buffer to ensure smooth transition
-                loop_buffer = total_time * 0.05  # 5% extra for looping
-                calculated_duration = int(total_time + buffer_time + loop_buffer)
-                logger.debug(f"Looping enabled, added {loop_buffer:.2f}s loop buffer")
+                # For looping: set duration to exactly one loop cycle (no extra time to prevent multiple loops)
+                calculated_duration = int(total_time)
+                logger.debug(f"Looping enabled, duration set to exactly one loop cycle: {calculated_duration}s")
             else:
-                # For single pass: add more buffer to ensure complete display and smooth transition
-                # The issue was that the duration was too short, causing premature mode switching
-                completion_buffer = total_time * 0.1  # 10% extra to ensure complete display
+                # For single pass: precise calculation to show content exactly once
+                # Add buffer to prevent cutting off the last content
+                completion_buffer = total_time * 0.05  # 5% extra to ensure complete display
                 calculated_duration = int(total_time + buffer_time + completion_buffer)
-                logger.debug(f"Single pass mode, added {completion_buffer:.2f}s completion buffer for complete display")
+                logger.debug(f"Single pass mode, added {completion_buffer:.2f}s completion buffer for precise timing")
             
             # Apply configured min/max limits
             if calculated_duration < self.min_duration:
@@ -1589,18 +1596,22 @@ class OddsTickerManager:
                 self.dynamic_duration = max(45, int(self.total_scroll_width / 20))
                 logger.debug(f"Adjusted duration for content: {self.dynamic_duration}s (content width: {self.total_scroll_width}px)")
                 
-            logger.debug(f"Odds ticker dynamic duration calculation:")
-            logger.debug(f"  Display width: {display_width}px")
-            logger.debug(f"  Content width: {self.total_scroll_width}px")
-            logger.debug(f"  Total scroll distance: {total_scroll_distance}px")
-            logger.debug(f"  Scroll speed: {self.scroll_speed}px/frame")
-            logger.debug(f"  Scroll delay: {self.scroll_delay}s/frame")
-            logger.debug(f"  Frames needed: {frames_needed:.1f}")
-            logger.debug(f"  Base time: {total_time:.2f}s")
-            logger.debug(f"  Buffer time: {buffer_time:.2f}s ({self.duration_buffer*100}%)")
-            logger.debug(f"  Looping enabled: {self.loop}")
-            logger.debug(f"  Calculated duration: {calculated_duration}s")
-            logger.debug(f"  Final duration: {self.dynamic_duration}s")
+            logger.info(f"Odds ticker dynamic duration calculation:")
+            logger.info(f"  Display width: {display_width}px")
+            logger.info(f"  Content width: {self.total_scroll_width}px")
+            logger.info(f"  Total scroll distance: {total_scroll_distance}px")
+            logger.info(f"  Configured scroll speed: {self.scroll_speed}px/frame")
+            logger.info(f"  Configured scroll delay: {self.scroll_delay}s/frame")
+            logger.info(f"  Actual observed scroll speed: {actual_scroll_speed}px/s (from log analysis)")
+            logger.info(f"  Base time: {total_time:.2f}s")
+            logger.info(f"  Buffer time: {buffer_time:.2f}s ({self.duration_buffer*100}%)")
+            logger.info(f"  Looping enabled: {self.loop}")
+            logger.info(f"  Calculated duration: {calculated_duration}s")
+            logger.info(f"Final calculated duration: {self.dynamic_duration}s")
+            
+            # Verify the duration makes sense for the content
+            expected_scroll_time = self.total_scroll_width / actual_scroll_speed
+            logger.info(f"  Verification - Time to scroll content: {expected_scroll_time:.1f}s")
             
         except Exception as e:
             logger.error(f"Error calculating dynamic duration: {e}")
@@ -1810,23 +1821,33 @@ class OddsTickerManager:
             elapsed_time = current_time - self._display_start_time
             remaining_time = self.dynamic_duration - elapsed_time
             
-            # Log timing info every 50 pixels to help debug (less verbose)
+            # Log scroll progress every 50 pixels to help debug (less verbose)
             if self.scroll_position % 50 == 0 and self.scroll_position > 0:
-                logger.info(f"Odds ticker timing: elapsed={elapsed_time:.1f}s, remaining={remaining_time:.1f}s, duration={self.dynamic_duration}s, scroll_pos={self.scroll_position}")
+                logger.info(f"Odds ticker progress: elapsed={elapsed_time:.1f}s, remaining={remaining_time:.1f}s, scroll_pos={self.scroll_position}/{self.ticker_image.width}px")
             
-            # If we have less than 2 seconds remaining and we're not at a clean break point,
-            # try to complete the current game display
+            # If we have less than 2 seconds remaining, check if we can complete the content display
             if remaining_time < 2.0 and self.scroll_position > 0:
                 # Calculate how much time we need to complete the current scroll position
-                frames_to_complete = (self.ticker_image.width - self.scroll_position) / self.scroll_speed
-                time_to_complete = frames_to_complete * self.scroll_delay
+                # Use actual observed scroll speed (54.2 px/s) instead of theoretical calculation
+                actual_scroll_speed = 54.2  # pixels per second (calculated from logs)
+                
+                if self.loop:
+                    # For looping, we need to complete one full cycle
+                    distance_to_complete = self.ticker_image.width - self.scroll_position
+                else:
+                    # For single pass, we need to reach the end (content width minus display width)
+                    end_position = max(0, self.ticker_image.width - width)
+                    distance_to_complete = end_position - self.scroll_position
+                
+                time_to_complete = distance_to_complete / actual_scroll_speed
                 
                 if time_to_complete <= remaining_time:
                     # We have enough time to complete the scroll, continue normally
-                    pass
+                    logger.debug(f"Sufficient time remaining ({remaining_time:.1f}s) to complete scroll ({time_to_complete:.1f}s)")
                 else:
                     # Not enough time, reset to beginning for clean transition
-                    logger.debug(f"Display ending soon, resetting scroll position for clean transition")
+                    logger.warning(f"Not enough time to complete content display - remaining: {remaining_time:.1f}s, needed: {time_to_complete:.1f}s")
+                    logger.debug(f"Resetting scroll position for clean transition")
                     self.scroll_position = 0
             
             # Create the visible part of the image by pasting from the ticker_image
