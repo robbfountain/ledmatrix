@@ -201,7 +201,7 @@ class StockNewsManager:
             # Fetch news for each symbol
             for symbol in symbols:
                 try:
-                    news = self._fetch_news_for_symbol(symbol)
+                    news = self._fetch_news(symbol)
                     if news:
                         self.news_data[symbol] = news
                         logger.debug(f"Updated news for {symbol}: {len(news)} headlines")
