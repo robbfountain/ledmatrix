@@ -462,15 +462,37 @@ class BaseNCAAFBManager: # Renamed class
             situation = competition.get("situation")
             down_distance_text = ""
             possession_indicator = None # Default to None
+            scoring_event = ""  # Track scoring events
+            
             if situation and status["type"]["state"] == "in":
                 down = situation.get("down")
                 distance = situation.get("distance")
-                if down and distance is not None:
+                # Validate down and distance values before formatting
+                if (down is not None and isinstance(down, int) and 1 <= down <= 4 and 
+                    distance is not None and isinstance(distance, int) and distance >= 0):
                     down_str = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}.get(down, f"{down}th")
                     dist_str = f"& {distance}" if distance > 0 else "& Goal"
                     down_distance_text = f"{down_str} {dist_str}"
                 elif situation.get("isRedZone"):
                      down_distance_text = "Red Zone" # Simplified if down/distance not present but in redzone
+                
+                # Detect scoring events from status detail
+                status_detail = status["type"].get("detail", "").lower()
+                status_short = status["type"].get("shortDetail", "").lower()
+                
+                # Check for scoring events in status text
+                if any(keyword in status_detail for keyword in ["touchdown", "td"]):
+                    scoring_event = "TOUCHDOWN"
+                elif any(keyword in status_detail for keyword in ["field goal", "fg"]):
+                    scoring_event = "FIELD GOAL"
+                elif any(keyword in status_detail for keyword in ["extra point", "pat", "point after"]):
+                    scoring_event = "PAT"
+                elif any(keyword in status_short for keyword in ["touchdown", "td"]):
+                    scoring_event = "TOUCHDOWN"
+                elif any(keyword in status_short for keyword in ["field goal", "fg"]):
+                    scoring_event = "FIELD GOAL"
+                elif any(keyword in status_short for keyword in ["extra point", "pat"]):
+                    scoring_event = "PAT"
 
                 # Determine possession based on team ID
                 possession_team_id = situation.get("possession")
@@ -487,14 +509,13 @@ class BaseNCAAFBManager: # Renamed class
                  if period == 0: period_text = "Start" # Before kickoff
                  elif period == 1: period_text = "Q1"
                  elif period == 2: period_text = "Q2"
-                 elif period == 3: period_text = "HALF" # Halftime is usually period 3 in API
-                 elif period == 4: period_text = "Q3"
-                 elif period == 5: period_text = "Q4"
-                 elif period > 5: period_text = "OT" # Assuming OT starts at period 6+
+                 elif period == 3: period_text = "Q3" # Fixed: period 3 is 3rd quarter, not halftime
+                 elif period == 4: period_text = "Q4"
+                 elif period > 4: period_text = "OT" # OT starts after Q4
             elif status["type"]["state"] == "halftime" or status["type"]["name"] == "STATUS_HALFTIME": # Check explicit halftime state
                 period_text = "HALF"
             elif status["type"]["state"] == "post":
-                 if period > 5 : period_text = "Final/OT"
+                 if period > 4 : period_text = "Final/OT"
                  else: period_text = "Final"
             elif status["type"]["state"] == "pre":
                 period_text = game_time # Show time for upcoming
@@ -535,6 +556,7 @@ class BaseNCAAFBManager: # Renamed class
                 "down_distance_text": down_distance_text, # Added Down/Distance
                 "possession": situation.get("possession") if situation else None, # ID of team with possession
                 "possession_indicator": possession_indicator, # Added for easy home/away check
+                "scoring_event": scoring_event, # Track scoring events (TOUCHDOWN, FIELD GOAL, PAT)
                 "is_within_window": is_within_window, # Whether game is within display window
             }
 
@@ -663,11 +685,13 @@ class NCAAFBLiveManager(BaseNCAAFBManager): # Renamed class
                             minutes -= 1
                             if minutes < 0:
                                 # Simulate end of quarter/game
-                                if self.current_game["period"] < 5: # Assuming 5 is Q4 end
+                                if self.current_game["period"] < 4: # Q4 is period 4
                                     self.current_game["period"] += 1
                                     # Update period_text based on new period
-                                    if self.current_game["period"] == 3: self.current_game["period_text"] = "HALF"
-                                    elif self.current_game["period"] == 5: self.current_game["period_text"] = "Q4"
+                                    if self.current_game["period"] == 1: self.current_game["period_text"] = "Q1"
+                                    elif self.current_game["period"] == 2: self.current_game["period_text"] = "Q2"
+                                    elif self.current_game["period"] == 3: self.current_game["period_text"] = "Q3"
+                                    elif self.current_game["period"] == 4: self.current_game["period_text"] = "Q4"
                                     # Reset clock for next quarter (e.g., 15:00)
                                     minutes, seconds = 15, 0
                                 else:
@@ -834,9 +858,29 @@ class NCAAFBLiveManager(BaseNCAAFBManager): # Renamed class
             status_y = 1 # Position at top
             self._draw_text_with_outline(draw_overlay, period_clock_text, (status_x, status_y), self.fonts['time'])
 
-            # Down & Distance (Below Period/Clock)
+            # Down & Distance or Scoring Event (Below Period/Clock)
+            scoring_event = game.get("scoring_event", "")
             down_distance = game.get("down_distance_text", "")
-            if down_distance and game.get("is_live"): # Only show if live and available
+            
+            # Show scoring event if detected, otherwise show down & distance
+            if scoring_event and game.get("is_live"):
+                # Display scoring event with special formatting
+                event_width = draw_overlay.textlength(scoring_event, font=self.fonts['detail'])
+                event_x = (self.display_width - event_width) // 2
+                event_y = (self.display_height) - 7
+                
+                # Color coding for different scoring events
+                if scoring_event == "TOUCHDOWN":
+                    event_color = (255, 215, 0)  # Gold
+                elif scoring_event == "FIELD GOAL":
+                    event_color = (0, 255, 0)    # Green
+                elif scoring_event == "PAT":
+                    event_color = (255, 165, 0)  # Orange
+                else:
+                    event_color = (255, 255, 255)  # White
+                
+                self._draw_text_with_outline(draw_overlay, scoring_event, (event_x, event_y), self.fonts['detail'], fill=event_color)
+            elif down_distance and game.get("is_live"): # Only show if live and available
                 dd_width = draw_overlay.textlength(down_distance, font=self.fonts['detail'])
                 dd_x = (self.display_width - dd_width) // 2
                 dd_y = (self.display_height)- 7 # Top of D&D text

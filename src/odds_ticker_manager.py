@@ -795,9 +795,16 @@ class OddsTickerManager:
                 
             elif sport == 'football':
                 quarter_text = f"Q{live_info.get('quarter', 1)}"
-                down_text = f"{live_info.get('down', 0)}&{live_info.get('distance', 0)}"
+                # Validate down and distance for odds ticker display
+                down = live_info.get('down')
+                distance = live_info.get('distance')
+                if (down is not None and isinstance(down, int) and 1 <= down <= 4 and 
+                    distance is not None and isinstance(distance, int) and distance >= 0):
+                    down_text = f"{down}&{distance}"
+                else:
+                    down_text = ""  # Don't show invalid down/distance
                 clock_text = live_info.get('clock', '')
-                return f"[LIVE] {away_team_name} {away_score} vs {home_team_name} {home_score} - {quarter_text} {down_text} {clock_text}"
+                return f"[LIVE] {away_team_name} {away_score} vs {home_team_name} {home_score} - {quarter_text} {down_text} {clock_text}".strip()
                 
             elif sport == 'basketball':
                 quarter_text = f"Q{live_info.get('quarter', 1)}"
@@ -1106,7 +1113,14 @@ class OddsTickerManager:
             elif sport == 'football':
                 # Football: Show quarter and down/distance
                 quarter_text = f"Q{live_info.get('quarter', 1)}"
-                down_text = f"{live_info.get('down', 0)}&{live_info.get('distance', 0)}"
+                # Validate down and distance for odds ticker display
+                down = live_info.get('down')
+                distance = live_info.get('distance')
+                if (down is not None and isinstance(down, int) and 1 <= down <= 4 and 
+                    distance is not None and isinstance(distance, int) and distance >= 0):
+                    down_text = f"{down}&{distance}"
+                else:
+                    down_text = ""  # Don't show invalid down/distance
                 clock_text = live_info.get('clock', '')
                 
                 day_text = quarter_text
