@@ -65,7 +65,7 @@ class OfTheDayManager:
                     font_paths = [
                         os.path.abspath(os.path.join(font_dir, filename)),
                         os.path.join(font_dir, filename),
-                        os.path.join(current_dir, 'assets', 'fonts', filename),
+                        os.path.join(script_dir, '..', 'assets', 'fonts', filename),
                         os.path.join(script_dir, '..', 'assets', 'fonts', filename)
                     ]
                     
@@ -171,7 +171,13 @@ class OfTheDayManager:
                 # Try multiple possible paths for data files
                 script_dir = os.path.dirname(os.path.abspath(__file__))
                 current_dir = os.getcwd()
+                project_root = os.path.dirname(script_dir)  # Go up one level from src/ to project root
                 possible_paths = []
+                
+                logger.debug(f"Script directory: {script_dir}")
+                logger.debug(f"Current working directory: {current_dir}")
+                logger.debug(f"Project root directory: {project_root}")
+                logger.debug(f"Data file from config: {data_file}")
                 
                 if os.path.isabs(data_file):
                     possible_paths.append(data_file)
@@ -179,16 +185,27 @@ class OfTheDayManager:
                     # Always try multiple paths regardless of how data_file is specified
                     possible_paths.extend([
                         os.path.join(current_dir, data_file),  # Current working directory first
-                        os.path.join(script_dir, '..', data_file),
-                        data_file
+                        os.path.join(project_root, data_file),  # Project root directory
+                        os.path.join(script_dir, '..', data_file),  # Relative to script directory
+                        data_file  # Direct path
                     ])
                     
                     # If data_file doesn't already contain 'of_the_day/', also try with it
                     if not data_file.startswith('of_the_day/'):
                         possible_paths.extend([
-                            os.path.join(current_dir, 'of_the_day', data_file),
-                            os.path.join(script_dir, '..', 'of_the_day', data_file),
-                            os.path.join('of_the_day', data_file)
+                            os.path.join(current_dir, 'of_the_day', os.path.basename(data_file)),
+                            os.path.join(project_root, 'of_the_day', os.path.basename(data_file)),
+                            os.path.join(script_dir, '..', 'of_the_day', os.path.basename(data_file)),
+                            os.path.join('of_the_day', os.path.basename(data_file))
+                        ])
+                    else:
+                        # If data_file already contains 'of_the_day/', try extracting just the filename
+                        filename = os.path.basename(data_file)
+                        possible_paths.extend([
+                            os.path.join(current_dir, 'of_the_day', filename),
+                            os.path.join(project_root, 'of_the_day', filename),
+                            os.path.join(script_dir, '..', 'of_the_day', filename),
+                            os.path.join('of_the_day', filename)
                         ])
                 
                 # Debug: Show all paths before deduplication
