@@ -594,7 +594,8 @@ class BaseNCAAFBManager: # Renamed class
                 "clock": status.get("displayClock", "0:00"),
                 "is_live": status["type"]["state"] == "in",
                 "is_final": status["type"]["state"] == "post",
-                "is_upcoming": status["type"]["state"] == "pre",
+                "is_upcoming": (status["type"]["state"] == "pre" or 
+                               status["type"]["name"].lower() in ['scheduled', 'pre-game', 'status_scheduled']),
                 "is_halftime": status["type"]["state"] == "halftime" or status["type"]["name"] == "STATUS_HALFTIME", # Added halftime check
                 "home_abbr": home_abbr,
                 "home_score": home_team.get("score", "0"),
@@ -1050,6 +1051,7 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
             # Define date range for "recent" games (last 21 days to capture games from 3 weeks ago)
             now = datetime.now(timezone.utc)
             recent_cutoff = now - timedelta(days=21)
+            self.logger.info(f"[NCAAFB Recent DEBUG] Current time: {now}, Recent cutoff: {recent_cutoff} (21 days ago)")
             
             # Process games and filter for final games, date range & favorite teams
             processed_games = []
@@ -1065,6 +1067,10 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
                         if (game['home_abbr'] in self.favorite_teams or 
                             game['away_abbr'] in self.favorite_teams):
                             favorite_games_found += 1
+                            
+                        # Special check for Tennessee game in recent games
+                        if (game['home_abbr'] == 'TENN' and game['away_abbr'] == 'UGA') or (game['home_abbr'] == 'UGA' and game['away_abbr'] == 'TENN'):
+                            self.logger.info(f"[NCAAFB Recent DEBUG] Found Tennessee game in recent: {game['away_abbr']} @ {game['home_abbr']} - {game.get('start_time_utc')} - Score: {game['away_score']}-{game['home_score']}")
 
             # Filter for favorite teams
             if self.favorite_teams:
@@ -1340,6 +1346,7 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
             
             # Debug: Check what statuses we're seeing
             status_counts = {}
+            status_names = {}  # Track actual status names from ESPN
             favorite_team_games = []
             for event in events:
                 game = self._extract_game_details(event)
@@ -1347,19 +1354,31 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
                     status = "upcoming" if game['is_upcoming'] else "final" if game['is_final'] else "live" if game['is_live'] else "other"
                     status_counts[status] = status_counts.get(status, 0) + 1
                     
+                    # Track actual ESPN status names
+                    actual_status = event.get('competitions', [{}])[0].get('status', {}).get('type', {})
+                    status_name = actual_status.get('name', 'Unknown')
+                    status_state = actual_status.get('state', 'Unknown')
+                    status_names[f"{status_name} ({status_state})"] = status_names.get(f"{status_name} ({status_state})", 0) + 1
+                    
                     # Check for favorite team games regardless of status
                     if (game['home_abbr'] in self.favorite_teams or game['away_abbr'] in self.favorite_teams):
                         favorite_team_games.append({
                             'teams': f"{game['away_abbr']} @ {game['home_abbr']}",
                             'status': status,
-                            'date': game.get('start_time_utc', 'Unknown')
+                            'date': game.get('start_time_utc', 'Unknown'),
+                            'espn_status': f"{status_name} ({status_state})"
                         })
+                    
+                    # Special check for Tennessee game (Georgia @ Tennessee)
+                    if (game['home_abbr'] == 'TENN' and game['away_abbr'] == 'UGA') or (game['home_abbr'] == 'UGA' and game['away_abbr'] == 'TENN'):
+                        self.logger.info(f"[NCAAFB DEBUG] Found Tennessee game: {game['away_abbr']} @ {game['home_abbr']} - {status} - {game.get('start_time_utc')} - ESPN: {status_name} ({status_state})")
             
             self.logger.info(f"[NCAAFB Upcoming] Status breakdown: {status_counts}")
+            self.logger.info(f"[NCAAFB Upcoming] ESPN status names: {status_names}")
             if favorite_team_games:
                 self.logger.info(f"[NCAAFB Upcoming] Favorite team games found: {len(favorite_team_games)}")
                 for game in favorite_team_games[:3]:  # Show first 3
-                    self.logger.info(f"[NCAAFB Upcoming]   {game['teams']} - {game['status']} - {game['date']}")
+                    self.logger.info(f"[NCAAFB Upcoming]   {game['teams']} - {game['status']} - {game['date']} - ESPN: {game['espn_status']}")
             
             if self.favorite_teams and all_upcoming_games > 0:
                 self.logger.info(f"[NCAAFB Upcoming] Favorite teams: {self.favorite_teams}")
