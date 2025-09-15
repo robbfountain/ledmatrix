@@ -908,14 +908,32 @@ class NCAABaseballRecentManager(BaseNCAABaseballManager):
             
             # Filter for favorite teams only if the config is set
             if self.ncaa_baseball_config.get("show_favorite_teams_only", False):
-                team_games = [game for game in new_recent_games if game['home_team'] in self.favorite_teams or game['away_team'] in self.favorite_teams]
+                # Get all games involving favorite teams
+                favorite_team_games = [game for game in new_recent_games
+                                      if game['home_team'] in self.favorite_teams or
+                                         game['away_team'] in self.favorite_teams]
+                
+                # Select one game per favorite team (most recent game for each team)
+                team_games = []
+                for team in self.favorite_teams:
+                    # Find games where this team is playing
+                    team_specific_games = [game for game in favorite_team_games
+                                          if game['home_team'] == team or game['away_team'] == team]
+                    
+                    if team_specific_games:
+                        # Sort by game time and take the most recent
+                        team_specific_games.sort(key=lambda g: g.get('start_time'), reverse=True)
+                        team_games.append(team_specific_games[0])
+                
+                # Sort the final list by game time (most recent first)
+                team_games.sort(key=lambda g: g.get('start_time'), reverse=True)
             else:
                 team_games = new_recent_games
-
-            if team_games:
                 # Sort by game time (most recent first), then limit to recent_games_to_show
                 team_games = sorted(team_games, key=lambda g: g.get('start_time'), reverse=True)
                 team_games = team_games[:self.recent_games_to_show]
+
+            if team_games:
                 logger.info(f"[NCAABaseball] Found {len(team_games)} recent games for favorite teams (limited to {self.recent_games_to_show}): {self.favorite_teams}")
                 self.recent_games = team_games
                 if not self.current_game or self.current_game.get('id') not in [g.get('id') for g in self.recent_games]:
@@ -1010,14 +1028,32 @@ class NCAABaseballUpcomingManager(BaseNCAABaseballManager):
                 
                 # Filter for favorite teams only if the config is set
                 if self.ncaa_baseball_config.get("show_favorite_teams_only", False):
-                    team_games = [game for game in new_upcoming_games if game['home_team'] in self.favorite_teams or game['away_team'] in self.favorite_teams]
+                    # Get all games involving favorite teams
+                    favorite_team_games = [game for game in new_upcoming_games
+                                          if game['home_team'] in self.favorite_teams or
+                                             game['away_team'] in self.favorite_teams]
+                    
+                    # Select one game per favorite team (earliest upcoming game for each team)
+                    team_games = []
+                    for team in self.favorite_teams:
+                        # Find games where this team is playing
+                        team_specific_games = [game for game in favorite_team_games
+                                              if game['home_team'] == team or game['away_team'] == team]
+                        
+                        if team_specific_games:
+                            # Sort by game time and take the earliest
+                            team_specific_games.sort(key=lambda g: g.get('start_time'))
+                            team_games.append(team_specific_games[0])
+                    
+                    # Sort the final list by game time
+                    team_games.sort(key=lambda g: g.get('start_time'))
                 else:
                     team_games = new_upcoming_games
-
-                if team_games:
                     # Sort by game time (soonest first), then limit to configured count
                     team_games = sorted(team_games, key=lambda g: g.get('start_time'))
                     team_games = team_games[:self.upcoming_games_to_show]
+
+                if team_games:
                     logger.info(f"[NCAABaseball] Found {len(team_games)} upcoming games for favorite teams (limited to {self.upcoming_games_to_show})")
                     self.upcoming_games = team_games
                     if not self.current_game or self.current_game.get('id') not in [g.get('id') for g in self.upcoming_games]:

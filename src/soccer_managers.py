@@ -971,13 +971,30 @@ class SoccerRecentManager(BaseSoccerManager):
 
             # Filter for favorite teams only if the config is set
             if self.soccer_config.get("show_favorite_teams_only", False):
-                team_games = [game for game in new_recent_games if game['home_abbr'] in self.favorite_teams or game['away_abbr'] in self.favorite_teams]
+                # Get all games involving favorite teams
+                favorite_team_games = [game for game in new_recent_games
+                                      if game['home_abbr'] in self.favorite_teams or
+                                         game['away_abbr'] in self.favorite_teams]
+                
+                # Select one game per favorite team (most recent game for each team)
+                team_games = []
+                for team in self.favorite_teams:
+                    # Find games where this team is playing
+                    team_specific_games = [game for game in favorite_team_games
+                                          if game['home_abbr'] == team or game['away_abbr'] == team]
+                    
+                    if team_specific_games:
+                        # Sort by game time and take the most recent
+                        team_specific_games.sort(key=lambda g: g['start_time_utc'], reverse=True)
+                        team_games.append(team_specific_games[0])
+                
+                # Sort the final list by game time (most recent first)
+                team_games.sort(key=lambda g: g['start_time_utc'], reverse=True)
             else:
                 team_games = new_recent_games
-            
-            # Sort games by start time, most recent first, and limit to recent_games_to_show
-            team_games.sort(key=lambda x: x['start_time_utc'], reverse=True)
-            team_games = team_games[:self.recent_games_to_show]
+                # Sort games by start time, most recent first, and limit to recent_games_to_show
+                team_games.sort(key=lambda x: x['start_time_utc'], reverse=True)
+                team_games = team_games[:self.recent_games_to_show]
 
             # Update only if the list content changes
             new_ids = {g['id'] for g in team_games}
@@ -1078,13 +1095,30 @@ class SoccerUpcomingManager(BaseSoccerManager):
             
             # Filter for favorite teams only if the config is set
             if self.soccer_config.get("show_favorite_teams_only", False):
-                team_games = [game for game in new_upcoming_games if game['home_abbr'] in self.favorite_teams or game['away_abbr'] in self.favorite_teams]
+                # Get all games involving favorite teams
+                favorite_team_games = [game for game in new_upcoming_games
+                                      if game['home_abbr'] in self.favorite_teams or
+                                         game['away_abbr'] in self.favorite_teams]
+                
+                # Select one game per favorite team (earliest upcoming game for each team)
+                team_games = []
+                for team in self.favorite_teams:
+                    # Find games where this team is playing
+                    team_specific_games = [game for game in favorite_team_games
+                                          if game['home_abbr'] == team or game['away_abbr'] == team]
+                    
+                    if team_specific_games:
+                        # Sort by game time and take the earliest
+                        team_specific_games.sort(key=lambda g: g['start_time_utc'])
+                        team_games.append(team_specific_games[0])
+                
+                # Sort the final list by game time
+                team_games.sort(key=lambda g: g['start_time_utc'])
             else:
                 team_games = new_upcoming_games
-
-            # Sort games by start time, soonest first, then limit to configured count
-            team_games.sort(key=lambda x: x['start_time_utc'])
-            team_games = team_games[:self.upcoming_games_to_show]
+                # Sort games by start time, soonest first, then limit to configured count
+                team_games.sort(key=lambda x: x['start_time_utc'])
+                team_games = team_games[:self.upcoming_games_to_show]
 
              # Update only if the list content changes
             new_ids = {g['id'] for g in team_games}
