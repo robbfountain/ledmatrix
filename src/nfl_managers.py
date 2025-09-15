@@ -1118,20 +1118,34 @@ class NFLUpcomingManager(BaseNFLManager): # Renamed class
 
             # This check is now partially redundant if show_favorite_teams_only is true, but acts as the main filter otherwise
             if self.nfl_config.get("show_favorite_teams_only", False):
-                team_games = [game for game in processed_games
-                              if game['home_abbr'] in self.favorite_teams or
-                                 game['away_abbr'] in self.favorite_teams]
+                # Get all games involving favorite teams
+                favorite_team_games = [game for game in processed_games
+                                      if game['home_abbr'] in self.favorite_teams or
+                                         game['away_abbr'] in self.favorite_teams]
+                
+                # Select one game per favorite team (earliest upcoming game for each team)
+                team_games = []
+                for team in self.favorite_teams:
+                    # Find games where this team is playing
+                    team_specific_games = [game for game in favorite_team_games
+                                          if game['home_abbr'] == team or game['away_abbr'] == team]
+                    
+                    if team_specific_games:
+                        # Sort by game time and take the earliest
+                        team_specific_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=self._get_timezone()))
+                        team_games.append(team_specific_games[0])
+                
+                # Sort the final list by game time
+                team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=self._get_timezone()))
             else:
                 team_games = processed_games # Show all upcoming if no favorites
-
-            # Sort by game time, earliest first
-            team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=self._get_timezone()))
-            
-            # Limit to the specified number of upcoming games (default 10)
-            upcoming_games_to_show = self.nfl_config.get("upcoming_games_to_show", 10)
-            self.logger.debug(f"[NFL Upcoming] Limiting to {upcoming_games_to_show} games (found {len(team_games)} total)")
-            team_games = team_games[:upcoming_games_to_show]
-            self.logger.debug(f"[NFL Upcoming] After limiting: {len(team_games)} games")
+                # Sort by game time, earliest first
+                team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=self._get_timezone()))
+                # Limit to the specified number of upcoming games (default 10)
+                upcoming_games_to_show = self.nfl_config.get("upcoming_games_to_show", 10)
+                self.logger.debug(f"[NFL Upcoming] Limiting to {upcoming_games_to_show} games (found {len(team_games)} total)")
+                team_games = team_games[:upcoming_games_to_show]
+                self.logger.debug(f"[NFL Upcoming] After limiting: {len(team_games)} games")
 
             # Log changes or periodically
             should_log = (
