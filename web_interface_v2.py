@@ -76,12 +76,23 @@ class DictWrapper:
             self._value = data
     
     def __getattr__(self, name):
-        # Return None for missing attributes to avoid template errors
-        return None
+        # Return a new DictWrapper with empty dict for missing attributes
+        # This allows chaining like main_config.display.hardware.rows
+        return DictWrapper({})
     
     def __getitem__(self, key):
         # Support bracket notation as fallback
-        return getattr(self, key, None)
+        return getattr(self, key, DictWrapper({}))
+    
+    def items(self):
+        # Support .items() method for iteration
+        if hasattr(self, '_value'):
+            return {}
+        return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+    
+    def get(self, key, default=None):
+        # Support .get() method
+        return getattr(self, key, default)
 
 class DisplayMonitor:
     def __init__(self):
