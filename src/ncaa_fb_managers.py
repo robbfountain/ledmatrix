@@ -208,6 +208,8 @@ class BaseNCAAFBManager: # Renamed class
         """
         Fetches the full season schedule for NCAAFB using week-by-week approach to ensure
         we get all games, then caches the complete dataset.
+        
+        This method now uses background threading to prevent blocking the display.
         """
         now = datetime.now(pytz.utc)
         current_year = now.year
@@ -225,74 +227,22 @@ class BaseNCAAFBManager: # Renamed class
                     all_events.extend(cached_data)
                     continue
             
-            self.logger.info(f"[NCAAFB] Fetching full {year} season schedule from ESPN API...")
-            year_events = []
-            
-            # Fetch week by week to ensure we get complete season data
-            # College football typically has weeks 1-15 plus postseason
-            for week in range(1, 16):
-                try:
-                    url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?seasontype=2&week={week}"
-                    response = self.session.get(url, headers=self.headers, timeout=15)
-                    response.raise_for_status()
-                    data = response.json()
-                    week_events = data.get('events', [])
-                    year_events.extend(week_events)
-                    
-                    # Log progress for first few weeks
-                    if week <= 3:
-                        self.logger.debug(f"[NCAAFB] Week {week}: fetched {len(week_events)} events")
-                    
-                    # If no events found for this week, we might be past the season
-                    if not week_events and week > 10:
-                        self.logger.debug(f"[NCAAFB] No events found for week {week}, ending season fetch")
-                        break
-                        
-                except requests.exceptions.RequestException as e:
-                    self.logger.warning(f"[NCAAFB] Error fetching week {week} for {year}: {e}")
+            # Check if we're already fetching this year's data in background
+            if hasattr(self, '_background_fetching') and year in self._background_fetching:
+                self.logger.info(f"[NCAAFB] Background fetch already in progress for {year}, using partial data")
+                # Return partial data if available, or trigger background fetch
+                partial_data = self._get_partial_schedule_data(year)
+                if partial_data:
+                    all_events.extend(partial_data)
                     continue
             
-            # Also fetch postseason games (bowl games, playoffs)
-            try:
-                url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?seasontype=3"
-                response = self.session.get(url, headers=self.headers, timeout=15)
-                response.raise_for_status()
-                data = response.json()
-                postseason_events = data.get('events', [])
-                year_events.extend(postseason_events)
-                self.logger.debug(f"[NCAAFB] Postseason: fetched {len(postseason_events)} events")
-            except requests.exceptions.RequestException as e:
-                self.logger.warning(f"[NCAAFB] Error fetching postseason for {year}: {e}")
+            self.logger.info(f"[NCAAFB] Fetching full {year} season schedule from ESPN API...")
             
-            # CRITICAL FIX: Also fetch current week using date-based approach (like odds manager)
-            # This ensures we get games that might be missed by week-based API
-            try:
-                now = datetime.now(pytz.utc)
-                # Fetch games from yesterday to next 14 days (extended window for upcoming games)
-                for days_offset in range(-1, 15):  # Yesterday through next 14 days
-                    check_date = now + timedelta(days=days_offset)
-                    date_str = check_date.strftime('%Y%m%d')
-                    
-                    url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={date_str}"
-                    response = self.session.get(url, headers=self.headers, timeout=15)
-                    response.raise_for_status()
-                    data = response.json()
-                    date_events = data.get('events', [])
-                    
-                    # Avoid duplicates by checking event IDs
-                    existing_ids = {event.get('id') for event in year_events}
-                    new_events = [event for event in date_events if event.get('id') not in existing_ids]
-                    year_events.extend(new_events)
-                    
-                    if days_offset == 0:  # Today
-                        self.logger.debug(f"[NCAAFB] Current date ({date_str}): fetched {len(new_events)} new events")
-                        
-            except requests.exceptions.RequestException as e:
-                self.logger.warning(f"[NCAAFB] Error fetching current week date-based data: {e}")
+            # Start background fetch for complete data
+            self._start_background_schedule_fetch(year)
             
-            if use_cache:
-                self.cache_manager.set(cache_key, year_events)
-            self.logger.info(f"[NCAAFB] Successfully fetched and cached {len(year_events)} events for {year} season.")
+            # For immediate response, fetch current/recent games only
+            year_events = self._fetch_immediate_games(year)
             all_events.extend(year_events)
         
         if not all_events:
@@ -300,6 +250,115 @@ class BaseNCAAFBManager: # Renamed class
             return None
 
         return {'events': all_events}
+    
+    def _fetch_immediate_games(self, year: int) -> List[Dict]:
+        """Fetch immediate games (current week + next few days) for quick display."""
+        immediate_events = []
+        
+        try:
+            # Fetch current week and next few days for immediate display
+            now = datetime.now(pytz.utc)
+            for days_offset in range(-1, 7):  # Yesterday through next 6 days
+                check_date = now + timedelta(days=days_offset)
+                date_str = check_date.strftime('%Y%m%d')
+                
+                url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={date_str}"
+                response = self.session.get(url, headers=self.headers, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+                date_events = data.get('events', [])
+                immediate_events.extend(date_events)
+                
+                if days_offset == 0:  # Today
+                    self.logger.debug(f"[NCAAFB] Immediate fetch - Current date ({date_str}): {len(date_events)} events")
+                    
+        except requests.exceptions.RequestException as e:
+            self.logger.warning(f"[NCAAFB] Error fetching immediate games for {year}: {e}")
+        
+        return immediate_events
+    
+    def _start_background_schedule_fetch(self, year: int):
+        """Start background thread to fetch complete season schedule."""
+        import threading
+        
+        if not hasattr(self, '_background_fetching'):
+            self._background_fetching = set()
+        
+        if year in self._background_fetching:
+            return  # Already fetching
+        
+        self._background_fetching.add(year)
+        
+        def background_fetch():
+            try:
+                start_time = time.time()
+                self.logger.info(f"[NCAAFB] Starting background fetch for {year} season...")
+                year_events = []
+                
+                # Fetch week by week to ensure we get complete season data
+                for week in range(1, 16):
+                    # Add timeout check to prevent infinite background fetching
+                    if time.time() - start_time > 300:  # 5 minute timeout
+                        self.logger.warning(f"[NCAAFB] Background fetch timeout after 5 minutes for {year}")
+                        break
+                        
+                    try:
+                        url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?seasontype=2&week={week}"
+                        response = self.session.get(url, headers=self.headers, timeout=15)
+                        response.raise_for_status()
+                        data = response.json()
+                        week_events = data.get('events', [])
+                        year_events.extend(week_events)
+                        
+                        # Log progress for first few weeks
+                        if week <= 3:
+                            self.logger.debug(f"[NCAAFB] Background - Week {week}: fetched {len(week_events)} events")
+                        
+                        # If no events found for this week, we might be past the season
+                        if not week_events and week > 10:
+                            self.logger.debug(f"[NCAAFB] Background - No events found for week {week}, ending season fetch")
+                            break
+                            
+                    except requests.exceptions.RequestException as e:
+                        self.logger.warning(f"[NCAAFB] Background - Error fetching week {week} for {year}: {e}")
+                        continue
+                
+                # Also fetch postseason games (bowl games, playoffs) if we haven't timed out
+                if time.time() - start_time < 300:
+                    try:
+                        url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?seasontype=3"
+                        response = self.session.get(url, headers=self.headers, timeout=15)
+                        response.raise_for_status()
+                        data = response.json()
+                        postseason_events = data.get('events', [])
+                        year_events.extend(postseason_events)
+                        self.logger.debug(f"[NCAAFB] Background - Postseason: fetched {len(postseason_events)} events")
+                    except requests.exceptions.RequestException as e:
+                        self.logger.warning(f"[NCAAFB] Background - Error fetching postseason for {year}: {e}")
+                
+                # Cache the complete data
+                cache_key = f"ncaafb_schedule_{year}"
+                self.cache_manager.set(cache_key, year_events)
+                elapsed_time = time.time() - start_time
+                self.logger.info(f"[NCAAFB] Background fetch completed for {year}: {len(year_events)} events cached in {elapsed_time:.1f}s")
+                
+            except Exception as e:
+                self.logger.error(f"[NCAAFB] Background fetch failed for {year}: {e}")
+            finally:
+                self._background_fetching.discard(year)
+        
+        # Start background thread
+        fetch_thread = threading.Thread(target=background_fetch, daemon=True)
+        fetch_thread.start()
+    
+    def _get_partial_schedule_data(self, year: int) -> List[Dict]:
+        """Get partial schedule data if available from cache or previous fetch."""
+        cache_key = f"ncaafb_schedule_{year}"
+        cached_data = self.cache_manager.get(cache_key, max_age=self.season_cache_duration * 2)  # Allow older data
+        if cached_data:
+            self.logger.debug(f"[NCAAFB] Using partial cached data for {year}: {len(cached_data)} events")
+            return cached_data
+        return []
 
     def _fetch_data(self, date_str: str = None) -> Optional[Dict]:
         """Fetch data using shared data mechanism or direct fetch for live."""
