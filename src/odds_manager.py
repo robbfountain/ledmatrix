@@ -35,7 +35,17 @@ class OddsManager:
         self.logger.info(f"Cache miss - fetching fresh odds from ESPN for {cache_key}")
         
         try:
-            url = f"{self.base_url}/{sport}/leagues/{league}/events/{event_id}/competitions/{event_id}/odds"
+            # Map league names to ESPN API format
+            league_mapping = {
+                'ncaa_fb': 'college-football',
+                'nfl': 'nfl',
+                'nba': 'nba',
+                'mlb': 'mlb',
+                'nhl': 'nhl'
+            }
+            
+            espn_league = league_mapping.get(league, league)
+            url = f"{self.base_url}/{sport}/leagues/{espn_league}/events/{event_id}/competitions/{event_id}/odds"
             self.logger.info(f"Requesting odds from URL: {url}")
             response = requests.get(url, timeout=10)
             response.raise_for_status()

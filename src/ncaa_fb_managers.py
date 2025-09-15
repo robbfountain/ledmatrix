@@ -1078,6 +1078,10 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
                               if game['home_abbr'] in self.favorite_teams or
                                  game['away_abbr'] in self.favorite_teams]
                 self.logger.info(f"[NCAAFB Recent] Found {favorite_games_found} favorite team games out of {len(processed_games)} total final games within last 21 days")
+                
+                # Debug: Show which games are selected for display
+                for i, game in enumerate(team_games):
+                    self.logger.info(f"[NCAAFB Recent DEBUG] Game {i+1} for display: {game['away_abbr']} @ {game['home_abbr']} - {game.get('start_time_utc')} - Score: {game['away_score']}-{game['home_score']}")
             else:
                  team_games = processed_games # Show all recent games if no favorites defined
                  self.logger.info(f"[NCAAFB Recent] Found {len(processed_games)} total final games within last 21 days (no favorite teams configured)")
