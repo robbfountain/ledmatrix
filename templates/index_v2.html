@@ -2037,7 +2037,7 @@
     <div id="notification" class="notification"></div>
 
     <!-- Server-provided data for JS (avoids inline Jinja in JS) -->
-    <script id="serverData" type="application/json">{{ {'main_config': main_config, 'editor_mode': editor_mode} | tojson }}</script>
+    <script id="serverData" type="application/json">{{ {'main_config': main_config_data, 'editor_mode': editor_mode} | tojson }}</script>
 
     <script>
         // Global variables
@@ -2048,6 +2048,19 @@
         let editorMode = !!__serverData.editor_mode;
         let currentElements = [];
         let selectedElement = null;
+
+        // Function to refresh the current config from the server
+        async function refreshCurrentConfig() {
+            try {
+                const response = await fetch('/api/config/main');
+                if (response.ok) {
+                    const configData = await response.json();
+                    currentConfig = configData;
+                }
+            } catch (error) {
+                console.warn('Failed to refresh current config:', error);
+            }
+        }
 
         async function refreshOnDemandStatus(){
             try{
@@ -3451,6 +3464,8 @@
         // Sports configuration
         async function refreshSportsConfig(){
             try {
+                // Refresh the current config to ensure we have the latest data
+                await refreshCurrentConfig();
                 const res = await fetch('/api/system/status');
                 const stats = await res.json();
                 // Build a minimal sports UI off current config

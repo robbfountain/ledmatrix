@@ -39,17 +39,35 @@ class OfTheDayManager:
 
         # Load fonts with robust path resolution and fallbacks
         try:
+            # Try multiple font directory locations
             script_dir = os.path.dirname(os.path.abspath(__file__))
-            font_dir = os.path.abspath(os.path.join(script_dir, '..', 'assets', 'fonts'))
+            possible_font_dirs = [
+                os.path.abspath(os.path.join(script_dir, '..', 'assets', 'fonts')),  # Relative to src/
+                os.path.abspath(os.path.join(os.getcwd(), 'assets', 'fonts')),      # Relative to project root
+                'assets/fonts'  # Simple relative path
+            ]
+            
+            font_dir = None
+            for potential_dir in possible_font_dirs:
+                if os.path.exists(potential_dir):
+                    font_dir = potential_dir
+                    logger.debug(f"Found font directory at: {font_dir}")
+                    break
+            
+            if font_dir is None:
+                logger.warning("No font directory found, using fallback fonts")
+                raise FileNotFoundError("Font directory not found")
 
             def _safe_load_bdf_font(filename):
                 try:
                     font_path = os.path.abspath(os.path.join(font_dir, filename))
                     if not os.path.exists(font_path):
-                        raise FileNotFoundError(f"Font file not found: {font_path}")
+                        logger.debug(f"Font file not found: {font_path}")
+                        return None
+                    logger.debug(f"Loading BDF font: {font_path}")
                     return freetype.Face(font_path)
                 except Exception as e:
-                    logger.error(f"Failed to load BDF font '{filename}': {e}")
+                    logger.debug(f"Failed to load BDF font '{filename}': {e}")
                     return None
 
             self.title_font = _safe_load_bdf_font('ic8x8u.bdf')
@@ -58,19 +76,19 @@ class OfTheDayManager:
             # Fallbacks if BDF fonts aren't available
             if self.title_font is None:
                 self.title_font = getattr(self.display_manager, 'bdf_5x7_font', None) or getattr(self.display_manager, 'small_font', ImageFont.load_default())
-                logger.warning("Using fallback font for title in OfTheDayManager")
+                logger.info("Using fallback font for title in OfTheDayManager")
             if self.body_font is None:
                 self.body_font = getattr(self.display_manager, 'bdf_5x7_font', None) or getattr(self.display_manager, 'small_font', ImageFont.load_default())
-                logger.warning("Using fallback font for body in OfTheDayManager")
+                logger.info("Using fallback font for body in OfTheDayManager")
 
             # Log font types for debugging
             logger.debug(f"Title font type: {type(self.title_font).__name__}")
             logger.debug(f"Body font type: {type(self.body_font).__name__}")
         except Exception as e:
-            logger.error(f"Unexpected error during font initialization: {e}")
+            logger.warning(f"Error during font initialization, using fallbacks: {e}")
             # Last-resort fallback
-            self.title_font = ImageFont.load_default()
-            self.body_font = ImageFont.load_default()
+            self.title_font = getattr(self.display_manager, 'small_font', ImageFont.load_default())
+            self.body_font = getattr(self.display_manager, 'small_font', ImageFont.load_default())
 
         # Load categories and their data
         self.categories = self.of_the_day_config.get('categories', {})
@@ -123,17 +141,40 @@ class OfTheDayManager:
                 continue
                 
             try:
-                # Try relative path first, then absolute
-                file_path = data_file
-                if not os.path.isabs(file_path):
+                # Try multiple possible paths for data files
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                possible_paths = []
+                
+                if os.path.isabs(data_file):
+                    possible_paths.append(data_file)
+                else:
                     # If data_file already contains 'of_the_day/', use it as is
                     if data_file.startswith('of_the_day/'):
-                        file_path = os.path.join(os.path.dirname(__file__), '..', data_file)
+                        possible_paths.extend([
+                            os.path.join(script_dir, '..', data_file),
+                            os.path.join(os.getcwd(), data_file),
+                            data_file
+                        ])
                     else:
-                        file_path = os.path.join(os.path.dirname(__file__), '..', 'of_the_day', data_file)
+                        possible_paths.extend([
+                            os.path.join(script_dir, '..', 'of_the_day', data_file),
+                            os.path.join(os.getcwd(), 'of_the_day', data_file),
+                            os.path.join('of_the_day', data_file)
+                        ])
                 
-                # Convert to absolute path for better logging
-                file_path = os.path.abspath(file_path)
+                file_path = None
+                for potential_path in possible_paths:
+                    abs_path = os.path.abspath(potential_path)
+                    if os.path.exists(abs_path):
+                        file_path = abs_path
+                        logger.debug(f"Found data file for {category_name} at: {file_path}")
+                        break
+                
+                if file_path is None:
+                    # Use the first attempted path for error reporting
+                    file_path = os.path.abspath(possible_paths[0])
+                    logger.debug(f"No data file found for {category_name}, tried: {[os.path.abspath(p) for p in possible_paths]}")
+                
                 logger.debug(f"Attempting to load {category_name} from: {file_path}")
                 
                 if os.path.exists(file_path):
@@ -159,7 +200,12 @@ class OfTheDayManager:
                     
                 else:
                     logger.error(f"Data file not found for {category_name}: {file_path}")
-                    logger.error(f"Directory contents: {os.listdir(os.path.dirname(file_path)) if os.path.exists(os.path.dirname(file_path)) else 'Parent directory does not exist'}")
+                    if os.path.exists(os.path.dirname(file_path)):
+                        dir_contents = os.listdir(os.path.dirname(file_path))
+                        logger.error(f"Directory contents: {dir_contents}")
+                    else:
+                        logger.error(f"Parent directory does not exist: {os.path.dirname(file_path)}")
+                    logger.error(f"Tried paths: {[os.path.abspath(p) for p in possible_paths]}")
                     self.data_files[category_name] = {}
                     
             except json.JSONDecodeError as e:
