@@ -169,18 +169,26 @@ class OfTheDayManager:
                     # If data_file already contains 'of_the_day/', use it as is
                     if data_file.startswith('of_the_day/'):
                         possible_paths.extend([
+                            os.path.join(current_dir, data_file),  # Current working directory first
                             os.path.join(script_dir, '..', data_file),
-                            os.path.join(current_dir, data_file),
-                            os.path.join('/home/ledpi/LEDMatrix', data_file),  # Explicit Pi path
                             data_file
                         ])
                     else:
                         possible_paths.extend([
+                            os.path.join(current_dir, 'of_the_day', data_file),  # Current working directory first
                             os.path.join(script_dir, '..', 'of_the_day', data_file),
-                            os.path.join(current_dir, 'of_the_day', data_file),
-                            os.path.join('/home/ledpi/LEDMatrix/of_the_day', data_file),  # Explicit Pi path
                             os.path.join('of_the_day', data_file)
                         ])
+                
+                # Remove duplicates while preserving order
+                seen = set()
+                unique_paths = []
+                for path in possible_paths:
+                    abs_path = os.path.abspath(path)
+                    if abs_path not in seen:
+                        seen.add(abs_path)
+                        unique_paths.append(abs_path)
+                possible_paths = unique_paths
                 
                 file_path = None
                 for potential_path in possible_paths:
@@ -189,6 +197,13 @@ class OfTheDayManager:
                         file_path = abs_path
                         logger.debug(f"Found data file for {category_name} at: {file_path}")
                         break
+                
+                # Final fallback - try the direct path relative to current working directory
+                if file_path is None:
+                    direct_path = os.path.join(current_dir, 'of_the_day', os.path.basename(data_file))
+                    if os.path.exists(direct_path):
+                        file_path = direct_path
+                        logger.debug(f"Found data file for {category_name} using direct fallback: {file_path}")
                 
                 if file_path is None:
                     # Use the first attempted path for error reporting
