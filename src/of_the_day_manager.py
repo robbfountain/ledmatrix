@@ -44,6 +44,7 @@ class OfTheDayManager:
             possible_font_dirs = [
                 os.path.abspath(os.path.join(script_dir, '..', 'assets', 'fonts')),  # Relative to src/
                 os.path.abspath(os.path.join(os.getcwd(), 'assets', 'fonts')),      # Relative to project root
+                os.path.abspath('assets/fonts'),  # Simple relative path made absolute
                 'assets/fonts'  # Simple relative path
             ]
             
@@ -63,6 +64,12 @@ class OfTheDayManager:
                     font_path = os.path.abspath(os.path.join(font_dir, filename))
                     if not os.path.exists(font_path):
                         logger.debug(f"Font file not found: {font_path}")
+                        # List available fonts for debugging
+                        try:
+                            available_fonts = [f for f in os.listdir(font_dir) if f.endswith('.bdf')]
+                            logger.debug(f"Available BDF fonts in {font_dir}: {available_fonts}")
+                        except:
+                            pass
                         return None
                     logger.debug(f"Loading BDF font: {font_path}")
                     return freetype.Face(font_path)
@@ -128,6 +135,16 @@ class OfTheDayManager:
         logger.info(f"Loading data files for {len(self.categories)} categories")
         logger.info(f"Current working directory: {os.getcwd()}")
         logger.info(f"Script directory: {os.path.dirname(__file__)}")
+        
+        # Additional debugging for Pi environment
+        logger.debug(f"Absolute script directory: {os.path.abspath(os.path.dirname(__file__))}")
+        logger.debug(f"Absolute working directory: {os.path.abspath(os.getcwd())}")
+        
+        # Check if we're running on Pi
+        if os.path.exists('/home/ledpi'):
+            logger.debug("Detected Pi environment (/home/ledpi exists)")
+        else:
+            logger.debug("Not running on Pi environment")
             
         for category_name, category_config in self.categories.items():
             logger.debug(f"Processing category: {category_name}")
@@ -143,6 +160,7 @@ class OfTheDayManager:
             try:
                 # Try multiple possible paths for data files
                 script_dir = os.path.dirname(os.path.abspath(__file__))
+                current_dir = os.getcwd()
                 possible_paths = []
                 
                 if os.path.isabs(data_file):
@@ -152,13 +170,15 @@ class OfTheDayManager:
                     if data_file.startswith('of_the_day/'):
                         possible_paths.extend([
                             os.path.join(script_dir, '..', data_file),
-                            os.path.join(os.getcwd(), data_file),
+                            os.path.join(current_dir, data_file),
+                            os.path.join('/home/ledpi/LEDMatrix', data_file),  # Explicit Pi path
                             data_file
                         ])
                     else:
                         possible_paths.extend([
                             os.path.join(script_dir, '..', 'of_the_day', data_file),
-                            os.path.join(os.getcwd(), 'of_the_day', data_file),
+                            os.path.join(current_dir, 'of_the_day', data_file),
+                            os.path.join('/home/ledpi/LEDMatrix/of_the_day', data_file),  # Explicit Pi path
                             os.path.join('of_the_day', data_file)
                         ])
                 
@@ -174,6 +194,19 @@ class OfTheDayManager:
                     # Use the first attempted path for error reporting
                     file_path = os.path.abspath(possible_paths[0])
                     logger.debug(f"No data file found for {category_name}, tried: {[os.path.abspath(p) for p in possible_paths]}")
+                    
+                    # Additional debugging - check if parent directory exists
+                    parent_dir = os.path.dirname(file_path)
+                    logger.debug(f"Parent directory: {parent_dir}")
+                    logger.debug(f"Parent directory exists: {os.path.exists(parent_dir)}")
+                    if os.path.exists(parent_dir):
+                        try:
+                            parent_contents = os.listdir(parent_dir)
+                            logger.debug(f"Parent directory contents: {parent_contents}")
+                        except PermissionError:
+                            logger.debug(f"Permission denied accessing parent directory: {parent_dir}")
+                        except Exception as e:
+                            logger.debug(f"Error listing parent directory: {e}")
                 
                 logger.debug(f"Attempting to load {category_name} from: {file_path}")
                 
@@ -200,11 +233,17 @@ class OfTheDayManager:
                     
                 else:
                     logger.error(f"Data file not found for {category_name}: {file_path}")
-                    if os.path.exists(os.path.dirname(file_path)):
-                        dir_contents = os.listdir(os.path.dirname(file_path))
-                        logger.error(f"Directory contents: {dir_contents}")
+                    parent_dir = os.path.dirname(file_path)
+                    if os.path.exists(parent_dir):
+                        try:
+                            dir_contents = os.listdir(parent_dir)
+                            logger.error(f"Directory contents of {parent_dir}: {dir_contents}")
+                        except PermissionError:
+                            logger.error(f"Permission denied accessing directory: {parent_dir}")
+                        except Exception as e:
+                            logger.error(f"Error listing directory {parent_dir}: {e}")
                     else:
-                        logger.error(f"Parent directory does not exist: {os.path.dirname(file_path)}")
+                        logger.error(f"Parent directory does not exist: {parent_dir}")
                     logger.error(f"Tried paths: {[os.path.abspath(p) for p in possible_paths]}")
                     self.data_files[category_name] = {}
                     
