@@ -559,6 +559,13 @@ if [ -f "$PROJECT_ROOT_DIR/config/config_secrets.json" ]; then
     echo "✓ Secrets file permissions set"
 fi
 
+# Set proper permissions for YTM auth file (readable by all users including root service)
+if [ -f "$PROJECT_ROOT_DIR/config/ytm_auth.json" ]; then
+    chown "$ACTUAL_USER:$ACTUAL_USER" "$PROJECT_ROOT_DIR/config/ytm_auth.json" || true
+    chmod 644 "$PROJECT_ROOT_DIR/config/ytm_auth.json"
+    echo "✓ YTM auth file permissions set"
+fi
+
 echo "✓ File ownership configured"
 echo ""
 
