@@ -877,11 +877,11 @@
                             <div class="stat-label">CPU Temperature</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-value">{{ main_config.display.hardware.brightness }}</div>
+                            <div class="stat-value">{{ main_config.display.hardware.brightness if main_config and main_config.display and main_config.display.hardware and main_config.display.hardware.brightness is defined else 0 }}</div>
                             <div class="stat-label">Brightness</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-value">{{ main_config.display.hardware.cols }}x{{ main_config.display.hardware.rows }}</div>
+                            <div class="stat-value">{{ main_config.display.hardware.cols if main_config and main_config.display and main_config.display.hardware and main_config.display.hardware.cols is defined else 0 }}x{{ main_config.display.hardware.rows if main_config and main_config.display and main_config.display.hardware and main_config.display.hardware.rows is defined else 0 }}</div>
                             <div class="stat-label">Resolution</div>
                         </div>
                         <div class="stat-card">

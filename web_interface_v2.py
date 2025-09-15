@@ -62,6 +62,27 @@ current_display_data = {}
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+class DictWrapper:
+    """Wrapper to make dictionary accessible via dot notation for Jinja2 templates."""
+    def __init__(self, data):
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, dict):
+                    setattr(self, key, DictWrapper(value))
+                else:
+                    setattr(self, key, value)
+        else:
+            # If not a dict, just store the value
+            self._value = data
+    
+    def __getattr__(self, name):
+        # Return None for missing attributes to avoid template errors
+        return None
+    
+    def __getitem__(self, key):
+        # Support bracket notation as fallback
+        return getattr(self, key, None)
+
 class DisplayMonitor:
     def __init__(self):
         self.running = False
@@ -401,7 +422,7 @@ def index():
         
         return render_template('index_v2.html', 
                              schedule_config=schedule_config,
-                             main_config=main_config,
+                             main_config=DictWrapper(main_config),
                              main_config_data=main_config_data,
                              secrets_config=secrets_config_data,
                              main_config_json=main_config_json,
@@ -418,7 +439,7 @@ def index():
         safe_secrets = {'weather': {'api_key': ''}}
         return render_template('index_v2.html',
                                schedule_config={},
-                               main_config={},
+                               main_config=DictWrapper({}),
                                main_config_data={},
                                secrets_config=safe_secrets,
                                main_config_json="{}",
@@ -1444,6 +1465,5 @@ if __name__ == '__main__':
         host='0.0.0.0',
         port=5001,
         debug=False,
-        use_reloader=False,
-        allow_unsafe_werkzeug=True
+        use_reloader=False
     )
