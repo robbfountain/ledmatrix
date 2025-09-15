@@ -268,8 +268,8 @@ class BaseNCAAFBManager: # Renamed class
             # This ensures we get games that might be missed by week-based API
             try:
                 now = datetime.now(pytz.utc)
-                # Fetch games from yesterday to next 7 days (same as odds manager)
-                for days_offset in range(-1, 8):  # Yesterday through next 7 days
+                # Fetch games from yesterday to next 14 days (extended window for upcoming games)
+                for days_offset in range(-1, 15):  # Yesterday through next 14 days
                     check_date = now + timedelta(days=days_offset)
                     date_str = check_date.strftime('%Y%m%d')
                     
@@ -487,7 +487,7 @@ class BaseNCAAFBManager: # Renamed class
             # Only log debug info for favorite team games
             if is_favorite_game:
                 self.logger.debug(f"[NCAAFB] Processing favorite team game: {game_event.get('id')}")
-                self.logger.debug(f"[NCAAFB] Found teams: {away_abbr}@{home_abbr}, Status: {status['type']['name']}")
+                self.logger.debug(f"[NCAAFB] Found teams: {away_abbr}@{home_abbr}, Status: {status['type']['name']}, State: {status['type']['state']}")
             
             home_record = home_team.get('records', [{}])[0].get('summary', '') if home_team.get('records') else ''
             away_record = away_team.get('records', [{}])[0].get('summary', '') if away_team.get('records') else ''
@@ -1337,6 +1337,30 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
             # Enhanced logging for debugging
             self.logger.info(f"[NCAAFB Upcoming] Found {all_upcoming_games} total upcoming games in data")
             self.logger.info(f"[NCAAFB Upcoming] Found {len(processed_games)} upcoming games after filtering")
+            
+            # Debug: Check what statuses we're seeing
+            status_counts = {}
+            favorite_team_games = []
+            for event in events:
+                game = self._extract_game_details(event)
+                if game:
+                    status = "upcoming" if game['is_upcoming'] else "final" if game['is_final'] else "live" if game['is_live'] else "other"
+                    status_counts[status] = status_counts.get(status, 0) + 1
+                    
+                    # Check for favorite team games regardless of status
+                    if (game['home_abbr'] in self.favorite_teams or game['away_abbr'] in self.favorite_teams):
+                        favorite_team_games.append({
+                            'teams': f"{game['away_abbr']} @ {game['home_abbr']}",
+                            'status': status,
+                            'date': game.get('start_time_utc', 'Unknown')
+                        })
+            
+            self.logger.info(f"[NCAAFB Upcoming] Status breakdown: {status_counts}")
+            if favorite_team_games:
+                self.logger.info(f"[NCAAFB Upcoming] Favorite team games found: {len(favorite_team_games)}")
+                for game in favorite_team_games[:3]:  # Show first 3
+                    self.logger.info(f"[NCAAFB Upcoming]   {game['teams']} - {game['status']} - {game['date']}")
+            
             if self.favorite_teams and all_upcoming_games > 0:
                 self.logger.info(f"[NCAAFB Upcoming] Favorite teams: {self.favorite_teams}")
                 self.logger.info(f"[NCAAFB Upcoming] Found {favorite_games_found} favorite team upcoming games")
