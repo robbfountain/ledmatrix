@@ -61,18 +61,28 @@ class OfTheDayManager:
 
             def _safe_load_bdf_font(filename):
                 try:
-                    font_path = os.path.abspath(os.path.join(font_dir, filename))
-                    if not os.path.exists(font_path):
-                        logger.debug(f"Font file not found: {font_path}")
-                        # List available fonts for debugging
-                        try:
-                            available_fonts = [f for f in os.listdir(font_dir) if f.endswith('.bdf')]
-                            logger.debug(f"Available BDF fonts in {font_dir}: {available_fonts}")
-                        except:
-                            pass
-                        return None
-                    logger.debug(f"Loading BDF font: {font_path}")
-                    return freetype.Face(font_path)
+                    # Try multiple font paths
+                    font_paths = [
+                        os.path.abspath(os.path.join(font_dir, filename)),
+                        os.path.join(font_dir, filename),
+                        os.path.join(current_dir, 'assets', 'fonts', filename),
+                        os.path.join(script_dir, '..', 'assets', 'fonts', filename)
+                    ]
+                    
+                    for font_path in font_paths:
+                        abs_font_path = os.path.abspath(font_path)
+                        if os.path.exists(abs_font_path):
+                            logger.debug(f"Loading BDF font: {abs_font_path}")
+                            return freetype.Face(abs_font_path)
+                    
+                    logger.debug(f"Font file not found: {filename}")
+                    # List available fonts for debugging
+                    try:
+                        available_fonts = [f for f in os.listdir(font_dir) if f.endswith('.bdf')]
+                        logger.debug(f"Available BDF fonts in {font_dir}: {available_fonts}")
+                    except:
+                        pass
+                    return None
                 except Exception as e:
                     logger.debug(f"Failed to load BDF font '{filename}': {e}")
                     return None
@@ -166,16 +176,17 @@ class OfTheDayManager:
                 if os.path.isabs(data_file):
                     possible_paths.append(data_file)
                 else:
-                    # If data_file already contains 'of_the_day/', use it as is
-                    if data_file.startswith('of_the_day/'):
+                    # Always try multiple paths regardless of how data_file is specified
+                    possible_paths.extend([
+                        os.path.join(current_dir, data_file),  # Current working directory first
+                        os.path.join(script_dir, '..', data_file),
+                        data_file
+                    ])
+                    
+                    # If data_file doesn't already contain 'of_the_day/', also try with it
+                    if not data_file.startswith('of_the_day/'):
                         possible_paths.extend([
-                            os.path.join(current_dir, data_file),  # Current working directory first
-                            os.path.join(script_dir, '..', data_file),
-                            data_file
-                        ])
-                    else:
-                        possible_paths.extend([
-                            os.path.join(current_dir, 'of_the_day', data_file),  # Current working directory first
+                            os.path.join(current_dir, 'of_the_day', data_file),
                             os.path.join(script_dir, '..', 'of_the_day', data_file),
                             os.path.join('of_the_day', data_file)
                         ])
