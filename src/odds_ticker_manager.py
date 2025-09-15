@@ -1491,9 +1491,9 @@ class OddsTickerManager:
             return
 
         gap_width = 24  # Reduced gap between games
-        display_width = self.display_manager.matrix.width  # Add display width of black space at start
+        display_width = self.display_manager.matrix.width  # Add display width of black space at start and end
         content_width = sum(img.width for img in game_images) + gap_width * (len(game_images))
-        total_width = display_width + content_width
+        total_width = display_width + content_width + display_width  # Add display width at both start and end
         height = self.display_manager.matrix.height
 
         logger.debug(f"Image creation details:")
@@ -1519,7 +1519,7 @@ class OddsTickerManager:
         # Calculate total scroll width for dynamic duration (only the content width, not including display width)
         self.total_scroll_width = content_width
         logger.debug(f"Odds ticker image creation:")
-        logger.debug(f"  Display width: {display_width}px")
+        logger.debug(f"  Display width: {display_width}px (added at start and end)")
         logger.debug(f"  Content width: {content_width}px")
         logger.debug(f"  Total image width: {total_width}px")
         logger.debug(f"  Number of games: {len(game_images)}")
