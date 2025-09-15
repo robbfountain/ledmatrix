@@ -206,8 +206,8 @@ class BaseNCAAFBManager: # Renamed class
 
     def _fetch_ncaa_fb_api_data(self, use_cache: bool = True) -> Optional[Dict]:
         """
-        Fetches the full season schedule for NCAAFB, caches it, and then filters
-        for relevant games based on the current configuration.
+        Fetches the full season schedule for NCAAFB using week-by-week approach to ensure
+        we get all games, then caches the complete dataset.
         """
         now = datetime.now(pytz.utc)
         current_year = now.year
@@ -226,19 +226,48 @@ class BaseNCAAFBManager: # Renamed class
                     continue
             
             self.logger.info(f"[NCAAFB] Fetching full {year} season schedule from ESPN API...")
+            year_events = []
+            
+            # Fetch week by week to ensure we get complete season data
+            # College football typically has weeks 1-15 plus postseason
+            for week in range(1, 16):
+                try:
+                    url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?seasontype=2&week={week}"
+                    response = self.session.get(url, headers=self.headers, timeout=15)
+                    response.raise_for_status()
+                    data = response.json()
+                    week_events = data.get('events', [])
+                    year_events.extend(week_events)
+                    
+                    # Log progress for first few weeks
+                    if week <= 3:
+                        self.logger.debug(f"[NCAAFB] Week {week}: fetched {len(week_events)} events")
+                    
+                    # If no events found for this week, we might be past the season
+                    if not week_events and week > 10:
+                        self.logger.debug(f"[NCAAFB] No events found for week {week}, ending season fetch")
+                        break
+                        
+                except requests.exceptions.RequestException as e:
+                    self.logger.warning(f"[NCAAFB] Error fetching week {week} for {year}: {e}")
+                    continue
+            
+            # Also fetch postseason games (bowl games, playoffs)
             try:
-                url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={year}&seasontype=2"
+                url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?seasontype=3"
                 response = self.session.get(url, headers=self.headers, timeout=15)
                 response.raise_for_status()
                 data = response.json()
-                events = data.get('events', [])
-                if use_cache:
-                    self.cache_manager.set(cache_key, events)
-                self.logger.info(f"[NCAAFB] Successfully fetched and cached {len(events)} events for {year} season.")
-                all_events.extend(events)
+                postseason_events = data.get('events', [])
+                year_events.extend(postseason_events)
+                self.logger.debug(f"[NCAAFB] Postseason: fetched {len(postseason_events)} events")
             except requests.exceptions.RequestException as e:
-                self.logger.error(f"[NCAAFB] API error fetching full schedule for {year}: {e}")
-                continue
+                self.logger.warning(f"[NCAAFB] Error fetching postseason for {year}: {e}")
+            
+            if use_cache:
+                self.cache_manager.set(cache_key, year_events)
+            self.logger.info(f"[NCAAFB] Successfully fetched and cached {len(year_events)} events for {year} season.")
+            all_events.extend(year_events)
         
         if not all_events:
             self.logger.warning("[NCAAFB] No events found in schedule data.")
@@ -992,9 +1021,9 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
             events = data['events']
             # self.logger.info(f"[NCAAFB Recent] Processing {len(events)} events from shared data.") # Changed log prefix
 
-            # Define date range for "recent" games (last 14 days)
+            # Define date range for "recent" games (last 21 days to capture games from 3 weeks ago)
             now = datetime.now(timezone.utc)
-            recent_cutoff = now - timedelta(days=14)
+            recent_cutoff = now - timedelta(days=21)
             
             # Process games and filter for final games, date range & favorite teams
             processed_games = []
