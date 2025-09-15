@@ -113,6 +113,9 @@ class DictWrapper:
     def __bool__(self):
         # Return False for empty wrappers
         if hasattr(self, '_value'):
+            # Avoid recursion by checking if _value is a DictWrapper
+            if isinstance(self._value, DictWrapper):
+                return False  # Empty DictWrapper is falsy
             return bool(self._value)
         return False
 
@@ -455,7 +458,7 @@ def index():
         
         return render_template('index_v2.html', 
                              schedule_config=schedule_config,
-                             main_config=DictWrapper(main_config),
+                             main_config=main_config,
                              main_config_data=main_config_data,
                              secrets_config=secrets_config_data,
                              main_config_json=main_config_json,
@@ -472,7 +475,7 @@ def index():
         safe_secrets = {'weather': {'api_key': ''}}
         return render_template('index_v2.html',
                                schedule_config={},
-                               main_config=DictWrapper({}),
+                               main_config={},
                                main_config_data={},
                                secrets_config=safe_secrets,
                                main_config_json="{}",

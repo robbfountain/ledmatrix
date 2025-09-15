@@ -877,11 +877,11 @@
                             <div class="stat-label">CPU Temperature</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-value">{{ main_config.display.hardware.brightness if main_config and main_config.display and main_config.display.hardware and main_config.display.hardware.brightness is defined else 0 }}</div>
+                            <div class="stat-value">{{ main_config.get('display', {}).get('hardware', {}).get('brightness', 0) }}</div>
                             <div class="stat-label">Brightness</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-value">{{ main_config.display.hardware.cols if main_config and main_config.display and main_config.display.hardware and main_config.display.hardware.cols is defined else 0 }}x{{ main_config.display.hardware.rows if main_config and main_config.display and main_config.display.hardware and main_config.display.hardware.rows is defined else 0 }}</div>
+                            <div class="stat-value">{{ main_config.get('display', {}).get('hardware', {}).get('cols', 0) }}x{{ main_config.get('display', {}).get('hardware', {}).get('rows', 0) }}</div>
                             <div class="stat-label">Resolution</div>
                         </div>
                         <div class="stat-card">
@@ -1128,7 +1128,7 @@
                         <p class="description">How long each screen is shown before switching. Values in seconds.</p>
                         <form id="durations-form">
                             <div class="form-row">
-                                {% for key, value in main_config.display.display_durations.items() %}
+                                {% for key, value in main_config.get('display', {}).get('display_durations', {}).items() %}
                                 <div class="form-group">
                                     <label for="duration_{{ key }}">{{ key | replace('_', ' ') | title }}</label>
                                     <input type="number" class="form-control duration-input" id="duration_{{ key }}" data-name="{{ key }}" value="{{ value }}" min="5" max="600">
