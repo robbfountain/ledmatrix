@@ -5,10 +5,10 @@
         "start_time": "07:00",
         "end_time": "23:00"
     },
-    "timezone": "America/New_York",
+    "timezone": "America/Chicago",
     "location": {
-        "city": "Tampa",
-        "state": "Florida",
+        "city": "Dallas",
+        "state": "Texas",
         "country": "US"
     },
     "display": {
@@ -39,7 +39,6 @@
             "daily_forecast": 30,
             "stock_news": 20,
             "odds_ticker": 60,
-            "leaderboard": 60,
             "nhl_live": 30,
             "nhl_recent": 30,
             "nhl_upcoming": 30,
@@ -82,10 +81,10 @@
         "update_interval": 1
     },
     "weather": {
-        "enabled":  true,
+        "enabled": false,
         "update_interval": 1800,
         "units": "imperial",
-        "display_format": "{temp}\u00b0F\n{condition}"
+        "display_format": "{temp}°F\n{condition}"
     },
     "stocks": {
         "enabled": false,
@@ -130,12 +129,11 @@
         "duration_buffer": 0.1
     },
     "odds_ticker": {
-        "enabled": false,
+        "enabled": true,
         "show_favorite_teams_only": true,
         "games_per_favorite_team": 1,
         "max_games_per_league": 5,
         "show_odds_only": false,
-        "fetch_odds": true,
         "sort_order": "soonest",
         "enabled_leagues": [
             "nfl",
@@ -152,46 +150,6 @@
         "dynamic_duration": true,
         "min_duration": 30,
         "max_duration": 300,
-        "duration_buffer": 0.05
-    },
-    "leaderboard": {
-        "enabled": false,
-        "enabled_sports": {
-            "nfl": {
-                "enabled": true,
-                "top_teams": 10
-            },
-            "nba": {
-                "enabled": false,
-                "top_teams": 10
-            },
-            "mlb": {
-                "enabled": false,
-                "top_teams": 10
-            },
-            "ncaa_fb": {
-                "enabled": true,
-                "top_teams": 25,
-                "show_ranking": true
-            },
-            "nhl": {
-                "enabled": false,
-                "top_teams": 10
-            },
-            "ncaam_basketball": {
-                "enabled": false,
-                "top_teams": 25
-            }
-        },
-        "update_interval": 3600,
-        "scroll_speed": 1,
-        "scroll_delay": 0.01,
-        "display_duration": 60,
-        "loop": false,
-        "request_timeout": 30,
-        "dynamic_duration": true,
-        "min_duration": 45,
-        "max_duration": 600,
         "duration_buffer": 0.1
     },
     "calendar": {
@@ -264,6 +222,8 @@
         "live_update_interval": 30,
         "live_odds_update_interval": 3600,
         "odds_update_interval": 3600,
+        "recent_update_interval": 3600,
+        "upcoming_update_interval": 3600,
         "recent_games_to_show": 1,
         "upcoming_games_to_show": 1,
         "show_favorite_teams_only": true,
@@ -299,10 +259,9 @@
         ],
         "logo_dir": "assets/sports/ncaa_fbs_logos",
         "show_records": true,
-        "show_ranking": true,
         "display_modes": {
             "ncaa_fb_live": true,
-            "ncaa_fb_recent": true ,
+            "ncaa_fb_recent": true,
             "ncaa_fb_upcoming": true
         }
     },
@@ -409,7 +368,7 @@
         }
     },
     "text_display": {
-        "enabled": true,
+        "enabled": false,
         "text": "Subscribe to ChuckBuilds",
         "font_path": "assets/fonts/press-start-2p.ttf",
         "font_size": 8,

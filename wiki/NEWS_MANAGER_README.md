@@ -50,17 +50,17 @@ Other: https://www.coveringthecorner.com/rss/current.xml
 
 ### Command Line Management
 
-Use the `enable_news_manager.py` script to manage the news manager:
+Use the `scripts/enable_news_manager.py` script to manage the news manager:
 
 ```bash
 # Check current status
-python3 enable_news_manager.py status
+python3 scripts/enable_news_manager.py status
 
 # Enable news manager
-python3 enable_news_manager.py enable
+python3 scripts/enable_news_manager.py enable
 
 # Disable news manager
-python3 enable_news_manager.py disable
+python3 scripts/enable_news_manager.py disable
 ```
 
 ### Web Interface

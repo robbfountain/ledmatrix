@@ -101,7 +101,7 @@ def show_status():
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python3 enable_news_manager.py [enable|disable|status]")
+        print("Usage: python3 scripts/enable_news_manager.py [enable|disable|status]")
         sys.exit(1)
     
     command = sys.argv[1].lower()

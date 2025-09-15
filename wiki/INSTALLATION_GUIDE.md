@@ -206,13 +206,13 @@ This single script handles everything you need for a new installation.
 
 ### **Dependency Installation Scripts**
 
-#### `install_dependencies_apt.py`
+#### `scripts/install_dependencies_apt.py`
 - **When to use**: When you want to install packages via apt first, then pip
 - **What it does**:
   - Tries to install packages via apt (system packages)
   - Falls back to pip with `--break-system-packages`
   - Handles externally managed Python environments
-- **Usage**: `sudo python3 install_dependencies_apt.py`
+- **Usage**: `sudo python3 scripts/install_dependencies_apt.py`
 
 #### `start_web_v2.py`
 - **When to use**: Manual web interface startup
@@ -252,7 +252,7 @@ sudo ./first_time_install.sh
 ### **Scenario 2: Adding Web Interface to Existing Installation**
 ```bash
 # Install web interface dependencies
-sudo python3 install_dependencies_apt.py
+sudo python3 scripts/install_dependencies_apt.py
 
 # Fix permissions
 ./fix_web_permissions.sh
@@ -332,7 +332,7 @@ http://your-pi-ip:5001
 2. Log out and back in
 
 ### **Dependency Installation Errors**
-1. Run: `sudo python3 install_dependencies_apt.py`
+1. Run: `sudo python3 scripts/install_dependencies_apt.py`
 
 ## Summary
 

@@ -5,6 +5,8 @@ __pycache__/
 
 # Secrets
 config/config_secrets.json
+config/config.json
+config/config.json.backup
 credentials.json
 token.pickle
 
