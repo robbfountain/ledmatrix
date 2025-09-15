@@ -38,6 +38,57 @@ import logging
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+
+# Custom Jinja2 filter for safe nested dictionary access
+@app.template_filter('safe_get')
+def safe_get(obj, key_path, default=''):
+    """Safely access nested dictionary values using dot notation.
+    
+    Usage: {{ main_config|safe_get('display.hardware.brightness', 95) }}
+    """
+    try:
+        keys = key_path.split('.')
+        current = obj
+        for key in keys:
+            if hasattr(current, key):
+                current = getattr(current, key)
+            elif isinstance(current, dict) and key in current:
+                current = current[key]
+            else:
+                return default
+        return current if current is not None else default
+    except (AttributeError, KeyError, TypeError):
+        return default
+
+# Template context processor to provide safe access methods
+@app.context_processor
+def inject_safe_access():
+    """Inject safe access methods into template context."""
+    def safe_config_get(config, *keys, default=''):
+        """Safely get nested config values with fallback."""
+        try:
+            current = config
+            for key in keys:
+                if hasattr(current, key):
+                    current = getattr(current, key)
+                    # Check if we got an empty DictWrapper
+                    if isinstance(current, DictWrapper):
+                        data = object.__getattribute__(current, '_data')
+                        if not data:  # Empty DictWrapper means missing config
+                            return default
+                elif isinstance(current, dict) and key in current:
+                    current = current[key]
+                else:
+                    return default
+            
+            # Final check for empty values
+            if current is None or (hasattr(current, '_data') and not object.__getattribute__(current, '_data')):
+                return default
+            return current
+        except (AttributeError, KeyError, TypeError):
+            return default
+    
+    return dict(safe_config_get=safe_config_get)
 # Prefer eventlet when available, but allow forcing threading via env for troubleshooting
 force_threading = os.getenv('USE_THREADING', '0') == '1' or os.getenv('FORCE_THREADING', '0') == '1'
 if force_threading:
@@ -83,6 +134,30 @@ class DictWrapper:
         # This allows chaining like main_config.display.hardware.rows
         return DictWrapper({})
     
+    def __str__(self):
+        # Return empty string for missing values to avoid template errors
+        data = object.__getattribute__(self, '_data')
+        if not data:
+            return ''
+        return str(data)
+    
+    def __int__(self):
+        # Return 0 for missing numeric values
+        data = object.__getattribute__(self, '_data')
+        if not data:
+            return 0
+        try:
+            return int(data)
+        except (ValueError, TypeError):
+            return 0
+    
+    def __bool__(self):
+        # Return False for missing boolean values
+        data = object.__getattribute__(self, '_data')
+        if not data:
+            return False
+        return bool(data)
+    
     def __getitem__(self, key):
         # Support bracket notation
         return getattr(self, key, DictWrapper({}))
@@ -95,24 +170,26 @@ class DictWrapper:
         return {}.items()
     
     def get(self, key, default=None):
-        # Support .get() method
+        # Support .get() method like dictionaries
         data = object.__getattribute__(self, '_data')
         if data and key in data:
-            value = data[key]
-            if isinstance(value, dict):
-                return DictWrapper(value)
-            return value
+            return data[key]
         return default
+    
+    def has_key(self, key):
+        # Check if key exists
+        data = object.__getattribute__(self, '_data')
+        return data and key in data
     
     def keys(self):
         # Support .keys() method
         data = object.__getattribute__(self, '_data')
-        return data.keys() if data else [].keys()
+        return data.keys() if data else []
     
     def values(self):
         # Support .values() method
         data = object.__getattribute__(self, '_data')
-        return data.values() if data else [].values()
+        return data.values() if data else []
     
     def __str__(self):
         # Return empty string for missing values to avoid template errors

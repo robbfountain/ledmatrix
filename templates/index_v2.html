@@ -992,36 +992,36 @@
                                 <div>
                                     <div class="form-group">
                                         <label for="rows">Rows:</label>
-                                        <input type="number" class="form-control" id="rows" name="rows" value="{{ main_config.display.hardware.rows }}" min="1" max="64">
+                                        <input type="number" class="form-control" id="rows" name="rows" value="{{ safe_config_get(main_config, 'display', 'hardware', 'rows', default=32) }}" min="1" max="64">
                                         <div class="description">Number of LED rows</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="cols">Columns:</label>
-                                        <input type="number" class="form-control" id="cols" name="cols" value="{{ main_config.display.hardware.cols }}" min="1" max="128">
+                                        <input type="number" class="form-control" id="cols" name="cols" value="{{ safe_config_get(main_config, 'display', 'hardware', 'cols', default=64) }}" min="1" max="128">
                                         <div class="description">Number of LED columns</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="chain_length">Chain Length:</label>
-                                        <input type="number" class="form-control" id="chain_length" name="chain_length" value="{{ main_config.display.hardware.chain_length }}" min="1" max="8">
+                                        <input type="number" class="form-control" id="chain_length" name="chain_length" value="{{ safe_config_get(main_config, 'display', 'hardware', 'chain_length', default=2) }}" min="1" max="8">
                                         <div class="description">Number of LED panels chained together</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="parallel">Parallel:</label>
-                                        <input type="number" class="form-control" id="parallel" name="parallel" value="{{ main_config.display.hardware.parallel }}" min="1" max="4">
+                                        <input type="number" class="form-control" id="parallel" name="parallel" value="{{ safe_config_get(main_config, 'display', 'hardware', 'parallel', default=1) }}" min="1" max="4">
                                         <div class="description">Number of parallel chains</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="brightness">Brightness:</label>
-                                        <input type="range" class="form-control" id="brightness" name="brightness" value="{{ main_config.display.hardware.brightness }}" min="1" max="100" oninput="updateBrightnessDisplay(this.value)">
-                                        <div class="description">LED brightness: <span id="brightness-value">{{ main_config.display.hardware.brightness }}</span>%</div>
+                                        <input type="range" class="form-control" id="brightness" name="brightness" value="{{ safe_config_get(main_config, 'display', 'hardware', 'brightness', default=95) }}" min="1" max="100" oninput="updateBrightnessDisplay(this.value)">
+                                        <div class="description">LED brightness: <span id="brightness-value">{{ safe_config_get(main_config, 'display', 'hardware', 'brightness', default=95) }}</span>%</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="hardware_mapping">Hardware Mapping:</label>
                                         <select class="form-control" id="hardware_mapping" name="hardware_mapping">
-                                            <option value="adafruit-hat-pwm" {% if main_config.display.hardware.hardware_mapping == "adafruit-hat-pwm" %}selected{% endif %}>Adafruit HAT PWM</option>
-                                            <option value="adafruit-hat" {% if main_config.display.hardware.hardware_mapping == "adafruit-hat" %}selected{% endif %}>Adafruit HAT</option>
-                                            <option value="regular" {% if main_config.display.hardware.hardware_mapping == "regular" %}selected{% endif %}>Regular</option>
-                                            <option value="regular-pi1" {% if main_config.display.hardware.hardware_mapping == "regular-pi1" %}selected{% endif %}>Regular Pi1</option>
+                                            <option value="adafruit-hat-pwm" {% if safe_config_get(main_config, 'display', 'hardware', 'hardware_mapping', default='adafruit-hat-pwm') == "adafruit-hat-pwm" %}selected{% endif %}>Adafruit HAT PWM</option>
+                                            <option value="adafruit-hat" {% if safe_config_get(main_config, 'display', 'hardware', 'hardware_mapping', default='adafruit-hat-pwm') == "adafruit-hat" %}selected{% endif %}>Adafruit HAT</option>
+                                            <option value="regular" {% if safe_config_get(main_config, 'display', 'hardware', 'hardware_mapping', default='adafruit-hat-pwm') == "regular" %}selected{% endif %}>Regular</option>
+                                            <option value="regular-pi1" {% if safe_config_get(main_config, 'display', 'hardware', 'hardware_mapping', default='adafruit-hat-pwm') == "regular-pi1" %}selected{% endif %}>Regular Pi1</option>
                                         </select>
                                         <div class="description">Hardware mapping type</div>
                                     </div>
@@ -1029,32 +1029,32 @@
                                 <div>
                                     <div class="form-group">
                                         <label for="gpio_slowdown">GPIO Slowdown:</label>
-                                        <input type="number" class="form-control" id="gpio_slowdown" name="gpio_slowdown" value="{{ main_config.display.runtime.gpio_slowdown }}" min="0" max="5">
+                                        <input type="number" class="form-control" id="gpio_slowdown" name="gpio_slowdown" value="{{ safe_config_get(main_config, 'display', 'runtime', 'gpio_slowdown', default=3) }}" min="0" max="5">
                                         <div class="description">GPIO slowdown factor (0-5)</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="scan_mode">Scan Mode:</label>
-                                        <input type="number" class="form-control" id="scan_mode" name="scan_mode" value="{{ main_config.display.hardware.scan_mode }}" min="0" max="1">
+                                        <input type="number" class="form-control" id="scan_mode" name="scan_mode" value="{{ safe_config_get(main_config, 'display', 'hardware', 'scan_mode', default=0) }}" min="0" max="1">
                                         <div class="description">Scan mode for LED matrix (0-1)</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="pwm_bits">PWM Bits:</label>
-                                        <input type="number" class="form-control" id="pwm_bits" name="pwm_bits" value="{{ main_config.display.hardware.pwm_bits }}" min="1" max="11">
+                                        <input type="number" class="form-control" id="pwm_bits" name="pwm_bits" value="{{ safe_config_get(main_config, 'display', 'hardware', 'pwm_bits', default=9) }}" min="1" max="11">
                                         <div class="description">PWM bits for brightness control (1-11)</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="pwm_dither_bits">PWM Dither Bits:</label>
-                                        <input type="number" class="form-control" id="pwm_dither_bits" name="pwm_dither_bits" value="{{ main_config.display.hardware.pwm_dither_bits }}" min="0" max="4">
+                                        <input type="number" class="form-control" id="pwm_dither_bits" name="pwm_dither_bits" value="{{ safe_config_get(main_config, 'display', 'hardware', 'pwm_dither_bits', default=1) }}" min="0" max="4">
                                         <div class="description">PWM dither bits (0-4)</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="pwm_lsb_nanoseconds">PWM LSB Nanoseconds:</label>
-                                        <input type="number" class="form-control" id="pwm_lsb_nanoseconds" name="pwm_lsb_nanoseconds" value="{{ main_config.display.hardware.pwm_lsb_nanoseconds }}" min="50" max="500">
+                                        <input type="number" class="form-control" id="pwm_lsb_nanoseconds" name="pwm_lsb_nanoseconds" value="{{ safe_config_get(main_config, 'display', 'hardware', 'pwm_lsb_nanoseconds', default=130) }}" min="50" max="500">
                                         <div class="description">PWM LSB nanoseconds (50-500)</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="limit_refresh_rate_hz">Limit Refresh Rate (Hz):</label>
-                                        <input type="number" class="form-control" id="limit_refresh_rate_hz" name="limit_refresh_rate_hz" value="{{ main_config.display.hardware.limit_refresh_rate_hz }}" min="1" max="1000">
+                                        <input type="number" class="form-control" id="limit_refresh_rate_hz" name="limit_refresh_rate_hz" value="{{ safe_config_get(main_config, 'display', 'hardware', 'limit_refresh_rate_hz', default=120) }}" min="1" max="1000">
                                         <div class="description">Limit refresh rate in Hz (1-1000)</div>
                                     </div>
                                 </div>
@@ -1063,28 +1063,28 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>
-                                        <input type="checkbox" id="disable_hardware_pulsing" name="disable_hardware_pulsing" {% if main_config.display.hardware.disable_hardware_pulsing %}checked{% endif %}>
+                                        <input type="checkbox" id="disable_hardware_pulsing" name="disable_hardware_pulsing" {% if safe_config_get(main_config, 'display', 'hardware', 'disable_hardware_pulsing', default=False) %}checked{% endif %}>
                                         Disable Hardware Pulsing
                                     </label>
                                     <div class="description">Disable hardware pulsing</div>
                                 </div>
                                 <div class="form-group">
                                     <label>
-                                        <input type="checkbox" id="inverse_colors" name="inverse_colors" {% if main_config.display.hardware.inverse_colors %}checked{% endif %}>
+                                        <input type="checkbox" id="inverse_colors" name="inverse_colors" {% if safe_config_get(main_config, 'display', 'hardware', 'inverse_colors', default=False) %}checked{% endif %}>
                                         Inverse Colors
                                     </label>
                                     <div class="description">Inverse color display</div>
                                 </div>
                                 <div class="form-group">
                                     <label>
-                                        <input type="checkbox" id="show_refresh_rate" name="show_refresh_rate" {% if main_config.display.hardware.show_refresh_rate %}checked{% endif %}>
+                                        <input type="checkbox" id="show_refresh_rate" name="show_refresh_rate" {% if safe_config_get(main_config, 'display', 'hardware', 'show_refresh_rate', default=False) %}checked{% endif %}>
                                         Show Refresh Rate
                                     </label>
                                     <div class="description">Show refresh rate on display</div>
                                 </div>
                                 <div class="form-group">
                                     <label>
-                                        <input type="checkbox" id="use_short_date_format" name="use_short_date_format" {% if main_config.display.use_short_date_format %}checked{% endif %}>
+                                        <input type="checkbox" id="use_short_date_format" name="use_short_date_format" {% if safe_config_get(main_config, 'display', 'use_short_date_format', default=True) %}checked{% endif %}>
                                         Use Short Date Format
                                     </label>
                                     <div class="description">Use short date format for display</div>

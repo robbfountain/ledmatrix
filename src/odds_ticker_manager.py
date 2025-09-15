@@ -119,6 +119,7 @@ class OddsTickerManager:
         self.current_game_index = 0
         self.ticker_image = None # This will hold the single, wide image
         self.last_display_time = 0
+        self._end_reached_logged = False  # Track if we've already logged reaching the end
         
         # Font setup
         self.fonts = self._load_fonts()
@@ -1715,6 +1716,8 @@ class OddsTickerManager:
             logger.debug(f"Reset/initialized display start time: {self._display_start_time}")
             # Also reset scroll position for clean start
             self.scroll_position = 0
+            # Reset the end reached logging flag
+            self._end_reached_logged = False
         else:
             # Check if the display start time is too old (more than 2x the dynamic duration)
             current_time = time.time()
@@ -1723,6 +1726,8 @@ class OddsTickerManager:
                 logger.debug(f"Display start time is too old ({elapsed_time:.1f}s), resetting")
                 self._display_start_time = current_time
                 self.scroll_position = 0
+                # Reset the end reached logging flag
+                self._end_reached_logged = False
         
         logger.debug(f"Number of games in data at start of display method: {len(self.games_data)}")
         if not self.games_data:
@@ -1826,11 +1831,13 @@ class OddsTickerManager:
             else:
                 # Stop scrolling when we reach the end
                 if self.scroll_position >= self.ticker_image.width - width:
-                    logger.info(f"Odds ticker reached end: scroll_position {self.scroll_position} >= {self.ticker_image.width - width}")
+                    if not self._end_reached_logged:
+                        logger.info(f"Odds ticker reached end: scroll_position {self.scroll_position} >= {self.ticker_image.width - width}")
+                        logger.info("Odds ticker scrolling stopped - reached end of content")
+                        self._end_reached_logged = True
                     self.scroll_position = self.ticker_image.width - width
                     # Signal that scrolling has stopped
                     self.display_manager.set_scrolling_state(False)
-                    logger.info("Odds ticker scrolling stopped - reached end of content")
             
             # Check if we're at a natural break point for mode switching
             # If we're near the end of the display duration and not at a clean break point,
