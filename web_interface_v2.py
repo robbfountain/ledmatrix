@@ -735,6 +735,18 @@ def system_action():
                 }), 400
             result = subprocess.run(['git', 'pull'],
                                    capture_output=True, text=True, cwd=str(repo_dir), check=False)
+        elif action == 'migrate_config':
+            # Run config migration script
+            repo_dir = Path(__file__).resolve().parent
+            migrate_script = repo_dir / 'migrate_config.sh'
+            if not migrate_script.exists():
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Migration script not found: {migrate_script}'
+                }), 400
+            
+            result = subprocess.run(['bash', str(migrate_script)], 
+                                  cwd=str(repo_dir), capture_output=True, text=True, check=False)
         else:
             return jsonify({
                 'status': 'error',

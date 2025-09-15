@@ -719,11 +719,12 @@
                 <button class="btn btn-danger" onclick="runAction('stop_display')"><i class="fas fa-stop"></i> Stop Display</button>
                 <button class="btn btn-primary" onclick="systemAction('restart_service')"><i class="fas fa-redo"></i> Restart Service</button>
                 <button class="btn btn-warning" onclick="systemAction('git_pull')"><i class="fas fa-download"></i> Update Code</button>
+                <button class="btn btn-info" onclick="systemAction('migrate_config')"><i class="fas fa-sync-alt"></i> Migrate Config</button>
                 <button class="btn btn-danger" onclick="systemAction('reboot_system')"><i class="fas fa-power-off"></i> Reboot</button>
                 <button class="btn btn-secondary" onclick="stopOnDemand()"><i class="fas fa-ban"></i> Stop On-Demand</button>
                 <span id="ondemand-status" style="margin-left:auto; font-size:12px; color:#333; background:#f3f3f3; padding:6px 10px; border-radius:8px;">On-Demand: None</span>
             </div>
-            <div style="margin-top:12px; color:#666; font-size:12px;">Service actions may require sudo privileges on the Pi.</div>
+            <div style="margin-top:12px; color:#666; font-size:12px;">Service actions may require sudo privileges on the Pi. Migrate Config adds new options with defaults while preserving your settings.</div>
         </div>
 
         <!-- Editor Mode Banner -->
@@ -905,6 +906,9 @@
                         </button>
                         <button class="btn btn-warning" onclick="systemAction('git_pull')">
                             <i class="fas fa-download"></i> Update Code
+                        </button>
+                        <button class="btn btn-info" onclick="systemAction('migrate_config')">
+                            <i class="fas fa-sync-alt"></i> Migrate Config
                         </button>
                         <button class="btn btn-danger" onclick="systemAction('reboot_system')">
                             <i class="fas fa-power-off"></i> Reboot System
@@ -2487,6 +2491,9 @@
             if (action === 'reboot_system' && !confirm('Are you sure you want to reboot the system?')) {
                 return;
             }
+            if (action === 'migrate_config' && !confirm('This will migrate your configuration to add any new options with default values. A backup will be created automatically. Continue?')) {
+                return;
+            }
             
             try {
                 const response = await fetch('/api/system/action', {
@@ -3032,6 +3039,41 @@
                     youtube: {
                         enabled: document.getElementById('youtube_enabled').checked,
                         update_interval: parseInt(document.getElementById('youtube_update_interval').value)
+                    }
+                };
+                await saveConfigJson(payload);
+            });
+        })();
+
+        // Music form submit
+        (function augmentMusicForm(){
+            const form = document.getElementById('music-form');
+            form.addEventListener('submit', async function(e){
+                e.preventDefault();
+                const payload = {
+                    music: {
+                        enabled: document.getElementById('music_enabled').checked,
+                        preferred_source: document.getElementById('music_preferred_source').value,
+                        YTM_COMPANION_URL: document.getElementById('ytm_companion_url').value,
+                        POLLING_INTERVAL_SECONDS: parseInt(document.getElementById('music_polling_interval').value)
+                    }
+                };
+                await saveConfigJson(payload);
+            });
+        })();
+
+        // Calendar form submit
+        (function augmentCalendarForm(){
+            const form = document.getElementById('calendar-form');
+            form.addEventListener('submit', async function(e){
+                e.preventDefault();
+                const calendars = document.getElementById('calendar_calendars').value.split(',').map(s => s.trim()).filter(Boolean);
+                const payload = {
+                    calendar: {
+                        enabled: document.getElementById('calendar_enabled').checked,
+                        max_events: parseInt(document.getElementById('calendar_max_events').value),
+                        update_interval: parseInt(document.getElementById('calendar_update_interval').value),
+                        calendars: calendars
                     }
                 };
                 await saveConfigJson(payload);
