@@ -267,7 +267,6 @@ class BaseNCAAFBManager: # Renamed class
             # CRITICAL FIX: Also fetch current week using date-based approach (like odds manager)
             # This ensures we get games that might be missed by week-based API
             try:
-                from datetime import datetime, timedelta
                 now = datetime.now(pytz.utc)
                 # Fetch games from yesterday to next 7 days (same as odds manager)
                 for days_offset in range(-1, 8):  # Yesterday through next 7 days
