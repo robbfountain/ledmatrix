@@ -93,6 +93,28 @@ class DictWrapper:
     def get(self, key, default=None):
         # Support .get() method
         return getattr(self, key, default)
+    
+    def __str__(self):
+        # Return empty string for missing values to avoid template errors
+        if hasattr(self, '_value'):
+            return str(self._value) if self._value is not None else ''
+        return ''
+    
+    def __repr__(self):
+        # Return empty string for missing values
+        if hasattr(self, '_value'):
+            return repr(self._value) if self._value is not None else ''
+        return ''
+    
+    def __html__(self):
+        # Support for MarkupSafe HTML escaping
+        return str(self)
+    
+    def __bool__(self):
+        # Return False for empty wrappers
+        if hasattr(self, '_value'):
+            return bool(self._value)
+        return False
 
 class DisplayMonitor:
     def __init__(self):
