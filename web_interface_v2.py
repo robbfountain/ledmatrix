@@ -64,60 +64,77 @@ logging.basicConfig(level=logging.INFO)
 
 class DictWrapper:
     """Wrapper to make dictionary accessible via dot notation for Jinja2 templates."""
-    def __init__(self, data):
+    def __init__(self, data=None):
+        # Store the original data
+        object.__setattr__(self, '_data', data if isinstance(data, dict) else {})
+        
+        # Set attributes from the dictionary
         if isinstance(data, dict):
             for key, value in data.items():
                 if isinstance(value, dict):
-                    setattr(self, key, DictWrapper(value))
+                    object.__setattr__(self, key, DictWrapper(value))
+                elif isinstance(value, list):
+                    object.__setattr__(self, key, value)
                 else:
-                    setattr(self, key, value)
-        else:
-            # If not a dict, just store the value
-            self._value = data
+                    object.__setattr__(self, key, value)
     
     def __getattr__(self, name):
-        # Return a new DictWrapper with empty dict for missing attributes
+        # Return a new empty DictWrapper for missing attributes
         # This allows chaining like main_config.display.hardware.rows
         return DictWrapper({})
     
     def __getitem__(self, key):
-        # Support bracket notation as fallback
+        # Support bracket notation
         return getattr(self, key, DictWrapper({}))
     
     def items(self):
         # Support .items() method for iteration
-        if hasattr(self, '_value'):
-            return {}
-        return {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+        data = object.__getattribute__(self, '_data')
+        if data:
+            return data.items()
+        return {}.items()
     
     def get(self, key, default=None):
         # Support .get() method
-        return getattr(self, key, default)
+        data = object.__getattribute__(self, '_data')
+        if data and key in data:
+            value = data[key]
+            if isinstance(value, dict):
+                return DictWrapper(value)
+            return value
+        return default
+    
+    def keys(self):
+        # Support .keys() method
+        data = object.__getattribute__(self, '_data')
+        return data.keys() if data else [].keys()
+    
+    def values(self):
+        # Support .values() method
+        data = object.__getattribute__(self, '_data')
+        return data.values() if data else [].values()
     
     def __str__(self):
         # Return empty string for missing values to avoid template errors
-        if hasattr(self, '_value'):
-            return str(self._value) if self._value is not None else ''
         return ''
     
     def __repr__(self):
         # Return empty string for missing values
-        if hasattr(self, '_value'):
-            return repr(self._value) if self._value is not None else ''
         return ''
     
     def __html__(self):
         # Support for MarkupSafe HTML escaping
-        return str(self)
+        return ''
     
     def __bool__(self):
-        # Return False for empty wrappers
-        if hasattr(self, '_value'):
-            # Avoid recursion by checking if _value is a DictWrapper
-            if isinstance(self._value, DictWrapper):
-                return False  # Empty DictWrapper is falsy
-            return bool(self._value)
-        return False
+        # Return False for empty wrappers, True if has data
+        data = object.__getattribute__(self, '_data')
+        return bool(data)
+    
+    def __len__(self):
+        # Support len() function
+        data = object.__getattribute__(self, '_data')
+        return len(data) if data else 0
 
 class DisplayMonitor:
     def __init__(self):
@@ -458,7 +475,7 @@ def index():
         
         return render_template('index_v2.html', 
                              schedule_config=schedule_config,
-                             main_config=main_config,
+                             main_config=DictWrapper(main_config),
                              main_config_data=main_config_data,
                              secrets_config=secrets_config_data,
                              main_config_json=main_config_json,
@@ -475,7 +492,7 @@ def index():
         safe_secrets = {'weather': {'api_key': ''}}
         return render_template('index_v2.html',
                                schedule_config={},
-                               main_config={},
+                               main_config=DictWrapper({}),
                                main_config_data={},
                                secrets_config=safe_secrets,
                                main_config_json="{}",
