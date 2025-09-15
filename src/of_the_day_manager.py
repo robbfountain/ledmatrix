@@ -190,18 +190,18 @@ class OfTheDayManager:
                             os.path.join(script_dir, '..', 'of_the_day', data_file),
                             os.path.join('of_the_day', data_file)
                         ])
-            
-            # Debug: Show all paths before deduplication
-            logger.debug(f"All possible paths before deduplication: {possible_paths}")
-            
-            # Remove duplicates while preserving order
-            seen = set()
-            unique_paths = []
-            for path in possible_paths:
-                abs_path = os.path.abspath(path)
-                if abs_path not in seen:
-                    seen.add(abs_path)
-                    unique_paths.append(abs_path)
+                
+                # Debug: Show all paths before deduplication
+                logger.debug(f"All possible paths before deduplication: {possible_paths}")
+                
+                # Remove duplicates while preserving order
+                seen = set()
+                unique_paths = []
+                for path in possible_paths:
+                    abs_path = os.path.abspath(path)
+                    if abs_path not in seen:
+                        seen.add(abs_path)
+                        unique_paths.append(abs_path)
                 possible_paths = unique_paths
                 
                 # Debug: Show paths after deduplication
