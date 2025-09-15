@@ -1449,17 +1449,31 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
 
             # Filter for favorite teams only if the config is set
             if self.ncaa_fb_config.get("show_favorite_teams_only", False):
-                team_games = [game for game in processed_games
-                              if game['home_abbr'] in self.favorite_teams or
-                                 game['away_abbr'] in self.favorite_teams]
+                # Get all games involving favorite teams
+                favorite_team_games = [game for game in processed_games
+                                      if game['home_abbr'] in self.favorite_teams or
+                                         game['away_abbr'] in self.favorite_teams]
+                
+                # Select one game per favorite team (earliest upcoming game for each team)
+                team_games = []
+                for team in self.favorite_teams:
+                    # Find games where this team is playing
+                    team_specific_games = [game for game in favorite_team_games
+                                          if game['home_abbr'] == team or game['away_abbr'] == team]
+                    
+                    if team_specific_games:
+                        # Sort by game time and take the earliest
+                        team_specific_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=timezone.utc))
+                        team_games.append(team_specific_games[0])
+                
+                # Sort the final list by game time
+                team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=timezone.utc))
             else:
                 team_games = processed_games # Show all upcoming if no favorites
-
-            # Sort by game time, earliest first
-            team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=timezone.utc))
-            
-            # Limit to the specified number of upcoming games
-            team_games = team_games[:self.upcoming_games_to_show]
+                # Sort by game time, earliest first
+                team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=timezone.utc))
+                # Limit to the specified number of upcoming games
+                team_games = team_games[:self.upcoming_games_to_show]
 
             # Log changes or periodically
             should_log = (
