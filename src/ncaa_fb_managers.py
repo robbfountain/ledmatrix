@@ -264,6 +264,33 @@ class BaseNCAAFBManager: # Renamed class
             except requests.exceptions.RequestException as e:
                 self.logger.warning(f"[NCAAFB] Error fetching postseason for {year}: {e}")
             
+            # CRITICAL FIX: Also fetch current week using date-based approach (like odds manager)
+            # This ensures we get games that might be missed by week-based API
+            try:
+                from datetime import datetime, timedelta
+                now = datetime.now(pytz.utc)
+                # Fetch games from yesterday to next 7 days (same as odds manager)
+                for days_offset in range(-1, 8):  # Yesterday through next 7 days
+                    check_date = now + timedelta(days=days_offset)
+                    date_str = check_date.strftime('%Y%m%d')
+                    
+                    url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={date_str}"
+                    response = self.session.get(url, headers=self.headers, timeout=15)
+                    response.raise_for_status()
+                    data = response.json()
+                    date_events = data.get('events', [])
+                    
+                    # Avoid duplicates by checking event IDs
+                    existing_ids = {event.get('id') for event in year_events}
+                    new_events = [event for event in date_events if event.get('id') not in existing_ids]
+                    year_events.extend(new_events)
+                    
+                    if days_offset == 0:  # Today
+                        self.logger.debug(f"[NCAAFB] Current date ({date_str}): fetched {len(new_events)} new events")
+                        
+            except requests.exceptions.RequestException as e:
+                self.logger.warning(f"[NCAAFB] Error fetching current week date-based data: {e}")
+            
             if use_cache:
                 self.cache_manager.set(cache_key, year_events)
             self.logger.info(f"[NCAAFB] Successfully fetched and cached {len(year_events)} events for {year} season.")
@@ -1045,10 +1072,10 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
                 team_games = [game for game in processed_games
                               if game['home_abbr'] in self.favorite_teams or
                                  game['away_abbr'] in self.favorite_teams]
-                self.logger.info(f"[NCAAFB Recent] Found {favorite_games_found} favorite team games out of {len(processed_games)} total final games within last 14 days")
+                self.logger.info(f"[NCAAFB Recent] Found {favorite_games_found} favorite team games out of {len(processed_games)} total final games within last 21 days")
             else:
                  team_games = processed_games # Show all recent games if no favorites defined
-                 self.logger.info(f"[NCAAFB Recent] Found {len(processed_games)} total final games within last 14 days (no favorite teams configured)")
+                 self.logger.info(f"[NCAAFB Recent] Found {len(processed_games)} total final games within last 21 days (no favorite teams configured)")
 
             # Sort by game time, most recent first
             team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
@@ -1284,8 +1311,14 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
 
             processed_games = []
             favorite_games_found = 0
+            all_upcoming_games = 0  # Count all upcoming games regardless of favorites
+            
             for event in events:
                 game = self._extract_game_details(event)
+                # Count all upcoming games for debugging
+                if game and game['is_upcoming']:
+                    all_upcoming_games += 1
+                    
                 # Filter criteria: must be upcoming ('pre' state)
                 if game and game['is_upcoming']:
                     # Only fetch odds for games that will be displayed
@@ -1302,8 +1335,12 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
                     if self.show_odds:
                         self._fetch_odds(game)
 
-            # Summary logging instead of verbose debug
-            self.logger.info(f"[NCAAFB Upcoming] Found {len(processed_games)} total upcoming games")
+            # Enhanced logging for debugging
+            self.logger.info(f"[NCAAFB Upcoming] Found {all_upcoming_games} total upcoming games in data")
+            self.logger.info(f"[NCAAFB Upcoming] Found {len(processed_games)} upcoming games after filtering")
+            if self.favorite_teams and all_upcoming_games > 0:
+                self.logger.info(f"[NCAAFB Upcoming] Favorite teams: {self.favorite_teams}")
+                self.logger.info(f"[NCAAFB Upcoming] Found {favorite_games_found} favorite team upcoming games")
 
             # Filter for favorite teams only if the config is set
             if self.ncaa_fb_config.get("show_favorite_teams_only", False):
