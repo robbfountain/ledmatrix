@@ -12,6 +12,7 @@ from src.display_manager import DisplayManager
 from src.cache_manager import CacheManager
 from src.config_manager import ConfigManager
 from src.odds_manager import OddsManager
+from src.logo_downloader import download_missing_logo, get_soccer_league_key
 import pytz
 
 # Import the API counter function from web interface
@@ -32,6 +33,7 @@ LEAGUE_SLUGS = {
     "ger.1": "Bundesliga",
     "ita.1": "Serie A",
     "fra.1": "Ligue 1",
+    "por.1": "Liga Portugal",
     "uefa.champions": "Champions League",
     "uefa.europa": "Europa League",
     "usa.1": "MLS",
@@ -408,42 +410,61 @@ class BaseSoccerManager:
         
         try:
             if not os.path.exists(logo_path) and not (cache_logo_path and os.path.exists(cache_logo_path)):
-                self.logger.info(f"Creating placeholder logo for {team_abbrev}")
-                # Try to create placeholder in cache directory instead of assets directory
-                cache_logo_path = None
-                try:
-                    # Use cache directory for placeholder logos
-                    if hasattr(self.cache_manager, 'cache_dir') and self.cache_manager.cache_dir:
-                        cache_logo_dir = os.path.join(self.cache_manager.cache_dir, 'placeholder_logos')
-                        os.makedirs(cache_logo_dir, exist_ok=True)
-                        cache_logo_path = os.path.join(cache_logo_dir, f"{team_abbrev}.png")
+                self.logger.info(f"Logo not found for {team_abbrev} at {logo_path}. Attempting to download from ESPN.")
+                
+                # Try to download the logo from ESPN API for each configured league
+                download_success = False
+                for league_code in self.target_leagues_config:
+                    if league_code in LEAGUE_SLUGS:
+                        soccer_league_key = get_soccer_league_key(league_code)
+                        self.logger.debug(f"Attempting to download {team_abbrev} logo from {league_code} ({soccer_league_key})")
                         
-                        # Create placeholder logo
+                        success = download_missing_logo(team_abbrev, soccer_league_key, team_abbrev)
+                        if success:
+                            self.logger.info(f"Successfully downloaded logo for {team_abbrev} from {league_code}")
+                            download_success = True
+                            break
+                        else:
+                            self.logger.debug(f"Failed to download {team_abbrev} logo from {league_code}")
+                
+                if not download_success:
+                    self.logger.warning(f"Failed to download logo for {team_abbrev} from any configured league. Creating placeholder.")
+                    # Try to create placeholder in cache directory instead of assets directory
+                    cache_logo_path = None
+                    try:
+                        # Use cache directory for placeholder logos
+                        if hasattr(self.cache_manager, 'cache_dir') and self.cache_manager.cache_dir:
+                            cache_logo_dir = os.path.join(self.cache_manager.cache_dir, 'placeholder_logos')
+                            os.makedirs(cache_logo_dir, exist_ok=True)
+                            cache_logo_path = os.path.join(cache_logo_dir, f"{team_abbrev}.png")
+                            
+                            # Create placeholder logo
+                            logo = Image.new('RGBA', (36, 36), (random.randint(50, 200), random.randint(50, 200), random.randint(50, 200), 255))
+                            draw = ImageDraw.Draw(logo)
+                            # Optionally add text to placeholder
+                            try:
+                                script_dir = os.path.dirname(os.path.abspath(__file__))
+                                font_4x6 = os.path.abspath(os.path.join(script_dir, "../assets/fonts/4x6-font.ttf"))
+                                placeholder_font = ImageFont.truetype(font_4x6, 12)
+                                text_width = draw.textlength(team_abbrev, font=placeholder_font)
+                                text_x = (36 - text_width) // 2
+                                text_y = 10
+                                draw.text((text_x, text_y), team_abbrev, fill=(0,0,0,255), font=placeholder_font)
+                            except IOError:
+                                pass # Font not found, skip text
+                            logo.save(cache_logo_path)
+                            self.logger.info(f"Created placeholder logo in cache at {cache_logo_path}")
+                            # Update logo_path to use cache version
+                            logo_path = cache_logo_path
+                        else:
+                            # No cache directory available, just use in-memory placeholder
+                            raise PermissionError("No writable cache directory available")
+                    except (PermissionError, OSError) as pe:
+                        self.logger.debug(f"Could not create placeholder logo file for {team_abbrev}: {pe}")
+                        # Return a simple in-memory placeholder instead
                         logo = Image.new('RGBA', (36, 36), (random.randint(50, 200), random.randint(50, 200), random.randint(50, 200), 255))
-                        draw = ImageDraw.Draw(logo)
-                        # Optionally add text to placeholder
-                        try:
-                            font_4x6 = os.path.abspath(os.path.join(script_dir, "../assets/fonts/4x6-font.ttf"))
-                            placeholder_font = ImageFont.truetype(font_4x6, 12)
-                            text_width = draw.textlength(team_abbrev, font=placeholder_font)
-                            text_x = (36 - text_width) // 2
-                            text_y = 10
-                            draw.text((text_x, text_y), team_abbrev, fill=(0,0,0,255), font=placeholder_font)
-                        except IOError:
-                            pass # Font not found, skip text
-                        logo.save(cache_logo_path)
-                        self.logger.info(f"Created placeholder logo in cache at {cache_logo_path}")
-                        # Update logo_path to use cache version
-                        logo_path = cache_logo_path
-                    else:
-                        # No cache directory available, just use in-memory placeholder
-                        raise PermissionError("No writable cache directory available")
-                except (PermissionError, OSError) as pe:
-                    self.logger.debug(f"Could not create placeholder logo file for {team_abbrev}: {pe}")
-                    # Return a simple in-memory placeholder instead
-                    logo = Image.new('RGBA', (36, 36), (random.randint(50, 200), random.randint(50, 200), random.randint(50, 200), 255))
-                    self._logo_cache[team_abbrev] = logo
-                    return logo
+                        self._logo_cache[team_abbrev] = logo
+                        return logo
 
             # Try to load logo from original path or cache directory
             logo_to_load = None

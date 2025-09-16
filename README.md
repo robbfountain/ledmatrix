@@ -59,7 +59,7 @@ The system supports live, recent, and upcoming game information for multiple spo
 - NCAA Football
 - NCAA Men's Basketball
 - NCAA Men's Baseball
-- Soccer
+- Soccer (Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Liga Portugal, Champions League, Europa League, MLS)
 - (Note, some of these sports seasons were not active during development and might need fine tuning when games are active)
 
 
