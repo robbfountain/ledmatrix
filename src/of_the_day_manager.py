@@ -439,8 +439,8 @@ class OfTheDayManager:
                 body_height = 8
             
             # --- Dynamic Spacing Calculation ---
-            # Calculate how much space we need and distribute it evenly
-            margin_top = 1
+            # Calculate how much space we need and distribute it more conservatively
+            margin_top = 0  # Start at very top
             margin_bottom = 1
             underline_space = 1  # Space for underline
             
@@ -451,7 +451,7 @@ class OfTheDayManager:
             
             # Pre-wrap the body text to determine how many lines we'll need
             available_width = matrix_width - 4  # Leave some margin
-            wrapped_lines = self._wrap_text(current_text, available_width, body_font, max_lines=10, 
+            wrapped_lines = self._wrap_text(current_text, available_width, body_font, max_lines=6, 
                                           line_height=body_height, max_height=matrix_height)
             # Filter out empty lines for spacing calculation
             actual_body_lines = [line for line in wrapped_lines if line.strip()]
@@ -465,21 +465,19 @@ class OfTheDayManager:
             total_content_height = title_content_height + underline_content_height + body_content_height
             available_space = matrix_height - margin_top - margin_bottom
             
-            # Calculate dynamic spacing
-            if total_content_height < available_space:
-                # We have extra space - distribute it
+            # Calculate more conservative dynamic spacing
+            if total_content_height < available_space and num_body_lines > 0:
+                # We have extra space - distribute it more conservatively
                 extra_space = available_space - total_content_height
-                if num_body_lines > 0:
-                    # Distribute space: 30% after title, 70% between body lines
-                    space_after_title = max(2, int(extra_space * 0.3))
-                    space_between_lines = max(1, int(extra_space * 0.7 / max(1, num_body_lines - 1))) if num_body_lines > 1 else 0
-                else:
-                    # No body text - just center the title
-                    space_after_title = extra_space // 2
-                    space_between_lines = 0
+                # Limit maximum spacing to prevent excessive gaps
+                max_space_after_title = min(6, extra_space // 2)  # Cap at 6 pixels
+                max_space_between_lines = min(3, extra_space // max(1, num_body_lines))  # Cap at 3 pixels
+                
+                space_after_title = max(3, max_space_after_title)  # Minimum 3 pixels after title
+                space_between_lines = max(1, max_space_between_lines)  # Minimum 1 pixel between lines
             else:
-                # Tight spacing
-                space_after_title = 2
+                # Tight spacing for crowded content or no body text
+                space_after_title = 3
                 space_between_lines = 1
             
             # --- Draw Title ---
@@ -496,7 +494,7 @@ class OfTheDayManager:
             self._draw_bdf_text(draw, title_font, title, title_x, title_y, color=self.title_color)
             
             # --- Draw Underline ---
-            underline_y = title_y + title_height + 1
+            underline_y = title_y + title_height + 2  # Small gap after title
             underline_x_start = title_x
             underline_x_end = title_x + title_width
             draw.line([(underline_x_start, underline_y), (underline_x_end, underline_y)], fill=self.title_color, width=1)
