@@ -440,7 +440,7 @@ class OfTheDayManager:
             
             # --- Dynamic Spacing Calculation ---
             # Calculate how much space we need and distribute it evenly
-            margin_top = 6  # Shift everything down by 6 pixels
+            margin_top = 8  # Shift everything down by 6 pixels
             margin_bottom = 1
             underline_space = 1  # Space for underline
             
