@@ -465,23 +465,32 @@ class OfTheDayManager:
             total_content_height = title_content_height + underline_content_height + body_content_height
             available_space = matrix_height - margin_top - margin_bottom
             
-            # Calculate more conservative dynamic spacing
+            # Calculate very conservative dynamic spacing
             if total_content_height < available_space and num_body_lines > 0:
-                # We have extra space - distribute it more conservatively
+                # We have extra space - distribute it very conservatively
                 extra_space = available_space - total_content_height
-                # Limit maximum spacing to prevent excessive gaps
-                max_space_after_title = min(6, extra_space // 2)  # Cap at 6 pixels
-                max_space_between_lines = min(3, extra_space // max(1, num_body_lines))  # Cap at 3 pixels
+                # Much tighter caps to prevent issues
+                max_space_after_title = min(4, extra_space // 3)  # Cap at 4 pixels, use 1/3 of space
+                max_space_between_lines = min(2, extra_space // max(2, num_body_lines * 2))  # Cap at 2 pixels
                 
-                space_after_title = max(3, max_space_after_title)  # Minimum 3 pixels after title
-                space_between_lines = max(1, max_space_between_lines)  # Minimum 1 pixel between lines
+                space_after_title = max(2, max_space_after_title)  # Minimum 2 pixels after title
+                space_between_lines = max(0, max_space_between_lines)  # Can be 0 between lines
             else:
-                # Tight spacing for crowded content or no body text
-                space_after_title = 3
-                space_between_lines = 1
+                # Very tight spacing for crowded content or no body text
+                space_after_title = 2
+                space_between_lines = 0
             
             # --- Draw Title ---
-            title_y = margin_top
+            # For BDF fonts, we need to account for the ascender to position text properly
+            # Start the title with enough space for the ascender
+            if isinstance(title_font, freetype.Face):
+                try:
+                    ascender_px = title_font.size.ascender >> 6
+                    title_y = max(ascender_px, 2)  # Ensure title has space for ascender but don't go below y=2
+                except Exception:
+                    title_y = 2
+            else:
+                title_y = 2  # For PIL fonts, start at y=2
             
             # Calculate title width for centering
             try:
@@ -494,7 +503,7 @@ class OfTheDayManager:
             self._draw_bdf_text(draw, title_font, title, title_x, title_y, color=self.title_color)
             
             # --- Draw Underline ---
-            underline_y = title_y + title_height + 2  # Small gap after title
+            underline_y = title_y + title_height + 1  # Small gap after title
             underline_x_start = title_x
             underline_x_end = title_x + title_width
             draw.line([(underline_x_start, underline_y), (underline_x_end, underline_y)], fill=self.title_color, width=1)
@@ -503,6 +512,14 @@ class OfTheDayManager:
             if num_body_lines > 0:
                 body_start_y = underline_y + space_after_title
                 current_y = body_start_y
+                
+                # For BDF fonts, account for ascender in first line positioning
+                if isinstance(body_font, freetype.Face):
+                    try:
+                        body_ascender = body_font.size.ascender >> 6
+                        current_y = max(current_y, body_start_y + body_ascender)
+                    except Exception:
+                        pass
                 
                 for i, line in enumerate(actual_body_lines):
                     if line.strip():  # Only draw non-empty lines
@@ -516,9 +533,10 @@ class OfTheDayManager:
                         # Draw the line
                         self._draw_bdf_text(draw, body_font, line, line_x, current_y, color=self.subtitle_color)
                         
-                        # Move to next line position
+                        # Move to next line position - ensure minimum spacing
                         if i < len(actual_body_lines) - 1:  # Not the last line
-                            current_y += body_height + space_between_lines
+                            line_spacing = max(body_height + space_between_lines, body_height + 2)  # Minimum 2px between lines
+                            current_y += line_spacing
             
             return True
         except Exception as e:
