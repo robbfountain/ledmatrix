@@ -783,7 +783,7 @@ class MusicManager:
         y_pos_artist_top = int(matrix_height * ARTIST_Y_PERCENT) + font_shift
         
         # For album, use a smaller shift to ensure it fits above progress bar
-        album_shift = min(font_shift, 3)  # Cap album shift at 3 pixels to preserve space
+        album_shift = min(font_shift, 5)  # Cap album shift at 5 pixels to preserve space
         y_pos_album_top = int(matrix_height * ALBUM_Y_PERCENT) + album_shift
         
         TEXT_SCROLL_DIVISOR = 5
