@@ -775,10 +775,13 @@ class MusicManager:
         except:
             artist_album_font_height = LINE_HEIGHT_BDF  # Fallback to BDF height
         
+        # Ensure we have a reasonable shift (minimum 6 pixels)
+        font_shift = max(artist_album_font_height, 6)
+        
         # Calculate actual pixel positions, shifted down by font height
         y_pos_title_top = 1
-        y_pos_artist_top = int(matrix_height * ARTIST_Y_PERCENT) + artist_album_font_height
-        y_pos_album_top = int(matrix_height * ALBUM_Y_PERCENT) + artist_album_font_height
+        y_pos_artist_top = int(matrix_height * ARTIST_Y_PERCENT) + font_shift
+        y_pos_album_top = int(matrix_height * ALBUM_Y_PERCENT) + font_shift
         
         TEXT_SCROLL_DIVISOR = 5
 
