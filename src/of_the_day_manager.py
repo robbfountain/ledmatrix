@@ -510,7 +510,7 @@ class OfTheDayManager:
 
             # --- Draw Body Text with Dynamic Spacing ---
             if num_body_lines > 0:
-                body_start_y = underline_y + space_after_title
+                body_start_y = underline_y + space_after_title + 1  # Shift description down 1 pixel
                 current_y = body_start_y
                 
                 for i, line in enumerate(actual_body_lines):
