@@ -5,7 +5,10 @@ from datetime import date
 from PIL import ImageDraw, ImageFont
 from src.config_manager import ConfigManager
 import time
-import freetype
+try:
+    import freetype
+except ImportError:
+    freetype = None
 
 # Configure logger for this module
 logger = logging.getLogger(__name__)
@@ -36,17 +39,56 @@ class OfTheDayManager:
 
         # Load fonts with robust path resolution and fallbacks
         try:
+            # Try multiple font directory locations
             script_dir = os.path.dirname(os.path.abspath(__file__))
-            font_dir = os.path.abspath(os.path.join(script_dir, '..', 'assets', 'fonts'))
+            possible_font_dirs = [
+                os.path.abspath(os.path.join(script_dir, '..', 'assets', 'fonts')),  # Relative to src/
+                os.path.abspath(os.path.join(os.getcwd(), 'assets', 'fonts')),      # Relative to project root
+                os.path.abspath('assets/fonts'),  # Simple relative path made absolute
+                'assets/fonts'  # Simple relative path
+            ]
+            
+            font_dir = None
+            for potential_dir in possible_font_dirs:
+                if os.path.exists(potential_dir):
+                    font_dir = potential_dir
+                    logger.debug(f"Found font directory at: {font_dir}")
+                    break
+            
+            if font_dir is None:
+                logger.warning("No font directory found, using fallback fonts")
+                raise FileNotFoundError("Font directory not found")
 
             def _safe_load_bdf_font(filename):
                 try:
-                    font_path = os.path.abspath(os.path.join(font_dir, filename))
-                    if not os.path.exists(font_path):
-                        raise FileNotFoundError(f"Font file not found: {font_path}")
-                    return freetype.Face(font_path)
+                    # Try multiple font paths
+                    font_paths = [
+                        os.path.abspath(os.path.join(font_dir, filename)),
+                        os.path.join(font_dir, filename),
+                        os.path.join(script_dir, '..', 'assets', 'fonts', filename),
+                        os.path.join(script_dir, '..', 'assets', 'fonts', filename)
+                    ]
+                    
+                    for font_path in font_paths:
+                        abs_font_path = os.path.abspath(font_path)
+                        if os.path.exists(abs_font_path):
+                            logger.debug(f"Loading BDF font: {abs_font_path}")
+                            if freetype is not None:
+                                return freetype.Face(abs_font_path)
+                            else:
+                                logger.warning("freetype module not available, cannot load BDF fonts")
+                                return None
+                    
+                    logger.debug(f"Font file not found: {filename}")
+                    # List available fonts for debugging
+                    try:
+                        available_fonts = [f for f in os.listdir(font_dir) if f.endswith('.bdf')]
+                        logger.debug(f"Available BDF fonts in {font_dir}: {available_fonts}")
+                    except:
+                        pass
+                    return None
                 except Exception as e:
-                    logger.error(f"Failed to load BDF font '{filename}': {e}")
+                    logger.debug(f"Failed to load BDF font '{filename}': {e}")
                     return None
 
             self.title_font = _safe_load_bdf_font('ic8x8u.bdf')
@@ -55,19 +97,19 @@ class OfTheDayManager:
             # Fallbacks if BDF fonts aren't available
             if self.title_font is None:
                 self.title_font = getattr(self.display_manager, 'bdf_5x7_font', None) or getattr(self.display_manager, 'small_font', ImageFont.load_default())
-                logger.warning("Using fallback font for title in OfTheDayManager")
+                logger.info("Using fallback font for title in OfTheDayManager")
             if self.body_font is None:
                 self.body_font = getattr(self.display_manager, 'bdf_5x7_font', None) or getattr(self.display_manager, 'small_font', ImageFont.load_default())
-                logger.warning("Using fallback font for body in OfTheDayManager")
+                logger.info("Using fallback font for body in OfTheDayManager")
 
             # Log font types for debugging
             logger.debug(f"Title font type: {type(self.title_font).__name__}")
             logger.debug(f"Body font type: {type(self.body_font).__name__}")
         except Exception as e:
-            logger.error(f"Unexpected error during font initialization: {e}")
+            logger.warning(f"Error during font initialization, using fallbacks: {e}")
             # Last-resort fallback
-            self.title_font = ImageFont.load_default()
-            self.body_font = ImageFont.load_default()
+            self.title_font = getattr(self.display_manager, 'small_font', ImageFont.load_default())
+            self.body_font = getattr(self.display_manager, 'small_font', ImageFont.load_default())
 
         # Load categories and their data
         self.categories = self.of_the_day_config.get('categories', {})
@@ -107,6 +149,16 @@ class OfTheDayManager:
         logger.info(f"Loading data files for {len(self.categories)} categories")
         logger.info(f"Current working directory: {os.getcwd()}")
         logger.info(f"Script directory: {os.path.dirname(__file__)}")
+        
+        # Additional debugging for Pi environment
+        logger.debug(f"Absolute script directory: {os.path.abspath(os.path.dirname(__file__))}")
+        logger.debug(f"Absolute working directory: {os.path.abspath(os.getcwd())}")
+        
+        # Check if we're running on Pi
+        if os.path.exists('/home/ledpi'):
+            logger.debug("Detected Pi environment (/home/ledpi exists)")
+        else:
+            logger.debug("Not running on Pi environment")
             
         for category_name, category_config in self.categories.items():
             logger.debug(f"Processing category: {category_name}")
@@ -120,17 +172,95 @@ class OfTheDayManager:
                 continue
                 
             try:
-                # Try relative path first, then absolute
-                file_path = data_file
-                if not os.path.isabs(file_path):
-                    # If data_file already contains 'of_the_day/', use it as is
-                    if data_file.startswith('of_the_day/'):
-                        file_path = os.path.join(os.path.dirname(__file__), '..', data_file)
-                    else:
-                        file_path = os.path.join(os.path.dirname(__file__), '..', 'of_the_day', data_file)
+                # Try multiple possible paths for data files
+                script_dir = os.path.dirname(os.path.abspath(__file__))
+                current_dir = os.getcwd()
+                project_root = os.path.dirname(script_dir)  # Go up one level from src/ to project root
+                possible_paths = []
                 
-                # Convert to absolute path for better logging
-                file_path = os.path.abspath(file_path)
+                logger.debug(f"Script directory: {script_dir}")
+                logger.debug(f"Current working directory: {current_dir}")
+                logger.debug(f"Project root directory: {project_root}")
+                logger.debug(f"Data file from config: {data_file}")
+                
+                if os.path.isabs(data_file):
+                    possible_paths.append(data_file)
+                else:
+                    # Always try multiple paths regardless of how data_file is specified
+                    possible_paths.extend([
+                        os.path.join(current_dir, data_file),  # Current working directory first
+                        os.path.join(project_root, data_file),  # Project root directory
+                        os.path.join(script_dir, '..', data_file),  # Relative to script directory
+                        data_file  # Direct path
+                    ])
+                    
+                    # If data_file doesn't already contain 'of_the_day/', also try with it
+                    if not data_file.startswith('of_the_day/'):
+                        possible_paths.extend([
+                            os.path.join(current_dir, 'of_the_day', os.path.basename(data_file)),
+                            os.path.join(project_root, 'of_the_day', os.path.basename(data_file)),
+                            os.path.join(script_dir, '..', 'of_the_day', os.path.basename(data_file)),
+                            os.path.join('of_the_day', os.path.basename(data_file))
+                        ])
+                    else:
+                        # If data_file already contains 'of_the_day/', try extracting just the filename
+                        filename = os.path.basename(data_file)
+                        possible_paths.extend([
+                            os.path.join(current_dir, 'of_the_day', filename),
+                            os.path.join(project_root, 'of_the_day', filename),
+                            os.path.join(script_dir, '..', 'of_the_day', filename),
+                            os.path.join('of_the_day', filename)
+                        ])
+                
+                # Debug: Show all paths before deduplication
+                logger.debug(f"All possible paths before deduplication: {possible_paths}")
+                
+                # Remove duplicates while preserving order
+                seen = set()
+                unique_paths = []
+                for path in possible_paths:
+                    abs_path = os.path.abspath(path)
+                    if abs_path not in seen:
+                        seen.add(abs_path)
+                        unique_paths.append(abs_path)
+                possible_paths = unique_paths
+                
+                # Debug: Show paths after deduplication
+                logger.debug(f"Unique paths after deduplication: {possible_paths}")
+                
+                file_path = None
+                for potential_path in possible_paths:
+                    abs_path = os.path.abspath(potential_path)
+                    if os.path.exists(abs_path):
+                        file_path = abs_path
+                        logger.debug(f"Found data file for {category_name} at: {file_path}")
+                        break
+                
+                # Final fallback - try the direct path relative to current working directory
+                if file_path is None:
+                    direct_path = os.path.join(current_dir, 'of_the_day', os.path.basename(data_file))
+                    if os.path.exists(direct_path):
+                        file_path = direct_path
+                        logger.debug(f"Found data file for {category_name} using direct fallback: {file_path}")
+                
+                if file_path is None:
+                    # Use the first attempted path for error reporting
+                    file_path = os.path.abspath(possible_paths[0])
+                    logger.debug(f"No data file found for {category_name}, tried: {[os.path.abspath(p) for p in possible_paths]}")
+                    
+                    # Additional debugging - check if parent directory exists
+                    parent_dir = os.path.dirname(file_path)
+                    logger.debug(f"Parent directory: {parent_dir}")
+                    logger.debug(f"Parent directory exists: {os.path.exists(parent_dir)}")
+                    if os.path.exists(parent_dir):
+                        try:
+                            parent_contents = os.listdir(parent_dir)
+                            logger.debug(f"Parent directory contents: {parent_contents}")
+                        except PermissionError:
+                            logger.debug(f"Permission denied accessing parent directory: {parent_dir}")
+                        except Exception as e:
+                            logger.debug(f"Error listing parent directory: {e}")
+                
                 logger.debug(f"Attempting to load {category_name} from: {file_path}")
                 
                 if os.path.exists(file_path):
@@ -156,7 +286,18 @@ class OfTheDayManager:
                     
                 else:
                     logger.error(f"Data file not found for {category_name}: {file_path}")
-                    logger.error(f"Directory contents: {os.listdir(os.path.dirname(file_path)) if os.path.exists(os.path.dirname(file_path)) else 'Parent directory does not exist'}")
+                    parent_dir = os.path.dirname(file_path)
+                    if os.path.exists(parent_dir):
+                        try:
+                            dir_contents = os.listdir(parent_dir)
+                            logger.error(f"Directory contents of {parent_dir}: {dir_contents}")
+                        except PermissionError:
+                            logger.error(f"Permission denied accessing directory: {parent_dir}")
+                        except Exception as e:
+                            logger.error(f"Error listing directory {parent_dir}: {e}")
+                    else:
+                        logger.error(f"Parent directory does not exist: {parent_dir}")
+                    logger.error(f"Tried paths: {[os.path.abspath(p) for p in possible_paths]}")
                     self.data_files[category_name] = {}
                     
             except json.JSONDecodeError as e:
@@ -240,14 +381,25 @@ class OfTheDayManager:
         """Draw text for both BDF (FreeType Face) and PIL TTF fonts."""
         try:
             # If we have a PIL font, use native text rendering
-            if not isinstance(face, freetype.Face):
+            if freetype is None or not isinstance(face, freetype.Face):
                 draw.text((x, y), text, fill=color, font=face)
                 return
+
+            # Compute baseline from font ascender so caller can pass top-left y
+            try:
+                ascender_px = face.size.ascender >> 6
+            except Exception:
+                ascender_px = 0
+            baseline_y = y + ascender_px
 
             # Otherwise, render BDF glyphs manually
             for char in text:
                 face.load_char(char)
                 bitmap = face.glyph.bitmap
+                
+                # Get glyph metrics
+                glyph_left = face.glyph.bitmap_left
+                glyph_top = face.glyph.bitmap_top
                 
                 for i in range(bitmap.rows):
                     for j in range(bitmap.width):
@@ -256,9 +408,12 @@ class OfTheDayManager:
                             if byte_index < len(bitmap.buffer):
                                 byte = bitmap.buffer[byte_index]
                                 if byte & (1 << (7 - (j % 8))):
-                                    draw_y = y - face.glyph.bitmap_top + i
-                                    draw_x = x + face.glyph.bitmap_left + j
-                                    draw.point((draw_x, draw_y), fill=color)
+                                    # Calculate actual pixel position
+                                    pixel_x = x + glyph_left + j
+                                    pixel_y = baseline_y - glyph_top + i
+                                    # Only draw if within bounds
+                                    if (0 <= pixel_x < self.display_manager.width and 0 <= pixel_y < self.display_manager.height):
+                                        draw.point((pixel_x, pixel_y), fill=color)
                         except IndexError:
                             logger.warning(f"Index out of range for char '{char}' at position ({i}, {j})")
                             continue
@@ -287,10 +442,54 @@ class OfTheDayManager:
             except Exception:
                 body_height = 8
             
-            # --- Draw Title (always at top) ---
-            title_y = title_height  # Position title so its bottom is at title_height
+            # --- Dynamic Spacing Calculation ---
+            # Calculate how much space we need and distribute it evenly
+            margin_top = 8  # Shift everything down by 6 pixels
+            margin_bottom = 1
+            underline_space = 1  # Space for underline
             
-            # Calculate title width for centering (robust to font type)
+            # Determine current content
+            current_text = subtitle if (self.rotation_state == 0 and subtitle) else description
+            if not current_text:
+                current_text = ""
+            
+            # Pre-wrap the body text to determine how many lines we'll need
+            available_width = matrix_width - 4  # Leave some margin
+            wrapped_lines = self._wrap_text(current_text, available_width, body_font, max_lines=10, 
+                                          line_height=body_height, max_height=matrix_height)
+            # Filter out empty lines for spacing calculation
+            actual_body_lines = [line for line in wrapped_lines if line.strip()]
+            num_body_lines = len(actual_body_lines)
+            
+            # Calculate total content height needed
+            title_content_height = title_height
+            underline_content_height = underline_space
+            body_content_height = num_body_lines * body_height if num_body_lines > 0 else 0
+            
+            total_content_height = title_content_height + underline_content_height + body_content_height
+            available_space = matrix_height - margin_top - margin_bottom
+            
+            # Calculate dynamic spacing
+            if total_content_height < available_space:
+                # We have extra space - distribute it
+                extra_space = available_space - total_content_height
+                if num_body_lines > 0:
+                    # Distribute space: 30% after title, 70% between body lines
+                    space_after_title = max(2, int(extra_space * 0.3))
+                    space_between_lines = max(1, int(extra_space * 0.7 / max(1, num_body_lines - 1))) if num_body_lines > 1 else 0
+                else:
+                    # No body text - just center the title
+                    space_after_title = extra_space // 2
+                    space_between_lines = 0
+            else:
+                # Tight spacing
+                space_after_title = 4
+                space_between_lines = 1
+            
+            # --- Draw Title ---
+            title_y = margin_top
+            
+            # Calculate title width for centering
             try:
                 title_width = self.display_manager.get_text_width(title, title_font)
             except Exception:
@@ -300,48 +499,33 @@ class OfTheDayManager:
             title_x = (matrix_width - title_width) // 2
             self._draw_bdf_text(draw, title_font, title, title_x, title_y, color=self.title_color)
             
-            # Underline below title (centered)
-            underline_y = title_height + 1
+            # --- Draw Underline ---
+            underline_y = title_y + title_height + 1  # Reduced space after title
             underline_x_start = title_x
             underline_x_end = title_x + title_width
             draw.line([(underline_x_start, underline_y), (underline_x_end, underline_y)], fill=self.title_color, width=1)
 
-            # --- Draw Subtitle or Description (rotating) ---
-            # Start subtitle/description below the title and underline
-            # Account for title height + underline + spacing
-            y_start = title_height + body_height + 4  # Space for underline
-            available_height = matrix_height - y_start
-            available_width = matrix_width - 2
+            # --- Draw Body Text with Dynamic Spacing ---
+            if num_body_lines > 0:
+                body_start_y = underline_y + space_after_title + 1  # Shift description down 1 pixel
+                current_y = body_start_y
+                
+                for i, line in enumerate(actual_body_lines):
+                    if line.strip():  # Only draw non-empty lines
+                        # Center each line of body text
+                        try:
+                            line_width = self.display_manager.get_text_width(line, body_font)
+                        except Exception:
+                            line_width = len(line) * 6
+                        line_x = (matrix_width - line_width) // 2
+                        
+                        # Draw the line
+                        self._draw_bdf_text(draw, body_font, line, line_x, current_y, color=self.subtitle_color)
+                        
+                        # Move to next line position
+                        if i < len(actual_body_lines) - 1:  # Not the last line
+                            current_y += body_height + space_between_lines
             
-            if self.rotation_state == 0 and subtitle:
-                # Show subtitle
-                wrapped = self._wrap_text(subtitle, available_width, body_font, max_lines=3, line_height=body_height, max_height=available_height)
-                for i, line in enumerate(wrapped):
-                    if line.strip():  # Only draw non-empty lines
-                        # Center each line of body text
-                        try:
-                            line_width = self.display_manager.get_text_width(line, body_font)
-                        except Exception:
-                            line_width = len(line) * 6
-                        line_x = (matrix_width - line_width) // 2
-                        # Add one pixel buffer between lines
-                        line_y = y_start + i * (body_height + 1)
-                        self._draw_bdf_text(draw, body_font, line, line_x, line_y, color=self.subtitle_color)
-            elif self.rotation_state == 1 and description:
-                # Show description
-                wrapped = self._wrap_text(description, available_width, body_font, max_lines=3, line_height=body_height, max_height=available_height)
-                for i, line in enumerate(wrapped):
-                    if line.strip():  # Only draw non-empty lines
-                        # Center each line of body text
-                        try:
-                            line_width = self.display_manager.get_text_width(line, body_font)
-                        except Exception:
-                            line_width = len(line) * 6
-                        line_x = (matrix_width - line_width) // 2
-                        # Add one pixel buffer between lines
-                        line_y = y_start + i * (body_height + 1)
-                        self._draw_bdf_text(draw, body_font, line, line_x, line_y, color=self.subtitle_color)
-            # else: nothing to show
             return True
         except Exception as e:
             logger.error(f"Error drawing 'of the day' item: {e}", exc_info=True)

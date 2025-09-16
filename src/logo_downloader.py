@@ -32,7 +32,17 @@ class LogoDownloader:
         'fcs': 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams',  # FCS teams from same endpoint
         'ncaam_basketball': 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams',
         'ncaa_baseball': 'https://site.api.espn.com/apis/site/v2/sports/baseball/college-baseball/teams',
-        "ncaam_hockey": "https://site.api.espn.com/apis/site/v2/sports/hockey/mens-college-hockey/teams"
+        "ncaam_hockey": "https://site.api.espn.com/apis/site/v2/sports/hockey/mens-college-hockey/teams",
+        # Soccer leagues
+        'soccer_eng.1': 'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams',
+        'soccer_esp.1': 'https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/teams',
+        'soccer_ger.1': 'https://site.api.espn.com/apis/site/v2/sports/soccer/ger.1/teams',
+        'soccer_ita.1': 'https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/teams',
+        'soccer_fra.1': 'https://site.api.espn.com/apis/site/v2/sports/soccer/fra.1/teams',
+        'soccer_por.1': 'https://site.api.espn.com/apis/site/v2/sports/soccer/por.1/teams',
+        'soccer_uefa.champions': 'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/teams',
+        'soccer_uefa.europa': 'https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.europa/teams',
+        'soccer_usa.1': 'https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/teams'
     }
     
     # Directory mappings for different leagues
@@ -47,6 +57,16 @@ class LogoDownloader:
         'ncaam_basketball': 'assets/sports/ncaa_logos',
         'ncaa_baseball': 'assets/sports/ncaa_logos',
         'ncaam_hockey': 'assets/sports/ncaa_logos',
+        # Soccer leagues - all use the same soccer_logos directory
+        'soccer_eng.1': 'assets/sports/soccer_logos',
+        'soccer_esp.1': 'assets/sports/soccer_logos',
+        'soccer_ger.1': 'assets/sports/soccer_logos',
+        'soccer_ita.1': 'assets/sports/soccer_logos',
+        'soccer_fra.1': 'assets/sports/soccer_logos',
+        'soccer_por.1': 'assets/sports/soccer_logos',
+        'soccer_uefa.champions': 'assets/sports/soccer_logos',
+        'soccer_uefa.europa': 'assets/sports/soccer_logos',
+        'soccer_usa.1': 'assets/sports/soccer_logos'
     }
     
     def __init__(self, request_timeout: int = 30, retry_attempts: int = 3):
@@ -605,6 +625,20 @@ class LogoDownloader:
         
         logger.info(f"Converted {converted_count} logos to RGBA format for {league}, {failed_count} failed")
         return converted_count, failed_count
+
+
+# Helper function to map soccer league codes to logo downloader format
+def get_soccer_league_key(league_code: str) -> str:
+    """
+    Map soccer league codes to logo downloader format.
+    
+    Args:
+        league_code: Soccer league code (e.g., 'eng.1', 'por.1')
+        
+    Returns:
+        Logo downloader league key (e.g., 'soccer_eng.1', 'soccer_por.1')
+    """
+    return f"soccer_{league_code}"
 
 
 # Convenience function for easy integration

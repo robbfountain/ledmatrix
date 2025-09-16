@@ -35,7 +35,17 @@ class OddsManager:
         self.logger.info(f"Cache miss - fetching fresh odds from ESPN for {cache_key}")
         
         try:
-            url = f"{self.base_url}/{sport}/leagues/{league}/events/{event_id}/competitions/{event_id}/odds"
+            # Map league names to ESPN API format
+            league_mapping = {
+                'ncaa_fb': 'college-football',
+                'nfl': 'nfl',
+                'nba': 'nba',
+                'mlb': 'mlb',
+                'nhl': 'nhl'
+            }
+            
+            espn_league = league_mapping.get(league, league)
+            url = f"{self.base_url}/{sport}/leagues/{espn_league}/events/{event_id}/competitions/{event_id}/odds"
             self.logger.info(f"Requesting odds from URL: {url}")
             response = requests.get(url, timeout=10)
             response.raise_for_status()
@@ -46,13 +56,16 @@ class OddsManager:
             self.logger.debug(f"Received raw odds data from ESPN: {json.dumps(raw_data, indent=2)}")
             
             odds_data = self._extract_espn_data(raw_data)
-            self.logger.info(f"Extracted odds data: {odds_data}")
+            if odds_data:
+                self.logger.info(f"Successfully extracted odds data: {odds_data}")
+            else:
+                self.logger.debug("No odds data available for this game")
             
             if odds_data:
                 self.cache_manager.set(cache_key, odds_data)
                 self.logger.info(f"Saved odds data to cache for {cache_key}")
             else:
-                self.logger.warning(f"No odds data extracted for {cache_key}")
+                self.logger.debug(f"No odds data available for {cache_key}")
                 # Cache the fact that no odds are available to avoid repeated API calls
                 self.cache_manager.set(cache_key, {"no_odds": True})
             
@@ -91,7 +104,13 @@ class OddsManager:
             self.logger.debug(f"Returning extracted odds data: {json.dumps(extracted_data, indent=2)}")
             return extracted_data
         
-        # Log the actual response structure when no items are found
-        self.logger.warning("No 'items' found in ESPN odds data.")
-        self.logger.warning(f"Actual response structure: {json.dumps(data, indent=2)}")
-        return None 
+        # Check if this is a valid empty response or an unexpected structure
+        if "count" in data and data["count"] == 0 and "items" in data and data["items"] == []:
+            # This is a valid empty response - no odds available for this game
+            self.logger.debug(f"No odds available for this game. Response: {json.dumps(data, indent=2)}")
+            return None
+        else:
+            # This is an unexpected response structure
+            self.logger.warning("No 'items' found in ESPN odds data.")
+            self.logger.warning(f"Unexpected response structure: {json.dumps(data, indent=2)}")
+            return None 

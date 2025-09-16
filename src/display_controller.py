@@ -578,6 +578,11 @@ class DisplayController:
                 self.display_manager.defer_update(self.stocks.update_stock_data, priority=2)
             if self.news: 
                 self.display_manager.defer_update(self.news.update_news_data, priority=2)
+            # Defer sport manager updates that might do heavy API fetching
+            if hasattr(self, 'ncaa_fb_live') and self.ncaa_fb_live:
+                self.display_manager.defer_update(self.ncaa_fb_live.update, priority=3)
+            if hasattr(self, 'nfl_live') and self.nfl_live:
+                self.display_manager.defer_update(self.nfl_live.update, priority=3)
             # Continue with non-scrolling-sensitive updates
             if self.weather: self.weather.get_weather()
             if self.calendar: self.calendar.update(time.time())

@@ -208,8 +208,10 @@ class BaseNCAAFBManager: # Renamed class
 
     def _fetch_ncaa_fb_api_data(self, use_cache: bool = True) -> Optional[Dict]:
         """
-        Fetches the full season schedule for NCAAFB, caches it, and then filters
-        for relevant games based on the current configuration.
+        Fetches the full season schedule for NCAAFB using week-by-week approach to ensure
+        we get all games, then caches the complete dataset.
+        
+        This method now uses background threading to prevent blocking the display.
         """
         now = datetime.now(pytz.utc)
         current_year = now.year
@@ -227,7 +229,25 @@ class BaseNCAAFBManager: # Renamed class
                     all_events.extend(cached_data)
                     continue
             
+            # Check if we're already fetching this year's data in background
+            if hasattr(self, '_background_fetching') and year in self._background_fetching:
+                self.logger.info(f"[NCAAFB] Background fetch already in progress for {year}, using partial data")
+                # Return partial data if available, or trigger background fetch
+                partial_data = self._get_partial_schedule_data(year)
+                if partial_data:
+                    all_events.extend(partial_data)
+                    continue
+            
             self.logger.info(f"[NCAAFB] Fetching full {year} season schedule from ESPN API...")
+            
+            # Start background fetch for complete data
+            self._start_background_schedule_fetch(year)
+            
+            # For immediate response, fetch current/recent games only
+            year_events = self._fetch_immediate_games(year)
+            all_events.extend(year_events)
+            
+            # Also try to fetch full season data immediately as fallback
             try:
                 url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard"
                 response = self.session.get(url, params={"dates": year,"seasontype":2,"limit":1000},headers=self.headers, timeout=15)
@@ -247,6 +267,115 @@ class BaseNCAAFBManager: # Renamed class
             return None
 
         return {'events': all_events}
+    
+    def _fetch_immediate_games(self, year: int) -> List[Dict]:
+        """Fetch immediate games (current week + next few days) for quick display."""
+        immediate_events = []
+        
+        try:
+            # Fetch current week and next few days for immediate display
+            now = datetime.now(pytz.utc)
+            for days_offset in range(-1, 7):  # Yesterday through next 6 days
+                check_date = now + timedelta(days=days_offset)
+                date_str = check_date.strftime('%Y%m%d')
+                
+                url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?dates={date_str}"
+                response = self.session.get(url, headers=self.headers, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+                date_events = data.get('events', [])
+                immediate_events.extend(date_events)
+                
+                if days_offset == 0:  # Today
+                    self.logger.debug(f"[NCAAFB] Immediate fetch - Current date ({date_str}): {len(date_events)} events")
+                    
+        except requests.exceptions.RequestException as e:
+            self.logger.warning(f"[NCAAFB] Error fetching immediate games for {year}: {e}")
+        
+        return immediate_events
+    
+    def _start_background_schedule_fetch(self, year: int):
+        """Start background thread to fetch complete season schedule."""
+        import threading
+        
+        if not hasattr(self, '_background_fetching'):
+            self._background_fetching = set()
+        
+        if year in self._background_fetching:
+            return  # Already fetching
+        
+        self._background_fetching.add(year)
+        
+        def background_fetch():
+            try:
+                start_time = time.time()
+                self.logger.info(f"[NCAAFB] Starting background fetch for {year} season...")
+                year_events = []
+                
+                # Fetch week by week to ensure we get complete season data
+                for week in range(1, 16):
+                    # Add timeout check to prevent infinite background fetching
+                    if time.time() - start_time > 300:  # 5 minute timeout
+                        self.logger.warning(f"[NCAAFB] Background fetch timeout after 5 minutes for {year}")
+                        break
+                        
+                    try:
+                        url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?seasontype=2&week={week}"
+                        response = self.session.get(url, headers=self.headers, timeout=15)
+                        response.raise_for_status()
+                        data = response.json()
+                        week_events = data.get('events', [])
+                        year_events.extend(week_events)
+                        
+                        # Log progress for first few weeks
+                        if week <= 3:
+                            self.logger.debug(f"[NCAAFB] Background - Week {week}: fetched {len(week_events)} events")
+                        
+                        # If no events found for this week, we might be past the season
+                        if not week_events and week > 10:
+                            self.logger.debug(f"[NCAAFB] Background - No events found for week {week}, ending season fetch")
+                            break
+                            
+                    except requests.exceptions.RequestException as e:
+                        self.logger.warning(f"[NCAAFB] Background - Error fetching week {week} for {year}: {e}")
+                        continue
+                
+                # Also fetch postseason games (bowl games, playoffs) if we haven't timed out
+                if time.time() - start_time < 300:
+                    try:
+                        url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard?seasontype=3"
+                        response = self.session.get(url, headers=self.headers, timeout=15)
+                        response.raise_for_status()
+                        data = response.json()
+                        postseason_events = data.get('events', [])
+                        year_events.extend(postseason_events)
+                        self.logger.debug(f"[NCAAFB] Background - Postseason: fetched {len(postseason_events)} events")
+                    except requests.exceptions.RequestException as e:
+                        self.logger.warning(f"[NCAAFB] Background - Error fetching postseason for {year}: {e}")
+                
+                # Cache the complete data
+                cache_key = f"ncaafb_schedule_{year}"
+                self.cache_manager.set(cache_key, year_events)
+                elapsed_time = time.time() - start_time
+                self.logger.info(f"[NCAAFB] Background fetch completed for {year}: {len(year_events)} events cached in {elapsed_time:.1f}s")
+                
+            except Exception as e:
+                self.logger.error(f"[NCAAFB] Background fetch failed for {year}: {e}")
+            finally:
+                self._background_fetching.discard(year)
+        
+        # Start background thread
+        fetch_thread = threading.Thread(target=background_fetch, daemon=True)
+        fetch_thread.start()
+    
+    def _get_partial_schedule_data(self, year: int) -> List[Dict]:
+        """Get partial schedule data if available from cache or previous fetch."""
+        cache_key = f"ncaafb_schedule_{year}"
+        cached_data = self.cache_manager.get(cache_key, max_age=self.season_cache_duration * 2)  # Allow older data
+        if cached_data:
+            self.logger.debug(f"[NCAAFB] Using partial cached data for {year}: {len(cached_data)} events")
+            return cached_data
+        return []
 
     def _fetch_data(self, date_str: str = None) -> Optional[Dict]:
         """Fetch data using shared data mechanism or direct fetch for live."""
@@ -469,7 +598,7 @@ class BaseNCAAFBManager: # Renamed class
             # Only log debug info for favorite team games
             if is_favorite_game:
                 self.logger.debug(f"[NCAAFB] Processing favorite team game: {game_event.get('id')}")
-                self.logger.debug(f"[NCAAFB] Found teams: {away_abbr}@{home_abbr}, Status: {status['type']['name']}")
+                self.logger.debug(f"[NCAAFB] Found teams: {away_abbr}@{home_abbr}, Status: {status['type']['name']}, State: {status['type']['state']}")
             
             home_record = home_team.get('records', [{}])[0].get('summary', '') if home_team.get('records') else ''
             away_record = away_team.get('records', [{}])[0].get('summary', '') if away_team.get('records') else ''
@@ -499,15 +628,37 @@ class BaseNCAAFBManager: # Renamed class
             situation = competition.get("situation")
             down_distance_text = ""
             possession_indicator = None # Default to None
+            scoring_event = ""  # Track scoring events
+            
             if situation and status["type"]["state"] == "in":
                 down = situation.get("down")
                 distance = situation.get("distance")
-                if down and distance is not None:
+                # Validate down and distance values before formatting
+                if (down is not None and isinstance(down, int) and 1 <= down <= 4 and 
+                    distance is not None and isinstance(distance, int) and distance >= 0):
                     down_str = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}.get(down, f"{down}th")
                     dist_str = f"& {distance}" if distance > 0 else "& Goal"
                     down_distance_text = f"{down_str} {dist_str}"
                 elif situation.get("isRedZone"):
                      down_distance_text = "Red Zone" # Simplified if down/distance not present but in redzone
+                
+                # Detect scoring events from status detail
+                status_detail = status["type"].get("detail", "").lower()
+                status_short = status["type"].get("shortDetail", "").lower()
+                
+                # Check for scoring events in status text
+                if any(keyword in status_detail for keyword in ["touchdown", "td"]):
+                    scoring_event = "TOUCHDOWN"
+                elif any(keyword in status_detail for keyword in ["field goal", "fg"]):
+                    scoring_event = "FIELD GOAL"
+                elif any(keyword in status_detail for keyword in ["extra point", "pat", "point after"]):
+                    scoring_event = "PAT"
+                elif any(keyword in status_short for keyword in ["touchdown", "td"]):
+                    scoring_event = "TOUCHDOWN"
+                elif any(keyword in status_short for keyword in ["field goal", "fg"]):
+                    scoring_event = "FIELD GOAL"
+                elif any(keyword in status_short for keyword in ["extra point", "pat"]):
+                    scoring_event = "PAT"
 
                 # Determine possession based on team ID
                 possession_team_id = situation.get("possession")
@@ -524,14 +675,13 @@ class BaseNCAAFBManager: # Renamed class
                  if period == 0: period_text = "Start" # Before kickoff
                  elif period == 1: period_text = "Q1"
                  elif period == 2: period_text = "Q2"
-                 elif period == 3: period_text = "HALF" # Halftime is usually period 3 in API
-                 elif period == 4: period_text = "Q3"
-                 elif period == 5: period_text = "Q4"
-                 elif period > 5: period_text = "OT" # Assuming OT starts at period 6+
+                 elif period == 3: period_text = "Q3" # Fixed: period 3 is 3rd quarter, not halftime
+                 elif period == 4: period_text = "Q4"
+                 elif period > 4: period_text = "OT" # OT starts after Q4
             elif status["type"]["state"] == "halftime" or status["type"]["name"] == "STATUS_HALFTIME": # Check explicit halftime state
                 period_text = "HALF"
             elif status["type"]["state"] == "post":
-                 if period > 5 : period_text = "Final/OT"
+                 if period > 4 : period_text = "Final/OT"
                  else: period_text = "Final"
             elif status["type"]["state"] == "pre":
                 period_text = game_time # Show time for upcoming
@@ -555,7 +705,8 @@ class BaseNCAAFBManager: # Renamed class
                 "clock": status.get("displayClock", "0:00"),
                 "is_live": status["type"]["state"] == "in",
                 "is_final": status["type"]["state"] == "post",
-                "is_upcoming": status["type"]["state"] == "pre",
+                "is_upcoming": (status["type"]["state"] == "pre" or 
+                               status["type"]["name"].lower() in ['scheduled', 'pre-game', 'status_scheduled']),
                 "is_halftime": status["type"]["state"] == "halftime" or status["type"]["name"] == "STATUS_HALFTIME", # Added halftime check
                 "home_abbr": home_abbr,
                 "home_score": home_team.get("score", "0"),
@@ -572,6 +723,7 @@ class BaseNCAAFBManager: # Renamed class
                 "down_distance_text": down_distance_text, # Added Down/Distance
                 "possession": situation.get("possession") if situation else None, # ID of team with possession
                 "possession_indicator": possession_indicator, # Added for easy home/away check
+                "scoring_event": scoring_event, # Track scoring events (TOUCHDOWN, FIELD GOAL, PAT)
                 "is_within_window": is_within_window, # Whether game is within display window
             }
 
@@ -700,11 +852,13 @@ class NCAAFBLiveManager(BaseNCAAFBManager): # Renamed class
                             minutes -= 1
                             if minutes < 0:
                                 # Simulate end of quarter/game
-                                if self.current_game["period"] < 5: # Assuming 5 is Q4 end
+                                if self.current_game["period"] < 4: # Q4 is period 4
                                     self.current_game["period"] += 1
                                     # Update period_text based on new period
-                                    if self.current_game["period"] == 3: self.current_game["period_text"] = "HALF"
-                                    elif self.current_game["period"] == 5: self.current_game["period_text"] = "Q4"
+                                    if self.current_game["period"] == 1: self.current_game["period_text"] = "Q1"
+                                    elif self.current_game["period"] == 2: self.current_game["period_text"] = "Q2"
+                                    elif self.current_game["period"] == 3: self.current_game["period_text"] = "Q3"
+                                    elif self.current_game["period"] == 4: self.current_game["period_text"] = "Q4"
                                     # Reset clock for next quarter (e.g., 15:00)
                                     minutes, seconds = 15, 0
                                 else:
@@ -892,9 +1046,29 @@ class NCAAFBLiveManager(BaseNCAAFBManager): # Renamed class
             status_y = 1 # Position at top
             self._draw_text_with_outline(draw_overlay, period_clock_text, (status_x, status_y), self.fonts['time'])
 
-            # Down & Distance (Below Period/Clock)
+            # Down & Distance or Scoring Event (Below Period/Clock)
+            scoring_event = game.get("scoring_event", "")
             down_distance = game.get("down_distance_text", "")
-            if down_distance and game.get("is_live"): # Only show if live and available
+            
+            # Show scoring event if detected, otherwise show down & distance
+            if scoring_event and game.get("is_live"):
+                # Display scoring event with special formatting
+                event_width = draw_overlay.textlength(scoring_event, font=self.fonts['detail'])
+                event_x = (self.display_width - event_width) // 2
+                event_y = (self.display_height) - 7
+                
+                # Color coding for different scoring events
+                if scoring_event == "TOUCHDOWN":
+                    event_color = (255, 215, 0)  # Gold
+                elif scoring_event == "FIELD GOAL":
+                    event_color = (0, 255, 0)    # Green
+                elif scoring_event == "PAT":
+                    event_color = (255, 165, 0)  # Orange
+                else:
+                    event_color = (255, 255, 255)  # White
+                
+                self._draw_text_with_outline(draw_overlay, scoring_event, (event_x, event_y), self.fonts['detail'], fill=event_color)
+            elif down_distance and game.get("is_live"): # Only show if live and available
                 dd_width = draw_overlay.textlength(down_distance, font=self.fonts['detail'])
                 dd_x = (self.display_width - dd_width) // 2
                 dd_y = (self.display_height)- 7 # Top of D&D text
@@ -1009,34 +1183,63 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
             events = data['events']
             # self.logger.info(f"[NCAAFB Recent] Processing {len(events)} events from shared data.") # Changed log prefix
 
-            # Process games and filter for final games & favorite teams
+            # Define date range for "recent" games (last 21 days to capture games from 3 weeks ago)
+            now = datetime.now(timezone.utc)
+            recent_cutoff = now - timedelta(days=21)
+            self.logger.info(f"[NCAAFB Recent DEBUG] Current time: {now}, Recent cutoff: {recent_cutoff} (21 days ago)")
+            
+            # Process games and filter for final games, date range & favorite teams
             processed_games = []
             favorite_games_found = 0
             for event in events:
                 game = self._extract_game_details(event)
-                # Filter criteria: must be final
+                # Filter criteria: must be final AND within recent date range
                 if game and game['is_final']:
-                    processed_games.append(game)
-                    # Count favorite team games for logging
-                    if (game['home_abbr'] in self.favorite_teams or 
-                        game['away_abbr'] in self.favorite_teams):
-                        favorite_games_found += 1
+                    game_time = game.get('start_time_utc')
+                    if game_time and game_time >= recent_cutoff:
+                        processed_games.append(game)
+                        # Count favorite team games for logging
+                        if (game['home_abbr'] in self.favorite_teams or 
+                            game['away_abbr'] in self.favorite_teams):
+                            favorite_games_found += 1
+                            
+                        # Special check for Tennessee game in recent games
+                        if (game['home_abbr'] == 'TENN' and game['away_abbr'] == 'UGA') or (game['home_abbr'] == 'UGA' and game['away_abbr'] == 'TENN'):
+                            self.logger.info(f"[NCAAFB Recent DEBUG] Found Tennessee game in recent: {game['away_abbr']} @ {game['home_abbr']} - {game.get('start_time_utc')} - Score: {game['away_score']}-{game['home_score']}")
 
             # Filter for favorite teams
             if self.favorite_teams:
-                team_games = [game for game in processed_games
-                              if game['home_abbr'] in self.favorite_teams or
-                                 game['away_abbr'] in self.favorite_teams]
-                self.logger.info(f"[NCAAFB Recent] Found {favorite_games_found} favorite team games out of {len(processed_games)} total final games")
+                # Get all games involving favorite teams
+                favorite_team_games = [game for game in processed_games
+                                      if game['home_abbr'] in self.favorite_teams or
+                                         game['away_abbr'] in self.favorite_teams]
+                self.logger.info(f"[NCAAFB Recent] Found {favorite_games_found} favorite team games out of {len(processed_games)} total final games within last 21 days")
+                
+                # Select one game per favorite team (most recent game for each team)
+                team_games = []
+                for team in self.favorite_teams:
+                    # Find games where this team is playing
+                    team_specific_games = [game for game in favorite_team_games
+                                          if game['home_abbr'] == team or game['away_abbr'] == team]
+                    
+                    if team_specific_games:
+                        # Sort by game time and take the most recent
+                        team_specific_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+                        team_games.append(team_specific_games[0])
+                
+                # Sort the final list by game time (most recent first)
+                team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+                
+                # Debug: Show which games are selected for display
+                for i, game in enumerate(team_games):
+                    self.logger.info(f"[NCAAFB Recent DEBUG] Game {i+1} for display: {game['away_abbr']} @ {game['home_abbr']} - {game.get('start_time_utc')} - Score: {game['away_score']}-{game['home_score']}")
             else:
                  team_games = processed_games # Show all recent games if no favorites defined
-                 self.logger.info(f"[NCAAFB Recent] Found {len(processed_games)} total final games (no favorite teams configured)")
-
-            # Sort by game time, most recent first
-            team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
-            
-            # Limit to the specified number of recent games
-            team_games = team_games[:self.recent_games_to_show]
+                 self.logger.info(f"[NCAAFB Recent] Found {len(processed_games)} total final games within last 21 days (no favorite teams configured)")
+                 # Sort by game time, most recent first
+                 team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+                 # Limit to the specified number of recent games
+                 team_games = team_games[:self.recent_games_to_show]
 
             # Check if the list of games to display has changed
             new_game_ids = {g['id'] for g in team_games}
@@ -1287,8 +1490,14 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
 
             processed_games = []
             favorite_games_found = 0
+            all_upcoming_games = 0  # Count all upcoming games regardless of favorites
+            
             for event in events:
                 game = self._extract_game_details(event)
+                # Count all upcoming games for debugging
+                if game and game['is_upcoming']:
+                    all_upcoming_games += 1
+                    
                 # Filter criteria: must be upcoming ('pre' state)
                 if game and game['is_upcoming']:
                     # Only fetch odds for games that will be displayed
@@ -1305,22 +1514,77 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
                     if self.show_odds:
                         self._fetch_odds(game)
 
-            # Summary logging instead of verbose debug
-            self.logger.info(f"[NCAAFB Upcoming] Found {len(processed_games)} total upcoming games")
+            # Enhanced logging for debugging
+            self.logger.info(f"[NCAAFB Upcoming] Found {all_upcoming_games} total upcoming games in data")
+            self.logger.info(f"[NCAAFB Upcoming] Found {len(processed_games)} upcoming games after filtering")
+            
+            # Debug: Check what statuses we're seeing
+            status_counts = {}
+            status_names = {}  # Track actual status names from ESPN
+            favorite_team_games = []
+            for event in events:
+                game = self._extract_game_details(event)
+                if game:
+                    status = "upcoming" if game['is_upcoming'] else "final" if game['is_final'] else "live" if game['is_live'] else "other"
+                    status_counts[status] = status_counts.get(status, 0) + 1
+                    
+                    # Track actual ESPN status names
+                    actual_status = event.get('competitions', [{}])[0].get('status', {}).get('type', {})
+                    status_name = actual_status.get('name', 'Unknown')
+                    status_state = actual_status.get('state', 'Unknown')
+                    status_names[f"{status_name} ({status_state})"] = status_names.get(f"{status_name} ({status_state})", 0) + 1
+                    
+                    # Check for favorite team games regardless of status
+                    if (game['home_abbr'] in self.favorite_teams or game['away_abbr'] in self.favorite_teams):
+                        favorite_team_games.append({
+                            'teams': f"{game['away_abbr']} @ {game['home_abbr']}",
+                            'status': status,
+                            'date': game.get('start_time_utc', 'Unknown'),
+                            'espn_status': f"{status_name} ({status_state})"
+                        })
+                    
+                    # Special check for Tennessee game (Georgia @ Tennessee)
+                    if (game['home_abbr'] == 'TENN' and game['away_abbr'] == 'UGA') or (game['home_abbr'] == 'UGA' and game['away_abbr'] == 'TENN'):
+                        self.logger.info(f"[NCAAFB DEBUG] Found Tennessee game: {game['away_abbr']} @ {game['home_abbr']} - {status} - {game.get('start_time_utc')} - ESPN: {status_name} ({status_state})")
+            
+            self.logger.info(f"[NCAAFB Upcoming] Status breakdown: {status_counts}")
+            self.logger.info(f"[NCAAFB Upcoming] ESPN status names: {status_names}")
+            if favorite_team_games:
+                self.logger.info(f"[NCAAFB Upcoming] Favorite team games found: {len(favorite_team_games)}")
+                for game in favorite_team_games[:3]:  # Show first 3
+                    self.logger.info(f"[NCAAFB Upcoming]   {game['teams']} - {game['status']} - {game['date']} - ESPN: {game['espn_status']}")
+            
+            if self.favorite_teams and all_upcoming_games > 0:
+                self.logger.info(f"[NCAAFB Upcoming] Favorite teams: {self.favorite_teams}")
+                self.logger.info(f"[NCAAFB Upcoming] Found {favorite_games_found} favorite team upcoming games")
 
             # Filter for favorite teams only if the config is set
             if self.ncaa_fb_config.get("show_favorite_teams_only", False):
-                team_games = [game for game in processed_games
-                              if game['home_abbr'] in self.favorite_teams or
-                                 game['away_abbr'] in self.favorite_teams]
+                # Get all games involving favorite teams
+                favorite_team_games = [game for game in processed_games
+                                      if game['home_abbr'] in self.favorite_teams or
+                                         game['away_abbr'] in self.favorite_teams]
+                
+                # Select one game per favorite team (earliest upcoming game for each team)
+                team_games = []
+                for team in self.favorite_teams:
+                    # Find games where this team is playing
+                    team_specific_games = [game for game in favorite_team_games
+                                          if game['home_abbr'] == team or game['away_abbr'] == team]
+                    
+                    if team_specific_games:
+                        # Sort by game time and take the earliest
+                        team_specific_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=timezone.utc))
+                        team_games.append(team_specific_games[0])
+                
+                # Sort the final list by game time
+                team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=timezone.utc))
             else:
                 team_games = processed_games # Show all upcoming if no favorites
-
-            # Sort by game time, earliest first
-            team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=timezone.utc))
-            
-            # Limit to the specified number of upcoming games
-            team_games = team_games[:self.upcoming_games_to_show]
+                # Sort by game time, earliest first
+                team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=timezone.utc))
+                # Limit to the specified number of upcoming games
+                team_games = team_games[:self.upcoming_games_to_show]
 
             # Log changes or periodically
             should_log = (

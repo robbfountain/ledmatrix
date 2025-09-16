@@ -38,6 +38,57 @@ import logging
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+
+# Custom Jinja2 filter for safe nested dictionary access
+@app.template_filter('safe_get')
+def safe_get(obj, key_path, default=''):
+    """Safely access nested dictionary values using dot notation.
+    
+    Usage: {{ main_config|safe_get('display.hardware.brightness', 95) }}
+    """
+    try:
+        keys = key_path.split('.')
+        current = obj
+        for key in keys:
+            if hasattr(current, key):
+                current = getattr(current, key)
+            elif isinstance(current, dict) and key in current:
+                current = current[key]
+            else:
+                return default
+        return current if current is not None else default
+    except (AttributeError, KeyError, TypeError):
+        return default
+
+# Template context processor to provide safe access methods
+@app.context_processor
+def inject_safe_access():
+    """Inject safe access methods into template context."""
+    def safe_config_get(config, *keys, default=''):
+        """Safely get nested config values with fallback."""
+        try:
+            current = config
+            for key in keys:
+                if hasattr(current, key):
+                    current = getattr(current, key)
+                    # Check if we got an empty DictWrapper
+                    if isinstance(current, DictWrapper):
+                        data = object.__getattribute__(current, '_data')
+                        if not data:  # Empty DictWrapper means missing config
+                            return default
+                elif isinstance(current, dict) and key in current:
+                    current = current[key]
+                else:
+                    return default
+            
+            # Final check for empty values
+            if current is None or (hasattr(current, '_data') and not object.__getattribute__(current, '_data')):
+                return default
+            return current
+        except (AttributeError, KeyError, TypeError):
+            return default
+    
+    return dict(safe_config_get=safe_config_get)
 # Prefer eventlet when available, but allow forcing threading via env for troubleshooting
 force_threading = os.getenv('USE_THREADING', '0') == '1' or os.getenv('FORCE_THREADING', '0') == '1'
 if force_threading:
@@ -61,6 +112,106 @@ current_display_data = {}
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+class DictWrapper:
+    """Wrapper to make dictionary accessible via dot notation for Jinja2 templates."""
+    def __init__(self, data=None):
+        # Store the original data
+        object.__setattr__(self, '_data', data if isinstance(data, dict) else {})
+        
+        # Set attributes from the dictionary
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, dict):
+                    object.__setattr__(self, key, DictWrapper(value))
+                elif isinstance(value, list):
+                    object.__setattr__(self, key, value)
+                else:
+                    object.__setattr__(self, key, value)
+    
+    def __getattr__(self, name):
+        # Return a new empty DictWrapper for missing attributes
+        # This allows chaining like main_config.display.hardware.rows
+        return DictWrapper({})
+    
+    def __str__(self):
+        # Return empty string for missing values to avoid template errors
+        data = object.__getattribute__(self, '_data')
+        if not data:
+            return ''
+        return str(data)
+    
+    def __int__(self):
+        # Return 0 for missing numeric values
+        data = object.__getattribute__(self, '_data')
+        if not data:
+            return 0
+        try:
+            return int(data)
+        except (ValueError, TypeError):
+            return 0
+    
+    def __bool__(self):
+        # Return False for missing boolean values
+        data = object.__getattribute__(self, '_data')
+        if not data:
+            return False
+        return bool(data)
+    
+    def __getitem__(self, key):
+        # Support bracket notation
+        return getattr(self, key, DictWrapper({}))
+    
+    def items(self):
+        # Support .items() method for iteration
+        data = object.__getattribute__(self, '_data')
+        if data:
+            return data.items()
+        return {}.items()
+    
+    def get(self, key, default=None):
+        # Support .get() method like dictionaries
+        data = object.__getattribute__(self, '_data')
+        if data and key in data:
+            return data[key]
+        return default
+    
+    def has_key(self, key):
+        # Check if key exists
+        data = object.__getattribute__(self, '_data')
+        return data and key in data
+    
+    def keys(self):
+        # Support .keys() method
+        data = object.__getattribute__(self, '_data')
+        return data.keys() if data else []
+    
+    def values(self):
+        # Support .values() method
+        data = object.__getattribute__(self, '_data')
+        return data.values() if data else []
+    
+    def __str__(self):
+        # Return empty string for missing values to avoid template errors
+        return ''
+    
+    def __repr__(self):
+        # Return empty string for missing values
+        return ''
+    
+    def __html__(self):
+        # Support for MarkupSafe HTML escaping
+        return ''
+    
+    def __bool__(self):
+        # Return False for empty wrappers, True if has data
+        data = object.__getattribute__(self, '_data')
+        return bool(data)
+    
+    def __len__(self):
+        # Support len() function
+        data = object.__getattribute__(self, '_data')
+        return len(data) if data else 0
 
 class DisplayMonitor:
     def __init__(self):
@@ -401,7 +552,7 @@ def index():
         
         return render_template('index_v2.html', 
                              schedule_config=schedule_config,
-                             main_config=main_config,
+                             main_config=DictWrapper(main_config),
                              main_config_data=main_config_data,
                              secrets_config=secrets_config_data,
                              main_config_json=main_config_json,
@@ -418,7 +569,7 @@ def index():
         safe_secrets = {'weather': {'api_key': ''}}
         return render_template('index_v2.html',
                                schedule_config={},
-                               main_config={},
+                               main_config=DictWrapper({}),
                                main_config_data={},
                                secrets_config=safe_secrets,
                                main_config_json="{}",
@@ -735,6 +886,18 @@ def system_action():
                 }), 400
             result = subprocess.run(['git', 'pull'],
                                    capture_output=True, text=True, cwd=str(repo_dir), check=False)
+        elif action == 'migrate_config':
+            # Run config migration script
+            repo_dir = Path(__file__).resolve().parent
+            migrate_script = repo_dir / 'migrate_config.sh'
+            if not migrate_script.exists():
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Migration script not found: {migrate_script}'
+                }), 400
+            
+            result = subprocess.run(['bash', str(migrate_script)], 
+                                  cwd=str(repo_dir), capture_output=True, text=True, check=False)
         else:
             return jsonify({
                 'status': 'error',
@@ -1432,6 +1595,5 @@ if __name__ == '__main__':
         host='0.0.0.0',
         port=5001,
         debug=False,
-        use_reloader=False,
-        allow_unsafe_werkzeug=True
+        use_reloader=False
     )

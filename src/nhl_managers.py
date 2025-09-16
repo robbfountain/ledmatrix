@@ -700,15 +700,30 @@ class NHLRecentManager(BaseNHLManager):
             
             # Filter for favorite teams only if the config is set
             if self.nhl_config.get("show_favorite_teams_only", False):
-                team_games = [game for game in processed_games
-                         if game['home_abbr'] in self.favorite_teams or 
-                            game['away_abbr'] in self.favorite_teams]
+                # Get all games involving favorite teams
+                favorite_team_games = [game for game in processed_games
+                                      if game['home_abbr'] in self.favorite_teams or
+                                         game['away_abbr'] in self.favorite_teams]
+                
+                # Select one game per favorite team (most recent game for each team)
+                team_games = []
+                for team in self.favorite_teams:
+                    # Find games where this team is playing
+                    team_specific_games = [game for game in favorite_team_games
+                                          if game['home_abbr'] == team or game['away_abbr'] == team]
+                    
+                    if team_specific_games:
+                        # Sort by game time and take the most recent
+                        team_specific_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+                        team_games.append(team_specific_games[0])
+                
+                # Sort the final list by game time (most recent first)
+                team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
             else:
                 team_games = processed_games
-            
-            # Sort games by start time, most recent first, then limit to recent_games_to_show
-            team_games.sort(key=lambda x: x.get('start_time_utc') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
-            team_games = team_games[:self.recent_games_to_show]
+                # Sort games by start time, most recent first, then limit to recent_games_to_show
+                team_games.sort(key=lambda x: x.get('start_time_utc') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+                team_games = team_games[:self.recent_games_to_show]
 
             self.logger.info(f"[NHL] Found {len(team_games)} recent games for favorite teams (limited to {self.recent_games_to_show})")
             
@@ -805,15 +820,30 @@ class NHLUpcomingManager(BaseNHLManager):
             
             # Filter for favorite teams only if the config is set
             if self.nhl_config.get("show_favorite_teams_only", False):
-                team_games = [game for game in new_upcoming_games 
-                         if game['home_abbr'] in self.favorite_teams or 
-                            game['away_abbr'] in self.favorite_teams]
+                # Get all games involving favorite teams
+                favorite_team_games = [game for game in new_upcoming_games
+                                      if game['home_abbr'] in self.favorite_teams or
+                                         game['away_abbr'] in self.favorite_teams]
+                
+                # Select one game per favorite team (earliest upcoming game for each team)
+                team_games = []
+                for team in self.favorite_teams:
+                    # Find games where this team is playing
+                    team_specific_games = [game for game in favorite_team_games
+                                          if game['home_abbr'] == team or game['away_abbr'] == team]
+                    
+                    if team_specific_games:
+                        # Sort by game time and take the earliest
+                        team_specific_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=timezone.utc))
+                        team_games.append(team_specific_games[0])
+                
+                # Sort the final list by game time
+                team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=timezone.utc))
             else:
                 team_games = new_upcoming_games
-            
-            # Sort games by start time, soonest first, then limit to configured count
-            team_games.sort(key=lambda x: x.get('start_time_utc') or datetime.max.replace(tzinfo=timezone.utc))
-            team_games = team_games[:self.upcoming_games_to_show]
+                # Sort games by start time, soonest first, then limit to configured count
+                team_games.sort(key=lambda x: x.get('start_time_utc') or datetime.max.replace(tzinfo=timezone.utc))
+                team_games = team_games[:self.upcoming_games_to_show]
 
             # Only log if there's a change in games or enough time has passed
             should_log = (

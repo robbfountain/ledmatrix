@@ -27,10 +27,7 @@ except ImportError:
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Define paths relative to this file's location
-CONFIG_DIR = os.path.join(os.path.dirname(__file__), '..', 'config')
-CONFIG_PATH = os.path.join(CONFIG_DIR, 'config.json')
-# SECRETS_PATH is handled within SpotifyClient
+# Note: Config is now passed in from DisplayController instead of being loaded separately
 
 class MusicSource(Enum):
     NONE = auto()
@@ -72,37 +69,32 @@ class MusicManager:
 
     def _load_config(self):
         default_interval = 2
-        # default_preferred_source = "auto" # Removed
         self.enabled = False # Assume disabled until config proves otherwise
 
-        if not os.path.exists(CONFIG_PATH):
-            logging.warning(f"Config file not found at {CONFIG_PATH}. Music manager disabled.")
+        # Use the config that was already loaded and passed to us instead of loading our own
+        if self.config is None:
+            logging.warning("No config provided to MusicManager. Music manager disabled.")
             return
 
         try:
-            with open(CONFIG_PATH, 'r') as f:
-                config_data = json.load(f)
-                music_config = config_data.get("music", {})
+            music_config = self.config.get("music", {})
 
-                self.enabled = music_config.get("enabled", False)
-                if not self.enabled:
-                    logging.info("Music manager is disabled in config.json (top level 'enabled': false).")
-                    return # Don't proceed further if disabled
+            self.enabled = music_config.get("enabled", False)
+            if not self.enabled:
+                logging.info("Music manager is disabled in config.json (top level 'enabled': false).")
+                return # Don't proceed further if disabled
 
-                self.polling_interval = music_config.get("POLLING_INTERVAL_SECONDS", default_interval)
-                configured_source = music_config.get("preferred_source", "spotify").lower()
+            self.polling_interval = music_config.get("POLLING_INTERVAL_SECONDS", default_interval)
+            configured_source = music_config.get("preferred_source", "spotify").lower()
 
-                if configured_source in ["spotify", "ytm"]:
-                    self.preferred_source = configured_source
-                    logging.info(f"Music manager enabled. Polling interval: {self.polling_interval}s. Preferred source: {self.preferred_source}")
-                else:
-                    logging.warning(f"Invalid 'preferred_source' ('{configured_source}') in config.json. Must be 'spotify' or 'ytm'. Music manager disabled.")
-                    self.enabled = False
-                    return
+            if configured_source in ["spotify", "ytm"]:
+                self.preferred_source = configured_source
+                logging.info(f"Music manager enabled. Polling interval: {self.polling_interval}s. Preferred source: {self.preferred_source}")
+            else:
+                logging.warning(f"Invalid 'preferred_source' ('{configured_source}') in config.json. Must be 'spotify' or 'ytm'. Music manager disabled.")
+                self.enabled = False
+                return
 
-        except json.JSONDecodeError:
-            logging.error(f"Error decoding JSON from {CONFIG_PATH}. Music manager disabled.")
-            self.enabled = False
         except Exception as e:
             logging.error(f"Error loading music config: {e}. Music manager disabled.")
             self.enabled = False
@@ -777,10 +769,22 @@ class MusicManager:
         ARTIST_Y_PERCENT = 0.34  # 34% from top  
         ALBUM_Y_PERCENT = 0.60   # 60% from top
         
-        # Calculate actual pixel positions
+        # Get font height for artist/album text
+        try:
+            artist_album_font_height = self.display_manager.get_font_height(font_artist_album)
+        except:
+            artist_album_font_height = LINE_HEIGHT_BDF  # Fallback to BDF height
+        
+        # Ensure we have a reasonable shift (minimum 6 pixels)
+        font_shift = max(artist_album_font_height, 6)
+        
+        # Calculate actual pixel positions, shifted down by font height
         y_pos_title_top = 1
-        y_pos_artist_top = int(matrix_height * ARTIST_Y_PERCENT)
-        y_pos_album_top = int(matrix_height * ALBUM_Y_PERCENT)
+        y_pos_artist_top = int(matrix_height * ARTIST_Y_PERCENT) + font_shift
+        
+        # For album, use a smaller shift to ensure it fits above progress bar
+        album_shift = min(font_shift, 5)  # Cap album shift at 5 pixels to preserve space
+        y_pos_album_top = int(matrix_height * ALBUM_Y_PERCENT) + album_shift
         
         TEXT_SCROLL_DIVISOR = 5
 
@@ -916,15 +920,12 @@ if __name__ == '__main__':
     
     # The MusicManager expects the overall config, not just the music part directly for its _load_config
     # So we simulate a config object that has a .get('music', {}) method.
-    # However, MusicManager's _load_config reads from CONFIG_PATH.
-    # For a true standalone test, we might need to mock file IO or provide a test config file.
+    # MusicManager now uses the passed config instead of loading from file.
 
     # Simplified test:
-    # manager = MusicManager(display_manager=mock_display, config=mock_config_main) # This won't work due to file reading
+    manager = MusicManager(display_manager=mock_display, config=mock_config_main)
     
-    # To truly test, you'd point CONFIG_PATH to a test config.json or mock open()
-    # For now, this __main__ block is mostly a placeholder.
-    logger.info("MusicManager standalone test setup is complex due to file dependencies for config.")
+    logger.info("MusicManager standalone test setup completed.")
     logger.info("To test: run the main application and observe logs from MusicManager.")
     # if manager.enabled:
     # manager.start_polling()

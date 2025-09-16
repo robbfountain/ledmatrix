@@ -7,6 +7,7 @@ class ConfigManager:
         # Use current working directory as base
         self.config_path = config_path or "config/config.json"
         self.secrets_path = secrets_path or "config/config_secrets.json"
+        self.template_path = "config/config.template.json"
         self.config: Dict[str, Any] = {}
 
     def get_config_path(self) -> str:
@@ -18,10 +19,17 @@ class ConfigManager:
     def load_config(self) -> Dict[str, Any]:
         """Load configuration from JSON files."""
         try:
+            # Check if config file exists, if not create from template
+            if not os.path.exists(self.config_path):
+                self._create_config_from_template()
+            
             # Load main config
             print(f"Attempting to load config from: {os.path.abspath(self.config_path)}")
             with open(self.config_path, 'r') as f:
                 self.config = json.load(f)
+
+            # Migrate config to add any new items from template
+            self._migrate_config()
 
             # Load and merge secrets if they exist (be permissive on errors)
             if os.path.exists(self.secrets_path):
@@ -117,6 +125,85 @@ class ConfigManager:
                 self._deep_merge(target[key], value)
             else:
                 target[key] = value
+
+    def _create_config_from_template(self) -> None:
+        """Create config.json from template if it doesn't exist."""
+        if not os.path.exists(self.template_path):
+            raise FileNotFoundError(f"Template file not found at {os.path.abspath(self.template_path)}")
+        
+        print(f"Creating config.json from template at {os.path.abspath(self.template_path)}")
+        
+        # Ensure config directory exists
+        os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
+        
+        # Copy template to config
+        with open(self.template_path, 'r') as template_file:
+            template_data = json.load(template_file)
+        
+        with open(self.config_path, 'w') as config_file:
+            json.dump(template_data, config_file, indent=4)
+        
+        print(f"Created config.json from template at {os.path.abspath(self.config_path)}")
+
+    def _migrate_config(self) -> None:
+        """Migrate config to add new items from template with defaults."""
+        if not os.path.exists(self.template_path):
+            print(f"Template file not found at {os.path.abspath(self.template_path)}, skipping migration")
+            return
+        
+        try:
+            with open(self.template_path, 'r') as f:
+                template_config = json.load(f)
+            
+            # Check if migration is needed
+            if self._config_needs_migration(self.config, template_config):
+                print("Config migration needed - adding new configuration items with defaults")
+                
+                # Create backup of current config
+                backup_path = f"{self.config_path}.backup"
+                with open(backup_path, 'w') as backup_file:
+                    json.dump(self.config, backup_file, indent=4)
+                print(f"Created backup of current config at {os.path.abspath(backup_path)}")
+                
+                # Merge template defaults into current config
+                self._merge_template_defaults(self.config, template_config)
+                
+                # Save migrated config
+                with open(self.config_path, 'w') as f:
+                    json.dump(self.config, f, indent=4)
+                
+                print(f"Config migration completed and saved to {os.path.abspath(self.config_path)}")
+            else:
+                print("Config is up to date, no migration needed")
+                
+        except Exception as e:
+            print(f"Error during config migration: {e}")
+            # Don't raise - continue with current config
+
+    def _config_needs_migration(self, current_config: Dict[str, Any], template_config: Dict[str, Any]) -> bool:
+        """Check if config needs migration by comparing with template."""
+        return self._has_new_keys(current_config, template_config)
+
+    def _has_new_keys(self, current: Dict[str, Any], template: Dict[str, Any]) -> bool:
+        """Recursively check if template has keys not in current config."""
+        for key, value in template.items():
+            if key not in current:
+                return True
+            if isinstance(value, dict) and isinstance(current[key], dict):
+                if self._has_new_keys(current[key], value):
+                    return True
+        return False
+
+    def _merge_template_defaults(self, current: Dict[str, Any], template: Dict[str, Any]) -> None:
+        """Recursively merge template defaults into current config."""
+        for key, value in template.items():
+            if key not in current:
+                # Add new key with template value
+                current[key] = value
+                print(f"Added new config key: {key}")
+            elif isinstance(value, dict) and isinstance(current[key], dict):
+                # Recursively merge nested dictionaries
+                self._merge_template_defaults(current[key], value)
 
     def get_timezone(self) -> str:
         """Get the configured timezone."""

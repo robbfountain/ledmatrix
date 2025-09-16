@@ -59,7 +59,7 @@ The system supports live, recent, and upcoming game information for multiple spo
 - NCAA Football
 - NCAA Men's Basketball
 - NCAA Men's Baseball
-- Soccer
+- Soccer (Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Liga Portugal, Champions League, Europa League, MLS)
 - (Note, some of these sports seasons were not active during development and might need fine tuning when games are active)
 
 
@@ -260,16 +260,38 @@ sudo reboot
 
 ## Configuration
 
-1.Edit `config/config.json` with your preferences via `sudo nano config/config.json`
+### Initial Setup
 
-###API Keys
+The system uses a template-based configuration approach to avoid Git conflicts during updates:
+
+1. **First-time setup**: Copy the template to create your config:
+   ```bash
+   cp config/config.template.json config/config.json
+   ```
+
+2. **Edit your configuration**: 
+   ```bash
+   sudo nano config/config.json
+   ```
+or edit via web interface at http://ledpi:5001
+
+
+### API Keys and Secrets
 
 For sensitive settings like API keys:
-Copy the template: `cp config/config_secrets.template.json config/config_secrets.json`
-Edit `config/config_secrets.json` with your API keys via `sudo nano config/config_secrets.json`
-Ctrl + X to exit, Y to overwrite, Enter to Confirm
+1. Copy the secrets template: `cp config/config_secrets.template.json config/config_secrets.json`
+2. Edit `config/config_secrets.json` with your API keys via `sudo nano config/config_secrets.json`
+3. Ctrl + X to exit, Y to overwrite, Enter to Confirm
 
-Everything is configured via `config/config.json` and `config/config_secrets.json`.
+### Automatic Configuration Migration
+
+The system automatically handles configuration updates:
+- **New installations**: Creates `config.json` from the template automatically
+- **Existing installations**: Automatically adds new configuration options with default values when the system starts
+- **Backup protection**: Creates a backup of your current config before applying updates
+- **No conflicts**: Your custom settings are preserved while new options are added
+
+Everything is configured via `config/config.json` and `config/config_secrets.json`. The `config.json` file is not tracked by Git to prevent conflicts during updates.
 
 
 

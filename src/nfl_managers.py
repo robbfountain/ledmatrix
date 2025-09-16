@@ -351,15 +351,37 @@ class BaseNFLManager: # Renamed class
             situation = competition.get("situation")
             down_distance_text = ""
             possession_indicator = None # Default to None
+            scoring_event = ""  # Track scoring events
+            
             if situation and status["type"]["state"] == "in":
                 down = situation.get("down")
                 distance = situation.get("distance")
-                if down and distance is not None:
+                # Validate down and distance values before formatting
+                if (down is not None and isinstance(down, int) and 1 <= down <= 4 and 
+                    distance is not None and isinstance(distance, int) and distance >= 0):
                     down_str = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}.get(down, f"{down}th")
                     dist_str = f"& {distance}" if distance > 0 else "& Goal"
                     down_distance_text = f"{down_str} {dist_str}"
                 elif situation.get("isRedZone"):
                      down_distance_text = "Red Zone" # Simplified if down/distance not present but in redzone
+                
+                # Detect scoring events from status detail
+                status_detail = status["type"].get("detail", "").lower()
+                status_short = status["type"].get("shortDetail", "").lower()
+                
+                # Check for scoring events in status text
+                if any(keyword in status_detail for keyword in ["touchdown", "td"]):
+                    scoring_event = "TOUCHDOWN"
+                elif any(keyword in status_detail for keyword in ["field goal", "fg"]):
+                    scoring_event = "FIELD GOAL"
+                elif any(keyword in status_detail for keyword in ["extra point", "pat", "point after"]):
+                    scoring_event = "PAT"
+                elif any(keyword in status_short for keyword in ["touchdown", "td"]):
+                    scoring_event = "TOUCHDOWN"
+                elif any(keyword in status_short for keyword in ["field goal", "fg"]):
+                    scoring_event = "FIELD GOAL"
+                elif any(keyword in status_short for keyword in ["extra point", "pat"]):
+                    scoring_event = "PAT"
                 
                 # Determine possession based on team ID
                 possession_team_id = situation.get("possession")
@@ -421,6 +443,7 @@ class BaseNFLManager: # Renamed class
                 "down_distance_text": down_distance_text, # Added Down/Distance
                 "possession": situation.get("possession") if situation else None, # ID of team with possession
                 "possession_indicator": possession_indicator, # Added for easy home/away check
+                "scoring_event": scoring_event, # Track scoring events (TOUCHDOWN, FIELD GOAL, PAT)
             }
 
             # Basic validation (can be expanded)
@@ -713,9 +736,29 @@ class NFLLiveManager(BaseNFLManager): # Renamed class
             status_y = 1 # Position at top
             self._draw_text_with_outline(draw_overlay, period_clock_text, (status_x, status_y), self.fonts['time'])
 
-            # Down & Distance (Below Period/Clock)
+            # Down & Distance or Scoring Event (Below Period/Clock)
+            scoring_event = game.get("scoring_event", "")
             down_distance = game.get("down_distance_text", "")
-            if down_distance and game.get("is_live"): # Only show if live and available
+            
+            # Show scoring event if detected, otherwise show down & distance
+            if scoring_event and game.get("is_live"):
+                # Display scoring event with special formatting
+                event_width = draw_overlay.textlength(scoring_event, font=self.fonts['detail'])
+                event_x = (self.display_width - event_width) // 2
+                event_y = (self.display_height) - 7
+                
+                # Color coding for different scoring events
+                if scoring_event == "TOUCHDOWN":
+                    event_color = (255, 215, 0)  # Gold
+                elif scoring_event == "FIELD GOAL":
+                    event_color = (0, 255, 0)    # Green
+                elif scoring_event == "PAT":
+                    event_color = (255, 165, 0)  # Orange
+                else:
+                    event_color = (255, 255, 255)  # White
+                
+                self._draw_text_with_outline(draw_overlay, scoring_event, (event_x, event_y), self.fonts['detail'], fill=event_color)
+            elif down_distance and game.get("is_live"): # Only show if live and available
                 dd_width = draw_overlay.textlength(down_distance, font=self.fonts['detail'])
                 dd_x = (self.display_width - dd_width) // 2
                 dd_y = (self.display_height)- 7 # Top of D&D text
@@ -850,18 +893,32 @@ class NFLRecentManager(BaseNFLManager): # Renamed class
 
             # Filter for favorite teams only if the config is set
             if self.nfl_config.get("show_favorite_teams_only", False):
-                 team_games = [game for game in processed_games
-                              if game['home_abbr'] in self.favorite_teams or
-                                 game['away_abbr'] in self.favorite_teams]
+                # Get all games involving favorite teams
+                favorite_team_games = [game for game in processed_games
+                                      if game['home_abbr'] in self.favorite_teams or
+                                         game['away_abbr'] in self.favorite_teams]
+                
+                # Select one game per favorite team (most recent game for each team)
+                team_games = []
+                for team in self.favorite_teams:
+                    # Find games where this team is playing
+                    team_specific_games = [game for game in favorite_team_games
+                                          if game['home_abbr'] == team or game['away_abbr'] == team]
+                    
+                    if team_specific_games:
+                        # Sort by game time and take the most recent
+                        team_specific_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=self._get_timezone()), reverse=True)
+                        team_games.append(team_specific_games[0])
+                
+                # Sort the final list by game time (most recent first)
+                team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=self._get_timezone()), reverse=True)
             else:
                  team_games = processed_games # Show all recent games if no favorites defined
-
-            # Sort by game time, most recent first
-            team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=self._get_timezone()), reverse=True)
-            
-            # Limit to the specified number of recent games (default 5)
-            recent_games_to_show = self.nfl_config.get("recent_games_to_show", 5)
-            team_games = team_games[:recent_games_to_show]
+                 # Sort by game time, most recent first
+                 team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=self._get_timezone()), reverse=True)
+                 # Limit to the specified number of recent games (default 5)
+                 recent_games_to_show = self.nfl_config.get("recent_games_to_show", 5)
+                 team_games = team_games[:recent_games_to_show]
 
             # Check if the list of games to display has changed
             new_game_ids = {g['id'] for g in team_games}
@@ -1075,20 +1132,34 @@ class NFLUpcomingManager(BaseNFLManager): # Renamed class
 
             # This check is now partially redundant if show_favorite_teams_only is true, but acts as the main filter otherwise
             if self.nfl_config.get("show_favorite_teams_only", False):
-                team_games = [game for game in processed_games
-                              if game['home_abbr'] in self.favorite_teams or
-                                 game['away_abbr'] in self.favorite_teams]
+                # Get all games involving favorite teams
+                favorite_team_games = [game for game in processed_games
+                                      if game['home_abbr'] in self.favorite_teams or
+                                         game['away_abbr'] in self.favorite_teams]
+                
+                # Select one game per favorite team (earliest upcoming game for each team)
+                team_games = []
+                for team in self.favorite_teams:
+                    # Find games where this team is playing
+                    team_specific_games = [game for game in favorite_team_games
+                                          if game['home_abbr'] == team or game['away_abbr'] == team]
+                    
+                    if team_specific_games:
+                        # Sort by game time and take the earliest
+                        team_specific_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=self._get_timezone()))
+                        team_games.append(team_specific_games[0])
+                
+                # Sort the final list by game time
+                team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=self._get_timezone()))
             else:
                 team_games = processed_games # Show all upcoming if no favorites
-
-            # Sort by game time, earliest first
-            team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=self._get_timezone()))
-            
-            # Limit to the specified number of upcoming games (default 10)
-            upcoming_games_to_show = self.nfl_config.get("upcoming_games_to_show", 10)
-            self.logger.debug(f"[NFL Upcoming] Limiting to {upcoming_games_to_show} games (found {len(team_games)} total)")
-            team_games = team_games[:upcoming_games_to_show]
-            self.logger.debug(f"[NFL Upcoming] After limiting: {len(team_games)} games")
+                # Sort by game time, earliest first
+                team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.max.replace(tzinfo=self._get_timezone()))
+                # Limit to the specified number of upcoming games (default 10)
+                upcoming_games_to_show = self.nfl_config.get("upcoming_games_to_show", 10)
+                self.logger.debug(f"[NFL Upcoming] Limiting to {upcoming_games_to_show} games (found {len(team_games)} total)")
+                team_games = team_games[:upcoming_games_to_show]
+                self.logger.debug(f"[NFL Upcoming] After limiting: {len(team_games)} games")
 
             # Log changes or periodically
             should_log = (

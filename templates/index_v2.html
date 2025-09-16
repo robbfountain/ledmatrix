@@ -719,11 +719,12 @@
                 <button class="btn btn-danger" onclick="runAction('stop_display')"><i class="fas fa-stop"></i> Stop Display</button>
                 <button class="btn btn-primary" onclick="systemAction('restart_service')"><i class="fas fa-redo"></i> Restart Service</button>
                 <button class="btn btn-warning" onclick="systemAction('git_pull')"><i class="fas fa-download"></i> Update Code</button>
+                <button class="btn btn-info" onclick="systemAction('migrate_config')"><i class="fas fa-sync-alt"></i> Migrate Config</button>
                 <button class="btn btn-danger" onclick="systemAction('reboot_system')"><i class="fas fa-power-off"></i> Reboot</button>
                 <button class="btn btn-secondary" onclick="stopOnDemand()"><i class="fas fa-ban"></i> Stop On-Demand</button>
                 <span id="ondemand-status" style="margin-left:auto; font-size:12px; color:#333; background:#f3f3f3; padding:6px 10px; border-radius:8px;">On-Demand: None</span>
             </div>
-            <div style="margin-top:12px; color:#666; font-size:12px;">Service actions may require sudo privileges on the Pi.</div>
+            <div style="margin-top:12px; color:#666; font-size:12px;">Service actions may require sudo privileges on the Pi. Migrate Config adds new options with defaults while preserving your settings.</div>
         </div>
 
         <!-- Editor Mode Banner -->
@@ -876,11 +877,11 @@
                             <div class="stat-label">CPU Temperature</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-value">{{ main_config.display.hardware.brightness }}</div>
+                            <div class="stat-value">{{ main_config.get('display', {}).get('hardware', {}).get('brightness', 0) }}</div>
                             <div class="stat-label">Brightness</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-value">{{ main_config.display.hardware.cols }}x{{ main_config.display.hardware.rows }}</div>
+                            <div class="stat-value">{{ main_config.get('display', {}).get('hardware', {}).get('cols', 0) }}x{{ main_config.get('display', {}).get('hardware', {}).get('rows', 0) }}</div>
                             <div class="stat-label">Resolution</div>
                         </div>
                         <div class="stat-card">
@@ -906,6 +907,9 @@
                         <button class="btn btn-warning" onclick="systemAction('git_pull')">
                             <i class="fas fa-download"></i> Update Code
                         </button>
+                        <button class="btn btn-info" onclick="systemAction('migrate_config')">
+                            <i class="fas fa-sync-alt"></i> Migrate Config
+                        </button>
                         <button class="btn btn-danger" onclick="systemAction('reboot_system')">
                             <i class="fas fa-power-off"></i> Reboot System
                         </button>
@@ -919,28 +923,28 @@
                         <form id="general-form">
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="web_display_autostart" name="web_display_autostart" {% if main_config.web_display_autostart %}checked{% endif %}>
+                                    <input type="checkbox" id="web_display_autostart" name="web_display_autostart" {% if safe_config_get(main_config, 'web_display_autostart', default=True) %}checked{% endif %}>
                                     Web Display Autostart
                                 </label>
                                 <div class="description">Start the web interface on boot for easier access.</div>
                             </div>
                             <div class="form-group">
                                 <label for="timezone">Timezone</label>
-                                <input type="text" class="form-control" id="timezone" name="timezone" value="{{ main_config.timezone }}" placeholder="e.g., America/Chicago">
+                                <input type="text" class="form-control" id="timezone" name="timezone" value="{{ safe_config_get(main_config, 'timezone', default='America/Chicago') }}" placeholder="e.g., America/Chicago">
                                 <div class="description">IANA timezone, affects time-based features and scheduling.</div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="city">City</label>
-                                    <input type="text" class="form-control" id="city" name="city" value="{{ main_config.location.city }}">
+                                    <input type="text" class="form-control" id="city" name="city" value="{{ safe_config_get(main_config, 'location', 'city', default='Dallas') }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="state">State</label>
-                                    <input type="text" class="form-control" id="state" name="state" value="{{ main_config.location.state }}">
+                                    <input type="text" class="form-control" id="state" name="state" value="{{ safe_config_get(main_config, 'location', 'state', default='Texas') }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="country">Country</label>
-                                    <input type="text" class="form-control" id="country" name="country" value="{{ main_config.location.country }}">
+                                    <input type="text" class="form-control" id="country" name="country" value="{{ safe_config_get(main_config, 'location', 'country', default='US') }}">
                                 </div>
                             </div>
                             <button type="submit" class="btn btn-success">Save General Settings</button>
@@ -988,36 +992,36 @@
                                 <div>
                                     <div class="form-group">
                                         <label for="rows">Rows:</label>
-                                        <input type="number" class="form-control" id="rows" name="rows" value="{{ main_config.display.hardware.rows }}" min="1" max="64">
+                                        <input type="number" class="form-control" id="rows" name="rows" value="{{ safe_config_get(main_config, 'display', 'hardware', 'rows', default=32) }}" min="1" max="64">
                                         <div class="description">Number of LED rows</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="cols">Columns:</label>
-                                        <input type="number" class="form-control" id="cols" name="cols" value="{{ main_config.display.hardware.cols }}" min="1" max="128">
+                                        <input type="number" class="form-control" id="cols" name="cols" value="{{ safe_config_get(main_config, 'display', 'hardware', 'cols', default=64) }}" min="1" max="128">
                                         <div class="description">Number of LED columns</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="chain_length">Chain Length:</label>
-                                        <input type="number" class="form-control" id="chain_length" name="chain_length" value="{{ main_config.display.hardware.chain_length }}" min="1" max="8">
+                                        <input type="number" class="form-control" id="chain_length" name="chain_length" value="{{ safe_config_get(main_config, 'display', 'hardware', 'chain_length', default=2) }}" min="1" max="8">
                                         <div class="description">Number of LED panels chained together</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="parallel">Parallel:</label>
-                                        <input type="number" class="form-control" id="parallel" name="parallel" value="{{ main_config.display.hardware.parallel }}" min="1" max="4">
+                                        <input type="number" class="form-control" id="parallel" name="parallel" value="{{ safe_config_get(main_config, 'display', 'hardware', 'parallel', default=1) }}" min="1" max="4">
                                         <div class="description">Number of parallel chains</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="brightness">Brightness:</label>
-                                        <input type="range" class="form-control" id="brightness" name="brightness" value="{{ main_config.display.hardware.brightness }}" min="1" max="100" oninput="updateBrightnessDisplay(this.value)">
-                                        <div class="description">LED brightness: <span id="brightness-value">{{ main_config.display.hardware.brightness }}</span>%</div>
+                                        <input type="range" class="form-control" id="brightness" name="brightness" value="{{ safe_config_get(main_config, 'display', 'hardware', 'brightness', default=95) }}" min="1" max="100" oninput="updateBrightnessDisplay(this.value)">
+                                        <div class="description">LED brightness: <span id="brightness-value">{{ safe_config_get(main_config, 'display', 'hardware', 'brightness', default=95) }}</span>%</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="hardware_mapping">Hardware Mapping:</label>
                                         <select class="form-control" id="hardware_mapping" name="hardware_mapping">
-                                            <option value="adafruit-hat-pwm" {% if main_config.display.hardware.hardware_mapping == "adafruit-hat-pwm" %}selected{% endif %}>Adafruit HAT PWM</option>
-                                            <option value="adafruit-hat" {% if main_config.display.hardware.hardware_mapping == "adafruit-hat" %}selected{% endif %}>Adafruit HAT</option>
-                                            <option value="regular" {% if main_config.display.hardware.hardware_mapping == "regular" %}selected{% endif %}>Regular</option>
-                                            <option value="regular-pi1" {% if main_config.display.hardware.hardware_mapping == "regular-pi1" %}selected{% endif %}>Regular Pi1</option>
+                                            <option value="adafruit-hat-pwm" {% if safe_config_get(main_config, 'display', 'hardware', 'hardware_mapping', default='adafruit-hat-pwm') == "adafruit-hat-pwm" %}selected{% endif %}>Adafruit HAT PWM</option>
+                                            <option value="adafruit-hat" {% if safe_config_get(main_config, 'display', 'hardware', 'hardware_mapping', default='adafruit-hat-pwm') == "adafruit-hat" %}selected{% endif %}>Adafruit HAT</option>
+                                            <option value="regular" {% if safe_config_get(main_config, 'display', 'hardware', 'hardware_mapping', default='adafruit-hat-pwm') == "regular" %}selected{% endif %}>Regular</option>
+                                            <option value="regular-pi1" {% if safe_config_get(main_config, 'display', 'hardware', 'hardware_mapping', default='adafruit-hat-pwm') == "regular-pi1" %}selected{% endif %}>Regular Pi1</option>
                                         </select>
                                         <div class="description">Hardware mapping type</div>
                                     </div>
@@ -1025,32 +1029,32 @@
                                 <div>
                                     <div class="form-group">
                                         <label for="gpio_slowdown">GPIO Slowdown:</label>
-                                        <input type="number" class="form-control" id="gpio_slowdown" name="gpio_slowdown" value="{{ main_config.display.runtime.gpio_slowdown }}" min="0" max="5">
+                                        <input type="number" class="form-control" id="gpio_slowdown" name="gpio_slowdown" value="{{ safe_config_get(main_config, 'display', 'runtime', 'gpio_slowdown', default=3) }}" min="0" max="5">
                                         <div class="description">GPIO slowdown factor (0-5)</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="scan_mode">Scan Mode:</label>
-                                        <input type="number" class="form-control" id="scan_mode" name="scan_mode" value="{{ main_config.display.hardware.scan_mode }}" min="0" max="1">
+                                        <input type="number" class="form-control" id="scan_mode" name="scan_mode" value="{{ safe_config_get(main_config, 'display', 'hardware', 'scan_mode', default=0) }}" min="0" max="1">
                                         <div class="description">Scan mode for LED matrix (0-1)</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="pwm_bits">PWM Bits:</label>
-                                        <input type="number" class="form-control" id="pwm_bits" name="pwm_bits" value="{{ main_config.display.hardware.pwm_bits }}" min="1" max="11">
+                                        <input type="number" class="form-control" id="pwm_bits" name="pwm_bits" value="{{ safe_config_get(main_config, 'display', 'hardware', 'pwm_bits', default=9) }}" min="1" max="11">
                                         <div class="description">PWM bits for brightness control (1-11)</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="pwm_dither_bits">PWM Dither Bits:</label>
-                                        <input type="number" class="form-control" id="pwm_dither_bits" name="pwm_dither_bits" value="{{ main_config.display.hardware.pwm_dither_bits }}" min="0" max="4">
+                                        <input type="number" class="form-control" id="pwm_dither_bits" name="pwm_dither_bits" value="{{ safe_config_get(main_config, 'display', 'hardware', 'pwm_dither_bits', default=1) }}" min="0" max="4">
                                         <div class="description">PWM dither bits (0-4)</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="pwm_lsb_nanoseconds">PWM LSB Nanoseconds:</label>
-                                        <input type="number" class="form-control" id="pwm_lsb_nanoseconds" name="pwm_lsb_nanoseconds" value="{{ main_config.display.hardware.pwm_lsb_nanoseconds }}" min="50" max="500">
+                                        <input type="number" class="form-control" id="pwm_lsb_nanoseconds" name="pwm_lsb_nanoseconds" value="{{ safe_config_get(main_config, 'display', 'hardware', 'pwm_lsb_nanoseconds', default=130) }}" min="50" max="500">
                                         <div class="description">PWM LSB nanoseconds (50-500)</div>
                                     </div>
                                     <div class="form-group">
                                         <label for="limit_refresh_rate_hz">Limit Refresh Rate (Hz):</label>
-                                        <input type="number" class="form-control" id="limit_refresh_rate_hz" name="limit_refresh_rate_hz" value="{{ main_config.display.hardware.limit_refresh_rate_hz }}" min="1" max="1000">
+                                        <input type="number" class="form-control" id="limit_refresh_rate_hz" name="limit_refresh_rate_hz" value="{{ safe_config_get(main_config, 'display', 'hardware', 'limit_refresh_rate_hz', default=120) }}" min="1" max="1000">
                                         <div class="description">Limit refresh rate in Hz (1-1000)</div>
                                     </div>
                                 </div>
@@ -1059,28 +1063,28 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>
-                                        <input type="checkbox" id="disable_hardware_pulsing" name="disable_hardware_pulsing" {% if main_config.display.hardware.disable_hardware_pulsing %}checked{% endif %}>
+                                        <input type="checkbox" id="disable_hardware_pulsing" name="disable_hardware_pulsing" {% if safe_config_get(main_config, 'display', 'hardware', 'disable_hardware_pulsing', default=False) %}checked{% endif %}>
                                         Disable Hardware Pulsing
                                     </label>
                                     <div class="description">Disable hardware pulsing</div>
                                 </div>
                                 <div class="form-group">
                                     <label>
-                                        <input type="checkbox" id="inverse_colors" name="inverse_colors" {% if main_config.display.hardware.inverse_colors %}checked{% endif %}>
+                                        <input type="checkbox" id="inverse_colors" name="inverse_colors" {% if safe_config_get(main_config, 'display', 'hardware', 'inverse_colors', default=False) %}checked{% endif %}>
                                         Inverse Colors
                                     </label>
                                     <div class="description">Inverse color display</div>
                                 </div>
                                 <div class="form-group">
                                     <label>
-                                        <input type="checkbox" id="show_refresh_rate" name="show_refresh_rate" {% if main_config.display.hardware.show_refresh_rate %}checked{% endif %}>
+                                        <input type="checkbox" id="show_refresh_rate" name="show_refresh_rate" {% if safe_config_get(main_config, 'display', 'hardware', 'show_refresh_rate', default=False) %}checked{% endif %}>
                                         Show Refresh Rate
                                     </label>
                                     <div class="description">Show refresh rate on display</div>
                                 </div>
                                 <div class="form-group">
                                     <label>
-                                        <input type="checkbox" id="use_short_date_format" name="use_short_date_format" {% if main_config.display.use_short_date_format %}checked{% endif %}>
+                                        <input type="checkbox" id="use_short_date_format" name="use_short_date_format" {% if safe_config_get(main_config, 'display', 'use_short_date_format', default=True) %}checked{% endif %}>
                                         Use Short Date Format
                                     </label>
                                     <div class="description">Use short date format for display</div>
@@ -1099,18 +1103,18 @@
                         <form id="clock-form">
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="clock_enabled" {% if main_config.clock.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="clock_enabled" {% if safe_config_get(main_config, 'clock', 'enabled', default=True) %}checked{% endif %}>
                                     Enable Clock
                                 </label>
                             </div>
                             <div class="form-group">
                                 <label for="clock_format">Format</label>
-                                <input type="text" id="clock_format" class="form-control" value="{{ main_config.clock.format }}">
+                                <input type="text" id="clock_format" class="form-control" value="{{ safe_config_get(main_config, 'clock', 'format', default='%I:%M %p') }}">
                                 <div class="description">Python strftime format. Example: %I:%M %p for 12-hour time.</div>
                             </div>
                             <div class="form-group">
                                 <label for="clock_update_interval">Update Interval (seconds)</label>
-                                <input type="number" id="clock_update_interval" class="form-control" value="{{ main_config.clock.update_interval }}" min="1" max="60">
+                                <input type="number" id="clock_update_interval" class="form-control" value="{{ safe_config_get(main_config, 'clock', 'update_interval', default=1) }}" min="1" max="60">
                             </div>
                             <button type="submit" class="btn btn-success">Save Clock Settings</button>
                         </form>
@@ -1124,7 +1128,7 @@
                         <p class="description">How long each screen is shown before switching. Values in seconds.</p>
                         <form id="durations-form">
                             <div class="form-row">
-                                {% for key, value in main_config.display.display_durations.items() %}
+                                {% for key, value in main_config.get('display', {}).get('display_durations', {}).items() %}
                                 <div class="form-group">
                                     <label for="duration_{{ key }}">{{ key | replace('_', ' ') | title }}</label>
                                     <input type="number" class="form-control duration-input" id="duration_{{ key }}" data-name="{{ key }}" value="{{ value }}" min="5" max="600">
@@ -1166,36 +1170,36 @@
                         <form id="weather-form">
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="weather_enabled" name="weather_enabled" {% if main_config.weather.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="weather_enabled" name="weather_enabled" {% if safe_config_get(main_config, 'weather', 'enabled', default=False) %}checked{% endif %}>
                                     Enable Weather
                                 </label>
                             </div>
                             <div class="form-group">
                                 <label for="weather_city">City:</label>
-                                <input type="text" class="form-control" id="weather_city" name="weather_city" value="{{ main_config.location.city }}">
+                                <input type="text" class="form-control" id="weather_city" name="weather_city" value="{{ safe_config_get(main_config, 'location', 'city', default='Dallas') }}">
                                 <div class="description">City name for weather data</div>
                             </div>
                             <div class="form-group">
                                 <label for="weather_state">State:</label>
-                                <input type="text" class="form-control" id="weather_state" name="weather_state" value="{{ main_config.location.state }}">
+                                <input type="text" class="form-control" id="weather_state" name="weather_state" value="{{ safe_config_get(main_config, 'location', 'state', default='Texas') }}">
                                 <div class="description">State/province name</div>
                             </div>
                             <div class="form-group">
                                 <label for="weather_units">Units:</label>
                                 <select class="form-control" id="weather_units" name="weather_units">
-                                    <option value="imperial" {% if main_config.weather.units == "imperial" %}selected{% endif %}>Fahrenheit</option>
-                                    <option value="metric" {% if main_config.weather.units == "metric" %}selected{% endif %}>Celsius</option>
+                                    <option value="imperial" {% if safe_config_get(main_config, 'weather', 'units', default='imperial') == "imperial" %}selected{% endif %}>Fahrenheit</option>
+                                    <option value="metric" {% if safe_config_get(main_config, 'weather', 'units', default='imperial') == "metric" %}selected{% endif %}>Celsius</option>
                                 </select>
                                 <div class="description">Temperature units</div>
                             </div>
                             <div class="form-group">
                                 <label for="weather_display_format">Display Format</label>
-                                <textarea id="weather_display_format" class="form-control" rows="2">{{ main_config.weather.display_format }}</textarea>
+                                <textarea id="weather_display_format" class="form-control" rows="2">{{ safe_config_get(main_config, 'weather', 'display_format', default='{temp}°F\n{condition}') }}</textarea>
                                 <div class="description">Use tokens like {temp}, {condition}. Supports new lines.</div>
                             </div>
                             <div class="form-group">
                                 <label for="weather_update_interval">Update Interval (seconds):</label>
-                                <input type="number" class="form-control" id="weather_update_interval" name="weather_update_interval" value="{{ main_config.weather.update_interval }}" min="300" max="3600">
+                                <input type="number" class="form-control" id="weather_update_interval" name="weather_update_interval" value="{{ safe_config_get(main_config, 'weather', 'update_interval', default=1800) }}" min="300" max="3600">
                                 <div class="description">How often to update weather data (300-3600 seconds)</div>
                             </div>
                             <button type="submit" class="btn btn-success">Save Weather Settings</button>
@@ -1215,42 +1219,42 @@
                         <form id="stocks-form">
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="stocks_enabled" name="stocks_enabled" {% if main_config.stocks.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="stocks_enabled" name="stocks_enabled" {% if safe_config_get(main_config, 'stocks', 'enabled', default=False) %}checked{% endif %}>
                                     Enable Stocks
                                 </label>
                             </div>
                             <div class="form-group">
                                 <label for="stocks_symbols">Stock Symbols:</label>
-                                <input type="text" class="form-control" id="stocks_symbols" name="stocks_symbols" value="{{ main_config.stocks.symbols|join(', ') }}" placeholder="AAPL, GOOGL, MSFT">
+                                <input type="text" class="form-control" id="stocks_symbols" name="stocks_symbols" value="{{ safe_config_get(main_config, 'stocks', 'symbols', default=['ASTS', 'SCHD', 'INTC', 'NVDA', 'T', 'VOO', 'SMCI'])|join(', ') }}" placeholder="AAPL, GOOGL, MSFT">
                                 <div class="description">Comma-separated stock symbols</div>
                             </div>
                             <div class="form-group">
                                 <label for="stocks_update_interval">Update Interval (seconds):</label>
-                                <input type="number" class="form-control" id="stocks_update_interval" name="stocks_update_interval" value="{{ main_config.stocks.update_interval }}" min="60" max="3600">
+                                <input type="number" class="form-control" id="stocks_update_interval" name="stocks_update_interval" value="{{ safe_config_get(main_config, 'stocks', 'update_interval', default=600) }}" min="60" max="3600">
                                 <div class="description">How often to update stock data</div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="stocks_scroll_speed">Scroll Speed</label>
-                                    <input type="number" step="0.1" class="form-control" id="stocks_scroll_speed" value="{{ main_config.stocks.scroll_speed }}">
+                                    <input type="number" step="0.1" class="form-control" id="stocks_scroll_speed" value="{{ safe_config_get(main_config, 'stocks', 'scroll_speed', default=1) }}">
                                     <div class="description">Horizontal scroll pixels per step.</div>
                                 </div>
                                 <div class="form-group">
                                     <label for="stocks_scroll_delay">Scroll Delay (seconds)</label>
-                                    <input type="number" step="0.001" class="form-control" id="stocks_scroll_delay" value="{{ main_config.stocks.scroll_delay }}">
+                                    <input type="number" step="0.001" class="form-control" id="stocks_scroll_delay" value="{{ safe_config_get(main_config, 'stocks', 'scroll_delay', default=0.01) }}">
                                     <div class="description">Delay between scroll steps.</div>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="stocks_toggle_chart" name="stocks_toggle_chart" {% if main_config.stocks.toggle_chart %}checked{% endif %}>
+                                    <input type="checkbox" id="stocks_toggle_chart" name="stocks_toggle_chart" {% if safe_config_get(main_config, 'stocks', 'toggle_chart', default=True) %}checked{% endif %}>
                                     Show Charts
                                 </label>
                                 <div class="description">Display mini charts alongside stock ticker data</div>
                             </div>
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="stocks_dynamic_duration" {% if main_config.stocks.dynamic_duration %}checked{% endif %}>
+                                    <input type="checkbox" id="stocks_dynamic_duration" {% if safe_config_get(main_config, 'stocks', 'dynamic_duration', default=True) %}checked{% endif %}>
                                     Dynamic Duration
                                 </label>
                                 <div class="description">Adjust display duration based on content length.</div>
@@ -1258,20 +1262,20 @@
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="stocks_min_duration">Min Duration (sec)</label>
-                                    <input type="number" class="form-control" id="stocks_min_duration" value="{{ main_config.stocks.min_duration }}">
+                                    <input type="number" class="form-control" id="stocks_min_duration" value="{{ safe_config_get(main_config, 'stocks', 'min_duration', default=30) }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="stocks_max_duration">Max Duration (sec)</label>
-                                    <input type="number" class="form-control" id="stocks_max_duration" value="{{ main_config.stocks.max_duration }}">
+                                    <input type="number" class="form-control" id="stocks_max_duration" value="{{ safe_config_get(main_config, 'stocks', 'max_duration', default=300) }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="stocks_duration_buffer">Duration Buffer</label>
-                                    <input type="number" step="0.01" class="form-control" id="stocks_duration_buffer" value="{{ main_config.stocks.duration_buffer }}">
+                                    <input type="number" step="0.01" class="form-control" id="stocks_duration_buffer" value="{{ safe_config_get(main_config, 'stocks', 'duration_buffer', default=0.1) }}">
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label for="stocks_display_format">Display Format</label>
-                                <input type="text" class="form-control" id="stocks_display_format" value="{{ main_config.stocks.display_format }}">
+                                <input type="text" class="form-control" id="stocks_display_format" value="{{ safe_config_get(main_config, 'stocks', 'display_format', default='{symbol}: ${price} ({change}%)') }}">
                                 <div class="description">Use tokens like {symbol}, {price}, {change}.</div>
                             </div>
                             <button type="submit" class="btn btn-success">Save Stocks Settings</button>
@@ -1281,18 +1285,18 @@
                         <form id="crypto-form">
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="crypto_enabled" name="crypto_enabled" {% if main_config.crypto.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="crypto_enabled" name="crypto_enabled" {% if safe_config_get(main_config, 'crypto', 'enabled', default=False) %}checked{% endif %}>
                                     Enable Crypto
                                 </label>
                             </div>
                             <div class="form-group">
                                 <label for="crypto_symbols">Crypto Symbols:</label>
-                                <input type="text" class="form-control" id="crypto_symbols" name="crypto_symbols" value="{{ main_config.crypto.symbols|join(', ') }}" placeholder="BTC-USD, ETH-USD">
+                                <input type="text" class="form-control" id="crypto_symbols" name="crypto_symbols" value="{{ safe_config_get(main_config, 'crypto', 'symbols', default=['BTC-USD', 'ETH-USD'])|join(', ') }}" placeholder="BTC-USD, ETH-USD">
                                 <div class="description">Comma-separated crypto symbols (e.g., BTC-USD, ETH-USD)</div>
                             </div>
                             <div class="form-group">
                                 <label for="crypto_update_interval">Update Interval (seconds):</label>
-                                <input type="number" class="form-control" id="crypto_update_interval" name="crypto_update_interval" value="{{ main_config.crypto.update_interval }}" min="60" max="3600">
+                                <input type="number" class="form-control" id="crypto_update_interval" name="crypto_update_interval" value="{{ safe_config_get(main_config, 'crypto', 'update_interval', default=600) }}" min="60" max="3600">
                                 <div class="description">How often to update crypto data</div>
                             </div>
                             <button type="submit" class="btn btn-success">Save Crypto Settings</button>
@@ -1312,44 +1316,44 @@
                         <form id="stocknews-form">
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="stocknews_enabled" {% if main_config.stock_news.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="stocknews_enabled" {% if safe_config_get(main_config, 'stock_news', 'enabled', default=False) %}checked{% endif %}>
                                     Enable Stock News
                                 </label>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="stocknews_update_interval">Update Interval (sec)</label>
-                                    <input type="number" class="form-control" id="stocknews_update_interval" value="{{ main_config.stock_news.update_interval }}">
+                                    <input type="number" class="form-control" id="stocknews_update_interval" value="{{ safe_config_get(main_config, 'stock_news', 'update_interval', default=3600) }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="stocknews_scroll_speed">Scroll Speed</label>
-                                    <input type="number" step="0.1" class="form-control" id="stocknews_scroll_speed" value="{{ main_config.stock_news.scroll_speed }}">
+                                    <input type="number" step="0.1" class="form-control" id="stocknews_scroll_speed" value="{{ safe_config_get(main_config, 'stock_news', 'scroll_speed', default=1) }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="stocknews_scroll_delay">Scroll Delay (sec)</label>
-                                    <input type="number" step="0.001" class="form-control" id="stocknews_scroll_delay" value="{{ main_config.stock_news.scroll_delay }}">
+                                    <input type="number" step="0.001" class="form-control" id="stocknews_scroll_delay" value="{{ safe_config_get(main_config, 'stock_news', 'scroll_delay', default=0.01) }}">
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="stocknews_max_headlines_per_symbol">Max Headlines per Symbol</label>
-                                    <input type="number" class="form-control" id="stocknews_max_headlines_per_symbol" value="{{ main_config.stock_news.max_headlines_per_symbol }}">
+                                    <input type="number" class="form-control" id="stocknews_max_headlines_per_symbol" value="{{ safe_config_get(main_config, 'stock_news', 'max_headlines_per_symbol', default=1) }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="stocknews_headlines_per_rotation">Headlines per Rotation</label>
-                                    <input type="number" class="form-control" id="stocknews_headlines_per_rotation" value="{{ main_config.stock_news.headlines_per_rotation }}">
+                                    <input type="number" class="form-control" id="stocknews_headlines_per_rotation" value="{{ safe_config_get(main_config, 'stock_news', 'headlines_per_rotation', default=2) }}">
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="stocknews_dynamic_duration" {% if main_config.stock_news.dynamic_duration %}checked{% endif %}>
+                                    <input type="checkbox" id="stocknews_dynamic_duration" {% if safe_config_get(main_config, 'stock_news', 'dynamic_duration', default=True) %}checked{% endif %}>
                                     Dynamic Duration
                                 </label>
                             </div>
                             <div class="form-row">
-                                <div class="form-group"><label for="stocknews_min_duration">Min Duration</label><input type="number" class="form-control" id="stocknews_min_duration" value="{{ main_config.stock_news.min_duration }}"></div>
-                                <div class="form-group"><label for="stocknews_max_duration">Max Duration</label><input type="number" class="form-control" id="stocknews_max_duration" value="{{ main_config.stock_news.max_duration }}"></div>
-                                <div class="form-group"><label for="stocknews_duration_buffer">Duration Buffer</label><input type="number" step="0.01" class="form-control" id="stocknews_duration_buffer" value="{{ main_config.stock_news.duration_buffer }}"></div>
+                                <div class="form-group"><label for="stocknews_min_duration">Min Duration</label><input type="number" class="form-control" id="stocknews_min_duration" value="{{ safe_config_get(main_config, 'stock_news', 'min_duration', default=30) }}"></div>
+                                <div class="form-group"><label for="stocknews_max_duration">Max Duration</label><input type="number" class="form-control" id="stocknews_max_duration" value="{{ safe_config_get(main_config, 'stock_news', 'max_duration', default=300) }}"></div>
+                                <div class="form-group"><label for="stocknews_duration_buffer">Duration Buffer</label><input type="number" step="0.01" class="form-control" id="stocknews_duration_buffer" value="{{ safe_config_get(main_config, 'stock_news', 'duration_buffer', default=0.1) }}"></div>
                             </div>
                             <button type="submit" class="btn btn-success">Save Stock News</button>
                         </form>
@@ -1369,45 +1373,45 @@
                         <form id="odds-form">
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="odds_enabled" {% if main_config.odds_ticker.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="odds_enabled" {% if safe_config_get(main_config, 'odds_ticker', 'enabled', default=True) %}checked{% endif %}>
                                     Enable Odds Ticker
                                 </label>
                             </div>
                             <div class="form-row">
-                                <div class="form-group"><label for="odds_update_interval">Update Interval (sec)</label><input type="number" class="form-control" id="odds_update_interval" value="{{ main_config.odds_ticker.update_interval }}"></div>
-                                <div class="form-group"><label for="odds_scroll_speed">Scroll Speed</label><input type="number" step="0.1" class="form-control" id="odds_scroll_speed" value="{{ main_config.odds_ticker.scroll_speed }}"></div>
-                                <div class="form-group"><label for="odds_scroll_delay">Scroll Delay (sec)</label><input type="number" step="0.001" class="form-control" id="odds_scroll_delay" value="{{ main_config.odds_ticker.scroll_delay }}"></div>
+                                <div class="form-group"><label for="odds_update_interval">Update Interval (sec)</label><input type="number" class="form-control" id="odds_update_interval" value="{{ safe_config_get(main_config, 'odds_ticker', 'update_interval', default=3600) }}"></div>
+                                <div class="form-group"><label for="odds_scroll_speed">Scroll Speed</label><input type="number" step="0.1" class="form-control" id="odds_scroll_speed" value="{{ safe_config_get(main_config, 'odds_ticker', 'scroll_speed', default=1) }}"></div>
+                                <div class="form-group"><label for="odds_scroll_delay">Scroll Delay (sec)</label><input type="number" step="0.001" class="form-control" id="odds_scroll_delay" value="{{ safe_config_get(main_config, 'odds_ticker', 'scroll_delay', default=0.01) }}"></div>
                             </div>
                             <div class="form-row">
-                                <div class="form-group"><label for="odds_games_per_favorite_team">Games per Favorite Team</label><input type="number" class="form-control" id="odds_games_per_favorite_team" value="{{ main_config.odds_ticker.games_per_favorite_team }}"></div>
-                                <div class="form-group"><label for="odds_max_games_per_league">Max Games per League</label><input type="number" class="form-control" id="odds_max_games_per_league" value="{{ main_config.odds_ticker.max_games_per_league }}"></div>
-                                <div class="form-group"><label for="odds_future_fetch_days">Future Fetch Days</label><input type="number" class="form-control" id="odds_future_fetch_days" value="{{ main_config.odds_ticker.future_fetch_days }}"></div>
+                                <div class="form-group"><label for="odds_games_per_favorite_team">Games per Favorite Team</label><input type="number" class="form-control" id="odds_games_per_favorite_team" value="{{ safe_config_get(main_config, 'odds_ticker', 'games_per_favorite_team', default=1) }}"></div>
+                                <div class="form-group"><label for="odds_max_games_per_league">Max Games per League</label><input type="number" class="form-control" id="odds_max_games_per_league" value="{{ safe_config_get(main_config, 'odds_ticker', 'max_games_per_league', default=5) }}"></div>
+                                <div class="form-group"><label for="odds_future_fetch_days">Future Fetch Days</label><input type="number" class="form-control" id="odds_future_fetch_days" value="{{ safe_config_get(main_config, 'odds_ticker', 'future_fetch_days', default=50) }}"></div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="odds_enabled_leagues">Enabled Leagues</label>
-                                    <input type="text" class="form-control" id="odds_enabled_leagues" value="{{ main_config.odds_ticker.enabled_leagues | join(', ') }}">
+                                    <input type="text" class="form-control" id="odds_enabled_leagues" value="{{ safe_config_get(main_config, 'odds_ticker', 'enabled_leagues', default=['nfl', 'mlb', 'ncaa_fb', 'milb']) | join(', ') }}">
                                     <div class="description">Comma-separated list, e.g., nfl, mlb, ncaa_fb, milb</div>
                                 </div>
                                 <div class="form-group">
                                     <label for="odds_sort_order">Sort Order</label>
                                     <select id="odds_sort_order" class="form-control">
-                                        <option value="soonest" {% if main_config.odds_ticker.sort_order == 'soonest' %}selected{% endif %}>Soonest</option>
-                                        <option value="league" {% if main_config.odds_ticker.sort_order == 'league' %}selected{% endif %}>By League</option>
+                                        <option value="soonest" {% if safe_config_get(main_config, 'odds_ticker', 'sort_order', default='soonest') == 'soonest' %}selected{% endif %}>Soonest</option>
+                                        <option value="league" {% if safe_config_get(main_config, 'odds_ticker', 'sort_order', default='soonest') == 'league' %}selected{% endif %}>By League</option>
                                     </select>
                                 </div>
                             </div>
                             <div class="form-row">
-                                <div class="form-group"><label><input type="checkbox" id="odds_show_favorite_teams_only" {% if main_config.odds_ticker.show_favorite_teams_only %}checked{% endif %}> Show Favorite Teams Only</label></div>
-                                <div class="form-group"><label><input type="checkbox" id="odds_show_odds_only" {% if main_config.odds_ticker.show_odds_only %}checked{% endif %}> Show Odds Only</label></div>
-                                <div class="form-group"><label><input type="checkbox" id="odds_loop" {% if main_config.odds_ticker.loop %}checked{% endif %}> Loop</label></div>
-                                <div class="form-group"><label><input type="checkbox" id="odds_show_channel_logos" {% if main_config.odds_ticker.show_channel_logos %}checked{% endif %}> Show Channel Logos</label></div>
+                                <div class="form-group"><label><input type="checkbox" id="odds_show_favorite_teams_only" {% if safe_config_get(main_config, 'odds_ticker', 'show_favorite_teams_only', default=True) %}checked{% endif %}> Show Favorite Teams Only</label></div>
+                                <div class="form-group"><label><input type="checkbox" id="odds_show_odds_only" {% if safe_config_get(main_config, 'odds_ticker', 'show_odds_only', default=False) %}checked{% endif %}> Show Odds Only</label></div>
+                                <div class="form-group"><label><input type="checkbox" id="odds_loop" {% if safe_config_get(main_config, 'odds_ticker', 'loop', default=True) %}checked{% endif %}> Loop</label></div>
+                                <div class="form-group"><label><input type="checkbox" id="odds_show_channel_logos" {% if safe_config_get(main_config, 'odds_ticker', 'show_channel_logos', default=True) %}checked{% endif %}> Show Channel Logos</label></div>
                             </div>
-                            <div class="form-group"><label><input type="checkbox" id="odds_dynamic_duration" {% if main_config.odds_ticker.dynamic_duration %}checked{% endif %}> Dynamic Duration</label></div>
+                            <div class="form-group"><label><input type="checkbox" id="odds_dynamic_duration" {% if safe_config_get(main_config, 'odds_ticker', 'dynamic_duration', default=True) %}checked{% endif %}> Dynamic Duration</label></div>
                             <div class="form-row">
-                                <div class="form-group"><label for="odds_min_duration">Min Duration</label><input type="number" class="form-control" id="odds_min_duration" value="{{ main_config.odds_ticker.min_duration }}"></div>
-                                <div class="form-group"><label for="odds_max_duration">Max Duration</label><input type="number" class="form-control" id="odds_max_duration" value="{{ main_config.odds_ticker.max_duration }}"></div>
-                                <div class="form-group"><label for="odds_duration_buffer">Duration Buffer</label><input type="number" step="0.01" class="form-control" id="odds_duration_buffer" value="{{ main_config.odds_ticker.duration_buffer }}"></div>
+                                <div class="form-group"><label for="odds_min_duration">Min Duration</label><input type="number" class="form-control" id="odds_min_duration" value="{{ safe_config_get(main_config, 'odds_ticker', 'min_duration', default=30) }}"></div>
+                                <div class="form-group"><label for="odds_max_duration">Max Duration</label><input type="number" class="form-control" id="odds_max_duration" value="{{ safe_config_get(main_config, 'odds_ticker', 'max_duration', default=300) }}"></div>
+                                <div class="form-group"><label for="odds_duration_buffer">Duration Buffer</label><input type="number" step="0.01" class="form-control" id="odds_duration_buffer" value="{{ safe_config_get(main_config, 'odds_ticker', 'duration_buffer', default=0.1) }}"></div>
                             </div>
                             <button type="submit" class="btn btn-success">Save Odds Settings</button>
                         </form>
@@ -1427,126 +1431,126 @@
                         <form id="leaderboard-form">
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="leaderboard_enabled" {% if main_config.leaderboard.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="leaderboard_enabled" {% if safe_config_get(main_config, 'leaderboard', 'enabled', default=False) %}checked{% endif %}>
                                     Enable Leaderboard
                                 </label>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="leaderboard_update_interval">Update Interval (sec)</label>
-                                    <input type="number" class="form-control" id="leaderboard_update_interval" value="{{ main_config.leaderboard.update_interval }}">
+                                    <input type="number" class="form-control" id="leaderboard_update_interval" value="{{ safe_config_get(main_config, 'leaderboard', 'update_interval', default=3600) }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="leaderboard_scroll_speed">Scroll Speed</label>
-                                    <input type="number" step="0.1" class="form-control" id="leaderboard_scroll_speed" value="{{ main_config.leaderboard.scroll_speed }}">
+                                    <input type="number" step="0.1" class="form-control" id="leaderboard_scroll_speed" value="{{ safe_config_get(main_config, 'leaderboard', 'scroll_speed', default=1) }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="leaderboard_scroll_delay">Scroll Delay (sec)</label>
-                                    <input type="number" step="0.001" class="form-control" id="leaderboard_scroll_delay" value="{{ main_config.leaderboard.scroll_delay }}">
+                                    <input type="number" step="0.001" class="form-control" id="leaderboard_scroll_delay" value="{{ safe_config_get(main_config, 'leaderboard', 'scroll_delay', default=0.01) }}">
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="leaderboard_display_duration">Display Duration (sec)</label>
-                                    <input type="number" class="form-control" id="leaderboard_display_duration" value="{{ main_config.leaderboard.display_duration }}">
+                                    <input type="number" class="form-control" id="leaderboard_display_duration" value="{{ safe_config_get(main_config, 'leaderboard', 'display_duration', default=30) }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="leaderboard_request_timeout">Request Timeout (sec)</label>
-                                    <input type="number" class="form-control" id="leaderboard_request_timeout" value="{{ main_config.leaderboard.request_timeout }}">
+                                    <input type="number" class="form-control" id="leaderboard_request_timeout" value="{{ safe_config_get(main_config, 'leaderboard', 'request_timeout', default=10) }}">
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="leaderboard_loop" {% if main_config.leaderboard.loop %}checked{% endif %}>
+                                    <input type="checkbox" id="leaderboard_loop" {% if safe_config_get(main_config, 'leaderboard', 'loop', default=True) %}checked{% endif %}>
                                     Loop
                                 </label>
                             </div>
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="leaderboard_dynamic_duration" {% if main_config.leaderboard.dynamic_duration %}checked{% endif %}>
+                                    <input type="checkbox" id="leaderboard_dynamic_duration" {% if safe_config_get(main_config, 'leaderboard', 'dynamic_duration', default=True) %}checked{% endif %}>
                                     Dynamic Duration
                                 </label>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="leaderboard_min_duration">Min Duration (sec)</label>
-                                    <input type="number" class="form-control" id="leaderboard_min_duration" value="{{ main_config.leaderboard.min_duration }}">
+                                    <input type="number" class="form-control" id="leaderboard_min_duration" value="{{ safe_config_get(main_config, 'leaderboard', 'min_duration', default=30) }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="leaderboard_max_duration">Max Duration (sec)</label>
-                                    <input type="number" class="form-control" id="leaderboard_max_duration" value="{{ main_config.leaderboard.max_duration }}">
+                                    <input type="number" class="form-control" id="leaderboard_max_duration" value="{{ safe_config_get(main_config, 'leaderboard', 'max_duration', default=300) }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="leaderboard_duration_buffer">Duration Buffer</label>
-                                    <input type="number" step="0.01" class="form-control" id="leaderboard_duration_buffer" value="{{ main_config.leaderboard.duration_buffer }}">
+                                    <input type="number" step="0.01" class="form-control" id="leaderboard_duration_buffer" value="{{ safe_config_get(main_config, 'leaderboard', 'duration_buffer', default=0.1) }}">
                                 </div>
                             </div>
                             
                             <h4>Enabled Sports</h4>
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="leaderboard_nfl_enabled" {% if main_config.leaderboard.enabled_sports.nfl.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="leaderboard_nfl_enabled" {% if safe_config_get(main_config, 'leaderboard', 'enabled_sports', 'nfl', 'enabled', default=False) %}checked{% endif %}>
                                     NFL
                                 </label>
                                 <div class="form-group" style="margin-left: 20px;">
                                     <label for="leaderboard_nfl_top_teams">Top Teams</label>
-                                    <input type="number" class="form-control" id="leaderboard_nfl_top_teams" value="{{ main_config.leaderboard.enabled_sports.nfl.top_teams }}" min="1" max="32">
+                                    <input type="number" class="form-control" id="leaderboard_nfl_top_teams" value="{{ safe_config_get(main_config, 'leaderboard', 'enabled_sports', 'nfl', 'top_teams', default=10) }}" min="1" max="32">
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="leaderboard_nba_enabled" {% if main_config.leaderboard.enabled_sports.nba.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="leaderboard_nba_enabled" {% if safe_config_get(main_config, 'leaderboard', 'enabled_sports', 'nba', 'enabled', default=False) %}checked{% endif %}>
                                     NBA
                                 </label>
                                 <div class="form-group" style="margin-left: 20px;">
                                     <label for="leaderboard_nba_top_teams">Top Teams</label>
-                                    <input type="number" class="form-control" id="leaderboard_nba_top_teams" value="{{ main_config.leaderboard.enabled_sports.nba.top_teams }}" min="1" max="30">
+                                    <input type="number" class="form-control" id="leaderboard_nba_top_teams" value="{{ safe_config_get(main_config, 'leaderboard', 'enabled_sports', 'nba', 'top_teams', default=10) }}" min="1" max="30">
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="leaderboard_mlb_enabled" {% if main_config.leaderboard.enabled_sports.mlb.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="leaderboard_mlb_enabled" {% if safe_config_get(main_config, 'leaderboard', 'enabled_sports', 'mlb', 'enabled', default=False) %}checked{% endif %}>
                                     MLB
                                 </label>
                                 <div class="form-group" style="margin-left: 20px;">
                                     <label for="leaderboard_mlb_top_teams">Top Teams</label>
-                                    <input type="number" class="form-control" id="leaderboard_mlb_top_teams" value="{{ main_config.leaderboard.enabled_sports.mlb.top_teams }}" min="1" max="30">
+                                    <input type="number" class="form-control" id="leaderboard_mlb_top_teams" value="{{ safe_config_get(main_config, 'leaderboard', 'enabled_sports', 'mlb', 'top_teams', default=10) }}" min="1" max="30">
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="leaderboard_ncaa_fb_enabled" {% if main_config.leaderboard.enabled_sports.ncaa_fb.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="leaderboard_ncaa_fb_enabled" {% if safe_config_get(main_config, 'leaderboard', 'enabled_sports', 'ncaa_fb', 'enabled', default=False) %}checked{% endif %}>
                                     NCAA Football
                                 </label>
                                 <div class="form-group" style="margin-left: 20px;">
                                     <label for="leaderboard_ncaa_fb_top_teams">Top Teams</label>
-                                    <input type="number" class="form-control" id="leaderboard_ncaa_fb_top_teams" value="{{ main_config.leaderboard.enabled_sports.ncaa_fb.top_teams }}" min="1" max="25">
+                                    <input type="number" class="form-control" id="leaderboard_ncaa_fb_top_teams" value="{{ safe_config_get(main_config, 'leaderboard', 'enabled_sports', 'ncaa_fb', 'top_teams', default=10) }}" min="1" max="25">
                                 </div>
                                 <div class="form-group" style="margin-left: 20px;">
                                     <label>
-                                        <input type="checkbox" id="leaderboard_ncaa_fb_show_ranking" {% if main_config.leaderboard.enabled_sports.ncaa_fb.show_ranking %}checked{% endif %}>
+                                        <input type="checkbox" id="leaderboard_ncaa_fb_show_ranking" {% if safe_config_get(main_config, 'leaderboard', 'enabled_sports', 'ncaa_fb', 'show_ranking', default=True) %}checked{% endif %}>
                                         Show Ranking
                                     </label>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="leaderboard_nhl_enabled" {% if main_config.leaderboard.enabled_sports.nhl.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="leaderboard_nhl_enabled" {% if safe_config_get(main_config, 'leaderboard', 'enabled_sports', 'nhl', 'enabled', default=False) %}checked{% endif %}>
                                     NHL
                                 </label>
                                 <div class="form-group" style="margin-left: 20px;">
                                     <label for="leaderboard_nhl_top_teams">Top Teams</label>
-                                    <input type="number" class="form-control" id="leaderboard_nhl_top_teams" value="{{ main_config.leaderboard.enabled_sports.nhl.top_teams }}" min="1" max="32">
+                                    <input type="number" class="form-control" id="leaderboard_nhl_top_teams" value="{{ safe_config_get(main_config, 'leaderboard', 'enabled_sports', 'nhl', 'top_teams', default=10) }}" min="1" max="32">
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="leaderboard_ncaam_basketball_enabled" {% if main_config.leaderboard.enabled_sports.ncaam_basketball.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="leaderboard_ncaam_basketball_enabled" {% if safe_config_get(main_config, 'leaderboard', 'enabled_sports', 'ncaam_basketball', 'enabled', default=False) %}checked{% endif %}>
                                     NCAA Men's Basketball
                                 </label>
                                 <div class="form-group" style="margin-left: 20px;">
                                     <label for="leaderboard_ncaam_basketball_top_teams">Top Teams</label>
-                                    <input type="number" class="form-control" id="leaderboard_ncaam_basketball_top_teams" value="{{ main_config.leaderboard.enabled_sports.ncaam_basketball.top_teams }}" min="1" max="25">
+                                    <input type="number" class="form-control" id="leaderboard_ncaam_basketball_top_teams" value="{{ safe_config_get(main_config, 'leaderboard', 'enabled_sports', 'ncaam_basketball', 'top_teams', default=10) }}" min="1" max="25">
                                 </div>
                             </div>
                             
@@ -1565,18 +1569,18 @@
                             </div>
                         </div>
                         <form id="text-form">
-                            <div class="form-group"><label><input type="checkbox" id="text_enabled" {% if main_config.text_display.enabled %}checked{% endif %}> Enable</label></div>
-                            <div class="form-group"><label for="text_text">Text</label><input type="text" id="text_text" class="form-control" value="{{ main_config.text_display.text }}"></div>
-                            <div class="form-group"><label for="text_font_path">Font Path</label><input type="text" id="text_font_path" class="form-control" value="{{ main_config.text_display.font_path }}"></div>
+                            <div class="form-group"><label><input type="checkbox" id="text_enabled" {% if safe_config_get(main_config, 'text_display', 'enabled', default=False) %}checked{% endif %}> Enable</label></div>
+                            <div class="form-group"><label for="text_text">Text</label><input type="text" id="text_text" class="form-control" value="{{ safe_config_get(main_config, 'text_display', 'text', default='Subscribe to ChuckBuilds') }}"></div>
+                            <div class="form-group"><label for="text_font_path">Font Path</label><input type="text" id="text_font_path" class="form-control" value="{{ safe_config_get(main_config, 'text_display', 'font_path', default='assets/fonts/press-start-2p.ttf') }}"></div>
                             <div class="form-row">
-                                <div class="form-group"><label for="text_font_size">Font Size</label><input type="number" id="text_font_size" class="form-control" value="{{ main_config.text_display.font_size }}"></div>
-                                <div class="form-group"><label><input type="checkbox" id="text_scroll" {% if main_config.text_display.scroll %}checked{% endif %}> Scroll</label></div>
-                                <div class="form-group"><label for="text_scroll_speed">Scroll Speed</label><input type="number" id="text_scroll_speed" class="form-control" value="{{ main_config.text_display.scroll_speed }}"></div>
-                                <div class="form-group"><label for="text_scroll_gap_width">Scroll Gap Width</label><input type="number" id="text_scroll_gap_width" class="form-control" value="{{ main_config.text_display.scroll_gap_width }}"></div>
+                                <div class="form-group"><label for="text_font_size">Font Size</label><input type="number" id="text_font_size" class="form-control" value="{{ safe_config_get(main_config, 'text_display', 'font_size', default=8) }}"></div>
+                                <div class="form-group"><label><input type="checkbox" id="text_scroll" {% if safe_config_get(main_config, 'text_display', 'scroll', default=True) %}checked{% endif %}> Scroll</label></div>
+                                <div class="form-group"><label for="text_scroll_speed">Scroll Speed</label><input type="number" id="text_scroll_speed" class="form-control" value="{{ safe_config_get(main_config, 'text_display', 'scroll_speed', default=40) }}"></div>
+                                <div class="form-group"><label for="text_scroll_gap_width">Scroll Gap Width</label><input type="number" id="text_scroll_gap_width" class="form-control" value="{{ safe_config_get(main_config, 'text_display', 'scroll_gap_width', default=32) }}"></div>
                             </div>
                             <div class="form-row">
-                                <div class="form-group"><label for="text_text_color">Text Color</label><input type="color" id="text_text_color" class="form-control" data-rgb='{{ main_config.text_display.text_color | tojson }}'></div>
-                                <div class="form-group"><label for="text_background_color">Background Color</label><input type="color" id="text_background_color" class="form-control" data-rgb='{{ main_config.text_display.background_color | tojson }}'></div>
+                                <div class="form-group"><label for="text_text_color">Text Color</label><input type="color" id="text_text_color" class="form-control" data-rgb='{{ safe_config_get(main_config, 'text_display', 'text_color', default=[255, 0, 0]) | tojson }}'></div>
+                                <div class="form-group"><label for="text_background_color">Background Color</label><input type="color" id="text_background_color" class="form-control" data-rgb='{{ safe_config_get(main_config, 'text_display', 'background_color', default=[0, 0, 0]) | tojson }}'></div>
                             </div>
                             <button type="submit" class="btn btn-success">Save Text Settings</button>
                         </form>
@@ -1607,27 +1611,27 @@
                         <form id="of_the_day-form">
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="of_the_day_enabled" {% if main_config.of_the_day.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="of_the_day_enabled" {% if safe_config_get(main_config, 'of_the_day', 'enabled', default=False) %}checked{% endif %}>
                                     Enable Of The Day
                                 </label>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="of_the_day_update_interval">Update Interval (sec)</label>
-                                    <input type="number" class="form-control" id="of_the_day_update_interval" value="{{ main_config.of_the_day.update_interval }}">
+                                    <input type="number" class="form-control" id="of_the_day_update_interval" value="{{ safe_config_get(main_config, 'of_the_day', 'update_interval', default=3600) }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="of_the_day_display_rotate_interval">Display Rotate Interval (sec)</label>
-                                    <input type="number" class="form-control" id="of_the_day_display_rotate_interval" value="{{ main_config.of_the_day.display_rotate_interval }}">
+                                    <input type="number" class="form-control" id="of_the_day_display_rotate_interval" value="{{ safe_config_get(main_config, 'of_the_day', 'display_rotate_interval', default=20) }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="of_the_day_subtitle_rotate_interval">Subtitle Rotate Interval (sec)</label>
-                                    <input type="number" class="form-control" id="of_the_day_subtitle_rotate_interval" value="{{ main_config.of_the_day.subtitle_rotate_interval }}">
+                                    <input type="number" class="form-control" id="of_the_day_subtitle_rotate_interval" value="{{ safe_config_get(main_config, 'of_the_day', 'subtitle_rotate_interval', default=10) }}">
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label for="of_the_day_category_order">Category Order</label>
-                                <input type="text" class="form-control" id="of_the_day_category_order" value="{{ main_config.of_the_day.category_order | join(', ') }}" placeholder="word_of_the_day, slovenian_word_of_the_day">
+                                <input type="text" class="form-control" id="of_the_day_category_order" value="{{ safe_config_get(main_config, 'of_the_day', 'category_order', default=['word_of_the_day', 'slovenian_word_of_the_day']) | join(', ') }}" placeholder="word_of_the_day, slovenian_word_of_the_day">
                                 <div class="description">Comma-separated list of category keys in display order</div>
                             </div>
                             
@@ -1636,17 +1640,17 @@
                                 <h5>Word of the Day</h5>
                                 <div class="form-group" style="margin-left: 20px;">
                                     <label>
-                                        <input type="checkbox" id="of_the_day_word_enabled" {% if main_config.of_the_day.categories.word_of_the_day.enabled %}checked{% endif %}>
+                                        <input type="checkbox" id="of_the_day_word_enabled" {% if safe_config_get(main_config, 'of_the_day', 'categories', 'word_of_the_day', 'enabled', default=True) %}checked{% endif %}>
                                         Enable Word of the Day
                                     </label>
                                 </div>
                                 <div class="form-group" style="margin-left: 20px;">
                                     <label for="of_the_day_word_data_file">Data File</label>
-                                    <input type="text" class="form-control" id="of_the_day_word_data_file" value="{{ main_config.of_the_day.categories.word_of_the_day.data_file }}">
+                                    <input type="text" class="form-control" id="of_the_day_word_data_file" value="{{ safe_config_get(main_config, 'of_the_day', 'categories', 'word_of_the_day', 'data_file', default='of_the_day/word_of_the_day.json') }}">
                                 </div>
                                 <div class="form-group" style="margin-left: 20px;">
                                     <label for="of_the_day_word_display_name">Display Name</label>
-                                    <input type="text" class="form-control" id="of_the_day_word_display_name" value="{{ main_config.of_the_day.categories.word_of_the_day.display_name }}">
+                                    <input type="text" class="form-control" id="of_the_day_word_display_name" value="{{ safe_config_get(main_config, 'of_the_day', 'categories', 'word_of_the_day', 'display_name', default='Word of the Day') }}">
                                 </div>
                             </div>
                             
@@ -1654,17 +1658,17 @@
                                 <h5>Slovenian Word of the Day</h5>
                                 <div class="form-group" style="margin-left: 20px;">
                                     <label>
-                                        <input type="checkbox" id="of_the_day_slovenian_enabled" {% if main_config.of_the_day.categories.slovenian_word_of_the_day.enabled %}checked{% endif %}>
+                                        <input type="checkbox" id="of_the_day_slovenian_enabled" {% if safe_config_get(main_config, 'of_the_day', 'categories', 'slovenian_word_of_the_day', 'enabled', default=True) %}checked{% endif %}>
                                         Enable Slovenian Word of the Day
                                     </label>
                                 </div>
                                 <div class="form-group" style="margin-left: 20px;">
                                     <label for="of_the_day_slovenian_data_file">Data File</label>
-                                    <input type="text" class="form-control" id="of_the_day_slovenian_data_file" value="{{ main_config.of_the_day.categories.slovenian_word_of_the_day.data_file }}">
+                                    <input type="text" class="form-control" id="of_the_day_slovenian_data_file" value="{{ safe_config_get(main_config, 'of_the_day', 'categories', 'slovenian_word_of_the_day', 'data_file', default='of_the_day/slovenian_word_of_the_day.json') }}">
                                 </div>
                                 <div class="form-group" style="margin-left: 20px;">
                                     <label for="of_the_day_slovenian_display_name">Display Name</label>
-                                    <input type="text" class="form-control" id="of_the_day_slovenian_display_name" value="{{ main_config.of_the_day.categories.slovenian_word_of_the_day.display_name }}">
+                                    <input type="text" class="form-control" id="of_the_day_slovenian_display_name" value="{{ safe_config_get(main_config, 'of_the_day', 'categories', 'slovenian_word_of_the_day', 'display_name', default='Slovenian Word of the Day') }}">
                                 </div>
                             </div>
                             
@@ -1680,26 +1684,26 @@
                         <form id="music-form">
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="music_enabled" name="music_enabled" {% if main_config.music.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="music_enabled" name="music_enabled" {% if safe_config_get(main_config, 'music', 'enabled', default=False) %}checked{% endif %}>
                                     Enable Music Display
                                 </label>
                             </div>
                             <div class="form-group">
                                 <label for="music_preferred_source">Preferred Source:</label>
                                 <select class="form-control" id="music_preferred_source" name="music_preferred_source">
-                                    <option value="ytm" {% if main_config.music.preferred_source == "ytm" %}selected{% endif %}>YouTube Music</option>
-                                    <option value="spotify" {% if main_config.music.preferred_source == "spotify" %}selected{% endif %}>Spotify</option>
+                                    <option value="ytm" {% if safe_config_get(main_config, 'music', 'preferred_source', default='ytm') == "ytm" %}selected{% endif %}>YouTube Music</option>
+                                    <option value="spotify" {% if safe_config_get(main_config, 'music', 'preferred_source', default='ytm') == "spotify" %}selected{% endif %}>Spotify</option>
                                 </select>
                                 <div class="description">Primary music source to display</div>
                             </div>
                             <div class="form-group">
                                 <label for="ytm_companion_url">YouTube Music Companion URL:</label>
-                                <input type="text" class="form-control" id="ytm_companion_url" name="ytm_companion_url" value="{{ main_config.music.YTM_COMPANION_URL }}">
+                                <input type="text" class="form-control" id="ytm_companion_url" name="ytm_companion_url" value="{{ safe_config_get(main_config, 'music', 'YTM_COMPANION_URL', default='http://192.168.86.12:9863') }}">
                                 <div class="description">URL for YouTube Music companion app</div>
                             </div>
                             <div class="form-group">
                                 <label for="music_polling_interval">Polling Interval (seconds):</label>
-                                <input type="number" class="form-control" id="music_polling_interval" name="music_polling_interval" value="{{ main_config.music.POLLING_INTERVAL_SECONDS }}" min="1" max="60">
+                                <input type="number" class="form-control" id="music_polling_interval" name="music_polling_interval" value="{{ safe_config_get(main_config, 'music', 'POLLING_INTERVAL_SECONDS', default=1) }}" min="1" max="60">
                                 <div class="description">How often to check for music updates</div>
                             </div>
                             <button type="submit" class="btn btn-success">Save Music Settings</button>
@@ -1717,8 +1721,8 @@
                             </div>
                         </div>
                         <form id="youtube-form">
-                            <div class="form-group"><label><input type="checkbox" id="youtube_enabled" {% if main_config.youtube.enabled %}checked{% endif %}> Enable YouTube</label></div>
-                            <div class="form-group"><label for="youtube_update_interval">Update Interval (sec)</label><input type="number" id="youtube_update_interval" class="form-control" value="{{ main_config.youtube.update_interval }}"></div>
+                            <div class="form-group"><label><input type="checkbox" id="youtube_enabled" {% if safe_config_get(main_config, 'youtube', 'enabled', default=False) %}checked{% endif %}> Enable YouTube</label></div>
+                            <div class="form-group"><label for="youtube_update_interval">Update Interval (sec)</label><input type="number" id="youtube_update_interval" class="form-control" value="{{ safe_config_get(main_config, 'youtube', 'update_interval', default=3600) }}"></div>
                             <button type="submit" class="btn btn-success">Save YouTube Settings</button>
                         </form>
                     </div>
@@ -1736,23 +1740,23 @@
                         <form id="calendar-form">
                             <div class="form-group">
                                 <label>
-                                    <input type="checkbox" id="calendar_enabled" name="calendar_enabled" {% if main_config.calendar.enabled %}checked{% endif %}>
+                                    <input type="checkbox" id="calendar_enabled" name="calendar_enabled" {% if safe_config_get(main_config, 'calendar', 'enabled', default=False) %}checked{% endif %}>
                                     Enable Calendar
                                 </label>
                             </div>
                             <div class="form-group">
                                 <label for="calendar_max_events">Max Events to Show:</label>
-                                <input type="number" class="form-control" id="calendar_max_events" name="calendar_max_events" value="{{ main_config.calendar.max_events }}" min="1" max="10">
+                                <input type="number" class="form-control" id="calendar_max_events" name="calendar_max_events" value="{{ safe_config_get(main_config, 'calendar', 'max_events', default=3) }}" min="1" max="10">
                                 <div class="description">Maximum number of events to display</div>
                             </div>
                             <div class="form-group">
                                 <label for="calendar_update_interval">Update Interval (seconds):</label>
-                                <input type="number" class="form-control" id="calendar_update_interval" name="calendar_update_interval" value="{{ main_config.calendar.update_interval }}" min="300" max="3600">
+                                <input type="number" class="form-control" id="calendar_update_interval" name="calendar_update_interval" value="{{ safe_config_get(main_config, 'calendar', 'update_interval', default=3600) }}" min="300" max="3600">
                                 <div class="description">How often to update calendar data</div>
                             </div>
                             <div class="form-group">
                                 <label for="calendar_calendars">Calendars:</label>
-                                <input type="text" class="form-control" id="calendar_calendars" name="calendar_calendars" value="{{ main_config.calendar.calendars|join(', ') }}" placeholder="birthdays, work">
+                                <input type="text" class="form-control" id="calendar_calendars" name="calendar_calendars" value="{{ safe_config_get(main_config, 'calendar', 'calendars', default=['birthdays'])|join(', ') }}" placeholder="birthdays, work">
                                 <div class="description">Comma-separated calendar names</div>
                             </div>
                             <button type="submit" class="btn btn-success">Save Calendar Settings</button>
@@ -1822,24 +1826,24 @@
 
                         <h4 style="margin-top:20px;">Advanced Settings</h4>
                         <div class="form-row">
-                            <div class="form-group"><label for="news_update_interval">Update Interval (sec)</label><input type="number" id="news_update_interval" class="form-control" value="{{ main_config.news_manager.update_interval }}"></div>
-                            <div class="form-group"><label for="news_scroll_speed">Scroll Speed</label><input type="number" step="0.1" id="news_scroll_speed" class="form-control" value="{{ main_config.news_manager.scroll_speed }}"></div>
-                            <div class="form-group"><label for="news_scroll_delay">Scroll Delay (sec)</label><input type="number" step="0.001" id="news_scroll_delay" class="form-control" value="{{ main_config.news_manager.scroll_delay }}"></div>
+                            <div class="form-group"><label for="news_update_interval">Update Interval (sec)</label><input type="number" id="news_update_interval" class="form-control" value="{{ safe_config_get(main_config, 'news_manager', 'update_interval', default=300) }}"></div>
+                            <div class="form-group"><label for="news_scroll_speed">Scroll Speed</label><input type="number" step="0.1" id="news_scroll_speed" class="form-control" value="{{ safe_config_get(main_config, 'news_manager', 'scroll_speed', default=1) }}"></div>
+                            <div class="form-group"><label for="news_scroll_delay">Scroll Delay (sec)</label><input type="number" step="0.001" id="news_scroll_delay" class="form-control" value="{{ safe_config_get(main_config, 'news_manager', 'scroll_delay', default=0.01) }}"></div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group"><label for="news_rotation_threshold">Rotation Threshold</label><input type="number" id="news_rotation_threshold" class="form-control" value="{{ main_config.news_manager.rotation_threshold }}"></div>
-                            <div class="form-group"><label><input type="checkbox" id="news_dynamic_duration" {% if main_config.news_manager.dynamic_duration %}checked{% endif %}> Dynamic Duration</label></div>
-                            <div class="form-group"><label for="news_min_duration">Min Duration</label><input type="number" id="news_min_duration" class="form-control" value="{{ main_config.news_manager.min_duration }}"></div>
-                            <div class="form-group"><label for="news_max_duration">Max Duration</label><input type="number" id="news_max_duration" class="form-control" value="{{ main_config.news_manager.max_duration }}"></div>
-                            <div class="form-group"><label for="news_duration_buffer">Duration Buffer</label><input type="number" step="0.01" id="news_duration_buffer" class="form-control" value="{{ main_config.news_manager.duration_buffer }}"></div>
+                            <div class="form-group"><label for="news_rotation_threshold">Rotation Threshold</label><input type="number" id="news_rotation_threshold" class="form-control" value="{{ safe_config_get(main_config, 'news_manager', 'rotation_threshold', default=3) }}"></div>
+                            <div class="form-group"><label><input type="checkbox" id="news_dynamic_duration" {% if safe_config_get(main_config, 'news_manager', 'dynamic_duration', default=True) %}checked{% endif %}> Dynamic Duration</label></div>
+                            <div class="form-group"><label for="news_min_duration">Min Duration</label><input type="number" id="news_min_duration" class="form-control" value="{{ safe_config_get(main_config, 'news_manager', 'min_duration', default=30) }}"></div>
+                            <div class="form-group"><label for="news_max_duration">Max Duration</label><input type="number" id="news_max_duration" class="form-control" value="{{ safe_config_get(main_config, 'news_manager', 'max_duration', default=300) }}"></div>
+                            <div class="form-group"><label for="news_duration_buffer">Duration Buffer</label><input type="number" step="0.01" id="news_duration_buffer" class="form-control" value="{{ safe_config_get(main_config, 'news_manager', 'duration_buffer', default=0.1) }}"></div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group"><label for="news_font_size">Font Size</label><input type="number" id="news_font_size" class="form-control" value="{{ main_config.news_manager.font_size }}"></div>
-                            <div class="form-group"><label for="news_font_path">Font Path</label><input type="text" id="news_font_path" class="form-control" value="{{ main_config.news_manager.font_path }}"></div>
+                            <div class="form-group"><label for="news_font_size">Font Size</label><input type="number" id="news_font_size" class="form-control" value="{{ safe_config_get(main_config, 'news_manager', 'font_size', default=8) }}"></div>
+                            <div class="form-group"><label for="news_font_path">Font Path</label><input type="text" id="news_font_path" class="form-control" value="{{ safe_config_get(main_config, 'news_manager', 'font_path', default='assets/fonts/PressStart2P-Regular.ttf') }}"></div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group"><label for="news_text_color">Text Color</label><input type="color" id="news_text_color" class="form-control" data-rgb='{{ main_config.news_manager.text_color | tojson }}'></div>
-                            <div class="form-group"><label for="news_separator_color">Separator Color</label><input type="color" id="news_separator_color" class="form-control" data-rgb='{{ main_config.news_manager.separator_color | tojson }}'></div>
+                            <div class="form-group"><label for="news_text_color">Text Color</label><input type="color" id="news_text_color" class="form-control" data-rgb='{{ safe_config_get(main_config, 'news_manager', 'text_color', default=[255, 255, 255]) | tojson }}'></div>
+                            <div class="form-group"><label for="news_separator_color">Separator Color</label><input type="color" id="news_separator_color" class="form-control" data-rgb='{{ safe_config_get(main_config, 'news_manager', 'separator_color', default=[255, 0, 0]) | tojson }}'></div>
                         </div>
                         <button class="btn btn-success" type="button" onclick="saveNewsAdvancedSettings()">Save Advanced News Settings</button>
                     </div>
@@ -2033,7 +2037,7 @@
     <div id="notification" class="notification"></div>
 
     <!-- Server-provided data for JS (avoids inline Jinja in JS) -->
-    <script id="serverData" type="application/json">{{ {'main_config': main_config, 'editor_mode': editor_mode} | tojson }}</script>
+    <script id="serverData" type="application/json">{{ {'main_config': main_config_data, 'editor_mode': editor_mode} | tojson }}</script>
 
     <script>
         // Global variables
@@ -2044,6 +2048,19 @@
         let editorMode = !!__serverData.editor_mode;
         let currentElements = [];
         let selectedElement = null;
+
+        // Function to refresh the current config from the server
+        async function refreshCurrentConfig() {
+            try {
+                const response = await fetch('/api/config/main');
+                if (response.ok) {
+                    const configData = await response.json();
+                    currentConfig = configData;
+                }
+            } catch (error) {
+                console.warn('Failed to refresh current config:', error);
+            }
+        }
 
         async function refreshOnDemandStatus(){
             try{
@@ -2485,6 +2502,9 @@
         // System action functions
         async function systemAction(action) {
             if (action === 'reboot_system' && !confirm('Are you sure you want to reboot the system?')) {
+                return;
+            }
+            if (action === 'migrate_config' && !confirm('This will migrate your configuration to add any new options with default values. A backup will be created automatically. Continue?')) {
                 return;
             }
             
@@ -3038,6 +3058,41 @@
             });
         })();
 
+        // Music form submit
+        (function augmentMusicForm(){
+            const form = document.getElementById('music-form');
+            form.addEventListener('submit', async function(e){
+                e.preventDefault();
+                const payload = {
+                    music: {
+                        enabled: document.getElementById('music_enabled').checked,
+                        preferred_source: document.getElementById('music_preferred_source').value,
+                        YTM_COMPANION_URL: document.getElementById('ytm_companion_url').value,
+                        POLLING_INTERVAL_SECONDS: parseInt(document.getElementById('music_polling_interval').value)
+                    }
+                };
+                await saveConfigJson(payload);
+            });
+        })();
+
+        // Calendar form submit
+        (function augmentCalendarForm(){
+            const form = document.getElementById('calendar-form');
+            form.addEventListener('submit', async function(e){
+                e.preventDefault();
+                const calendars = document.getElementById('calendar_calendars').value.split(',').map(s => s.trim()).filter(Boolean);
+                const payload = {
+                    calendar: {
+                        enabled: document.getElementById('calendar_enabled').checked,
+                        max_events: parseInt(document.getElementById('calendar_max_events').value),
+                        update_interval: parseInt(document.getElementById('calendar_update_interval').value),
+                        calendars: calendars
+                    }
+                };
+                await saveConfigJson(payload);
+            });
+        })();
+
         // News advanced save
         async function saveNewsAdvancedSettings(){
             const payload = {
@@ -3409,6 +3464,8 @@
         // Sports configuration
         async function refreshSportsConfig(){
             try {
+                // Refresh the current config to ensure we have the latest data
+                await refreshCurrentConfig();
                 const res = await fetch('/api/system/status');
                 const stats = await res.json();
                 // Build a minimal sports UI off current config

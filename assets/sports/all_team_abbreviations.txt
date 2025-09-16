@@ -755,6 +755,20 @@ MLB Conferences/Divisions
     OAK => Oakland Athletics
     SEA => Seattle Mariners
     TEX => Texas Rangers
+
+Soccer Leagues:
+   LEAGUE_SLUGS = {
+       "eng.1": "Premier League",
+       "esp.1": "La Liga",
+       "ger.1": "Bundesliga",
+       "ita.1": "Serie A",
+       "fra.1": "Ligue 1",
+       "uefa.champions": "Champions League",
+       "uefa.europa": "Europa League",
+       "usa.1": "MLS",
+       "por.1": "Liga Portugal",  # Add this line
+   }
+
 Soccer - Premier League (England)
   ARS => Arsenal
   AVL => Aston Villa
@@ -885,6 +899,24 @@ Soccer - Champions League
   VEN => Venezia
   VFB => VfB Stuttgart
   VIL => Villarreal
+
+Soccer - Liga Portugal (Portugal)
+  ARO => Arouca
+  BEN => SL Benfica
+  BRA => SC Braga
+  CHA => Chaves
+  EST => Estoril Praia
+  FAM => Famalicão
+  GIL => Gil Vicente
+  MOR => Moreirense
+  POR => FC Porto
+  PTM => Portimonense
+  RIO => Rio Ave
+  SR => Sporting CP
+  VGU => Vitória de Guimarães
+  VSC => Vitória de Setúbal
+
+
 
 Soccer - Other Teams
   austin => Austin FC

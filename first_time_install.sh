@@ -150,17 +150,18 @@ echo ""
 echo "This script will perform the following steps:"
 echo "1. Install system dependencies"
 echo "2. Fix cache permissions"
-echo "3. Install main LED Matrix service"
-echo "4. Install Python project dependencies (requirements.txt)"
-echo "5. Build and install rpi-rgb-led-matrix and test import"
-echo "6. Install web interface dependencies"
-echo "7. Install web interface service"
-echo "8. Configure web interface permissions"
-echo "9. Configure passwordless sudo access"
-echo "10. Set up proper file ownership"
-echo "11. Configure sound module to avoid conflicts"
-echo "12. Apply performance optimizations"
-echo "13. Test the installation"
+echo "3. Fix assets directory permissions"
+echo "4. Install main LED Matrix service"
+echo "5. Install Python project dependencies (requirements.txt)"
+echo "6. Build and install rpi-rgb-led-matrix and test import"
+echo "7. Install web interface dependencies"
+echo "8. Install web interface service"
+echo "9. Configure web interface permissions"
+echo "10. Configure passwordless sudo access"
+echo "11. Set up proper file ownership"
+echo "12. Configure sound module to avoid conflicts"
+echo "13. Apply performance optimizations"
+echo "14. Test the installation"
 echo ""
 
 # Ask for confirmation
@@ -217,8 +218,57 @@ else
 fi
 echo ""
 
+CURRENT_STEP="Fix assets directory permissions"
+echo "Step 3: Fixing assets directory permissions..."
+echo "--------------------------------------------"
+
+# Run the assets permissions fix
+if [ -f "$PROJECT_ROOT_DIR/fix_assets_permissions.sh" ]; then
+    echo "Running assets permissions fix..."
+    bash "$PROJECT_ROOT_DIR/fix_assets_permissions.sh"
+    echo "✓ Assets permissions fixed"
+else
+    echo "⚠ Assets permissions script not found, fixing permissions manually..."
+    
+    # Set ownership of the entire assets directory to the real user
+    echo "Setting ownership of assets directory..."
+    chown -R "$ACTUAL_USER:$ACTUAL_USER" "$PROJECT_ROOT_DIR/assets"
+    
+    # Set permissions to allow read/write for owner and group, read for others
+    echo "Setting permissions for assets directory..."
+    chmod -R 775 "$PROJECT_ROOT_DIR/assets"
+    
+    # Specifically ensure the sports logos directories are writable
+    SPORTS_DIRS=(
+        "sports/ncaa_fbs_logos"
+        "sports/nfl_logos"
+        "sports/nba_logos"
+        "sports/nhl_logos"
+        "sports/mlb_logos"
+        "sports/milb_logos"
+        "sports/soccer_logos"
+    )
+    
+    echo "Ensuring sports logo directories are writable..."
+    for SPORTS_DIR in "${SPORTS_DIRS[@]}"; do
+        FULL_PATH="$PROJECT_ROOT_DIR/assets/$SPORTS_DIR"
+        if [ -d "$FULL_PATH" ]; then
+            chmod 775 "$FULL_PATH"
+            chown "$ACTUAL_USER:$ACTUAL_USER" "$FULL_PATH"
+        else
+            echo "Creating directory: $FULL_PATH"
+            mkdir -p "$FULL_PATH"
+            chown "$ACTUAL_USER:$ACTUAL_USER" "$FULL_PATH"
+            chmod 775 "$FULL_PATH"
+        fi
+    done
+    
+    echo "✓ Assets permissions fixed manually"
+fi
+echo ""
+
 CURRENT_STEP="Install main LED Matrix service"
-echo "Step 3: Installing main LED Matrix service..."
+echo "Step 4: Installing main LED Matrix service..."
 echo "---------------------------------------------"
 
 # Run the main service installation (idempotent)
@@ -233,13 +283,51 @@ else
 fi
 echo ""
 
-CURRENT_STEP="Ensure secrets configuration exists"
-echo "Step 3.1: Ensuring secrets configuration exists..."
-echo "-----------------------------------------------"
+CURRENT_STEP="Ensure configuration files exist"
+echo "Step 4.1: Ensuring configuration files exist..."
+echo "------------------------------------------------"
 
 # Ensure config directory exists
 mkdir -p "$PROJECT_ROOT_DIR/config"
 chmod 755 "$PROJECT_ROOT_DIR/config" || true
+
+# Create config.json from template if missing
+if [ ! -f "$PROJECT_ROOT_DIR/config/config.json" ]; then
+    if [ -f "$PROJECT_ROOT_DIR/config/config.template.json" ]; then
+        echo "Creating config/config.json from template..."
+        cp "$PROJECT_ROOT_DIR/config/config.template.json" "$PROJECT_ROOT_DIR/config/config.json"
+        chown "$ACTUAL_USER:$ACTUAL_USER" "$PROJECT_ROOT_DIR/config/config.json" || true
+        chmod 644 "$PROJECT_ROOT_DIR/config/config.json"
+        echo "✓ Main config file created from template"
+    else
+        echo "⚠ Template config/config.template.json not found; creating a minimal config file"
+        cat > "$PROJECT_ROOT_DIR/config/config.json" <<'EOF'
+{
+    "web_display_autostart": true,
+    "timezone": "America/Chicago",
+    "display": {
+        "hardware": {
+            "rows": 32,
+            "cols": 64,
+            "chain_length": 2,
+            "parallel": 1,
+            "brightness": 95,
+            "hardware_mapping": "adafruit-hat-pwm"
+        }
+    },
+    "clock": {
+        "enabled": true,
+        "format": "%I:%M %p"
+    }
+}
+EOF
+        chown "$ACTUAL_USER:$ACTUAL_USER" "$PROJECT_ROOT_DIR/config/config.json" || true
+        chmod 644 "$PROJECT_ROOT_DIR/config/config.json"
+        echo "✓ Minimal config file created"
+    fi
+else
+    echo "✓ Main config file already exists"
+fi
 
 # Create config_secrets.json from template if missing
 if [ ! -f "$PROJECT_ROOT_DIR/config/config_secrets.json" ]; then
@@ -263,12 +351,12 @@ EOF
         echo "✓ Minimal secrets file created"
     fi
 else
-    echo "Secrets file already exists; leaving as-is"
+    echo "✓ Secrets file already exists"
 fi
 echo ""
 
 CURRENT_STEP="Install project Python dependencies"
-echo "Step 4: Installing Python project dependencies..."
+echo "Step 5: Installing Python project dependencies..."
 echo "-----------------------------------------------"
 
 # Install main project Python dependencies
@@ -283,7 +371,7 @@ echo "✓ Project Python dependencies installed"
 echo ""
 
 CURRENT_STEP="Build and install rpi-rgb-led-matrix"
-echo "Step 5: Building and installing rpi-rgb-led-matrix..."
+echo "Step 6: Building and installing rpi-rgb-led-matrix..."
 echo "-----------------------------------------------------"
 
 # If already installed and not forcing rebuild, skip expensive build
@@ -327,7 +415,7 @@ fi
 echo ""
 
 CURRENT_STEP="Install web interface dependencies"
-echo "Step 6: Installing web interface dependencies..."
+echo "Step 7: Installing web interface dependencies..."
 echo "------------------------------------------------"
 
 # Install web interface dependencies
@@ -335,9 +423,9 @@ echo "Installing Python dependencies for web interface..."
 cd "$PROJECT_ROOT_DIR"
 
 # Try to install dependencies using the smart installer if available
-if [ -f "$PROJECT_ROOT_DIR/install_dependencies_apt.py" ]; then
+if [ -f "$PROJECT_ROOT_DIR/scripts/install_dependencies_apt.py" ]; then
     echo "Using smart dependency installer..."
-    python3 "$PROJECT_ROOT_DIR/install_dependencies_apt.py"
+    python3 "$PROJECT_ROOT_DIR/scripts/install_dependencies_apt.py"
 else
     echo "Using pip to install dependencies..."
     if [ -f "$PROJECT_ROOT_DIR/requirements_web_v2.txt" ]; then
@@ -351,7 +439,7 @@ echo "✓ Web interface dependencies installed"
 echo ""
 
 CURRENT_STEP="Install web interface service"
-echo "Step 7: Installing web interface service..."
+echo "Step 8: Installing web interface service..."
 echo "-------------------------------------------"
 
 if [ -f "$PROJECT_ROOT_DIR/install_web_service.sh" ]; then
@@ -369,7 +457,7 @@ fi
 echo ""
 
 CURRENT_STEP="Harden systemd unit file permissions"
-echo "Step 7.1: Setting systemd unit file permissions..."
+echo "Step 8.1: Setting systemd unit file permissions..."
 echo "-----------------------------------------------"
 for unit in "/etc/systemd/system/ledmatrix.service" "/etc/systemd/system/ledmatrix-web.service"; do
     if [ -f "$unit" ]; then
@@ -382,7 +470,7 @@ echo "✓ Systemd unit file permissions set"
 echo ""
 
 CURRENT_STEP="Configure web interface permissions"
-echo "Step 8: Configuring web interface permissions..."
+echo "Step 9: Configuring web interface permissions..."
 echo "------------------------------------------------"
 
 # Add user to required groups (idempotent)
@@ -404,7 +492,7 @@ echo "✓ User added to required groups"
 echo ""
 
 CURRENT_STEP="Configure passwordless sudo access"
-echo "Step 9: Configuring passwordless sudo access..."
+echo "Step 10: Configuring passwordless sudo access..."
 echo "------------------------------------------------"
 
 # Create sudoers configuration for the web interface
@@ -451,7 +539,7 @@ echo "✓ Passwordless sudo access configured"
 echo ""
 
 CURRENT_STEP="Set proper file ownership"
-echo "Step 10: Setting proper file ownership..."
+echo "Step 11: Setting proper file ownership..."
 echo "----------------------------------------"
 
 # Set ownership of project files to the user
@@ -471,11 +559,18 @@ if [ -f "$PROJECT_ROOT_DIR/config/config_secrets.json" ]; then
     echo "✓ Secrets file permissions set"
 fi
 
+# Set proper permissions for YTM auth file (readable by all users including root service)
+if [ -f "$PROJECT_ROOT_DIR/config/ytm_auth.json" ]; then
+    chown "$ACTUAL_USER:$ACTUAL_USER" "$PROJECT_ROOT_DIR/config/ytm_auth.json" || true
+    chmod 644 "$PROJECT_ROOT_DIR/config/ytm_auth.json"
+    echo "✓ YTM auth file permissions set"
+fi
+
 echo "✓ File ownership configured"
 echo ""
 
 CURRENT_STEP="Normalize project file permissions"
-echo "Step 10.1: Normalizing project file and directory permissions..."
+echo "Step 11.1: Normalizing project file and directory permissions..."
 echo "--------------------------------------------------------------"
 
 # Normalize directory permissions (exclude VCS metadata)
@@ -489,14 +584,14 @@ find "$PROJECT_ROOT_DIR" -path "*/.git*" -prune -o -type f -name "*.sh" -exec ch
 
 # Explicitly ensure common helper scripts are executable (in case paths change)
 chmod 755 "$PROJECT_ROOT_DIR/start_display.sh" "$PROJECT_ROOT_DIR/stop_display.sh" 2>/dev/null || true
-chmod 755 "$PROJECT_ROOT_DIR/fix_cache_permissions.sh" "$PROJECT_ROOT_DIR/fix_web_permissions.sh" 2>/dev/null || true
+chmod 755 "$PROJECT_ROOT_DIR/fix_cache_permissions.sh" "$PROJECT_ROOT_DIR/fix_web_permissions.sh" "$PROJECT_ROOT_DIR/fix_assets_permissions.sh" 2>/dev/null || true
 chmod 755 "$PROJECT_ROOT_DIR/install_service.sh" "$PROJECT_ROOT_DIR/install_web_service.sh" 2>/dev/null || true
 
 echo "✓ Project file permissions normalized"
 echo ""
 
 CURRENT_STEP="Sound module configuration"
-echo "Step 11: Sound module configuration..."
+echo "Step 12: Sound module configuration..."
 echo "-------------------------------------"
 
 # Remove services that may interfere with LED matrix timing
@@ -539,7 +634,7 @@ echo "✓ Sound module configuration applied"
 echo ""
 
 CURRENT_STEP="Apply performance optimizations"
-echo "Step 12: Applying performance optimizations..."
+echo "Step 13: Applying performance optimizations..."
 echo "---------------------------------------------"
 
 # Prefer /boot/firmware on newer Raspberry Pi OS, fall back to /boot on older
@@ -588,7 +683,7 @@ echo "✓ Performance optimizations applied"
 echo ""
 
 CURRENT_STEP="Test the installation"
-echo "Step 13: Testing the installation..."
+echo "Step 14: Testing the installation..."
 echo "----------------------------------"
 
 # Test sudo access
@@ -665,7 +760,8 @@ echo "Enable/disable web interface autostart:"
 echo "  Edit config/config.json and set 'web_display_autostart': true"
 echo ""
 echo "Configuration files:"
-echo "  Main config: config/config.json"
-echo "  Secrets: config/config_secrets.json (create from template if needed)"
+echo "  Main config: config/config.json (created from template automatically)"
+echo "  Secrets: config/config_secrets.json (created from template automatically)"
+echo "  Template: config/config.template.json (reference for new options)"
 echo ""
 echo "Enjoy your LED Matrix display!"

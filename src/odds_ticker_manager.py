@@ -119,6 +119,7 @@ class OddsTickerManager:
         self.current_game_index = 0
         self.ticker_image = None # This will hold the single, wide image
         self.last_display_time = 0
+        self._end_reached_logged = False  # Track if we've already logged reaching the end
         
         # Font setup
         self.fonts = self._load_fonts()
@@ -795,9 +796,16 @@ class OddsTickerManager:
                 
             elif sport == 'football':
                 quarter_text = f"Q{live_info.get('quarter', 1)}"
-                down_text = f"{live_info.get('down', 0)}&{live_info.get('distance', 0)}"
+                # Validate down and distance for odds ticker display
+                down = live_info.get('down')
+                distance = live_info.get('distance')
+                if (down is not None and isinstance(down, int) and 1 <= down <= 4 and 
+                    distance is not None and isinstance(distance, int) and distance >= 0):
+                    down_text = f"{down}&{distance}"
+                else:
+                    down_text = ""  # Don't show invalid down/distance
                 clock_text = live_info.get('clock', '')
-                return f"[LIVE] {away_team_name} {away_score} vs {home_team_name} {home_score} - {quarter_text} {down_text} {clock_text}"
+                return f"[LIVE] {away_team_name} {away_score} vs {home_team_name} {home_score} - {quarter_text} {down_text} {clock_text}".strip()
                 
             elif sport == 'basketball':
                 quarter_text = f"Q{live_info.get('quarter', 1)}"
@@ -1106,7 +1114,14 @@ class OddsTickerManager:
             elif sport == 'football':
                 # Football: Show quarter and down/distance
                 quarter_text = f"Q{live_info.get('quarter', 1)}"
-                down_text = f"{live_info.get('down', 0)}&{live_info.get('distance', 0)}"
+                # Validate down and distance for odds ticker display
+                down = live_info.get('down')
+                distance = live_info.get('distance')
+                if (down is not None and isinstance(down, int) and 1 <= down <= 4 and 
+                    distance is not None and isinstance(distance, int) and distance >= 0):
+                    down_text = f"{down}&{distance}"
+                else:
+                    down_text = ""  # Don't show invalid down/distance
                 clock_text = live_info.get('clock', '')
                 
                 day_text = quarter_text
@@ -1476,9 +1491,9 @@ class OddsTickerManager:
             return
 
         gap_width = 24  # Reduced gap between games
-        display_width = self.display_manager.matrix.width  # Add display width of black space at start
+        display_width = self.display_manager.matrix.width  # Add display width of black space at start and end
         content_width = sum(img.width for img in game_images) + gap_width * (len(game_images))
-        total_width = display_width + content_width
+        total_width = display_width + content_width + display_width  # Add display width at both start and end
         height = self.display_manager.matrix.height
 
         logger.debug(f"Image creation details:")
@@ -1504,7 +1519,7 @@ class OddsTickerManager:
         # Calculate total scroll width for dynamic duration (only the content width, not including display width)
         self.total_scroll_width = content_width
         logger.debug(f"Odds ticker image creation:")
-        logger.debug(f"  Display width: {display_width}px")
+        logger.debug(f"  Display width: {display_width}px (added at start and end)")
         logger.debug(f"  Content width: {content_width}px")
         logger.debug(f"  Total image width: {total_width}px")
         logger.debug(f"  Number of games: {len(game_images)}")
@@ -1701,6 +1716,8 @@ class OddsTickerManager:
             logger.debug(f"Reset/initialized display start time: {self._display_start_time}")
             # Also reset scroll position for clean start
             self.scroll_position = 0
+            # Reset the end reached logging flag
+            self._end_reached_logged = False
         else:
             # Check if the display start time is too old (more than 2x the dynamic duration)
             current_time = time.time()
@@ -1709,6 +1726,8 @@ class OddsTickerManager:
                 logger.debug(f"Display start time is too old ({elapsed_time:.1f}s), resetting")
                 self._display_start_time = current_time
                 self.scroll_position = 0
+                # Reset the end reached logging flag
+                self._end_reached_logged = False
         
         logger.debug(f"Number of games in data at start of display method: {len(self.games_data)}")
         if not self.games_data:
@@ -1812,11 +1831,13 @@ class OddsTickerManager:
             else:
                 # Stop scrolling when we reach the end
                 if self.scroll_position >= self.ticker_image.width - width:
-                    logger.info(f"Odds ticker reached end: scroll_position {self.scroll_position} >= {self.ticker_image.width - width}")
+                    if not self._end_reached_logged:
+                        logger.info(f"Odds ticker reached end: scroll_position {self.scroll_position} >= {self.ticker_image.width - width}")
+                        logger.info("Odds ticker scrolling stopped - reached end of content")
+                        self._end_reached_logged = True
                     self.scroll_position = self.ticker_image.width - width
                     # Signal that scrolling has stopped
                     self.display_manager.set_scrolling_state(False)
-                    logger.info("Odds ticker scrolling stopped - reached end of content")
             
             # Check if we're at a natural break point for mode switching
             # If we're near the end of the display duration and not at a clean break point,

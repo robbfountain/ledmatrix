@@ -1223,9 +1223,28 @@ class MLBRecentManager(BaseMLBManager):
             self.logger.info(f"[MLB] All games found ({len(all_games_log)}): {all_games_log}")
             self.logger.info(f"[MLB] Favorite team games found ({len(favorite_games_log)}): {favorite_games_log}")
             
-            # Sort by game time (most recent first) and limit to recent_games_to_show
+            # Sort by game time (most recent first) and apply per-team logic
             new_recent_games.sort(key=lambda x: x['start_time'], reverse=True)
-            new_recent_games = new_recent_games[:self.recent_games_to_show]
+            
+            # If showing favorite teams only, select one game per team
+            if self.mlb_config.get("show_favorite_teams_only", False):
+                # Select one game per favorite team (most recent game for each team)
+                team_games = []
+                for team in self.favorite_teams:
+                    # Find games where this team is playing
+                    team_specific_games = [game for game in new_recent_games
+                                          if game['home_team'] == team or game['away_team'] == team]
+                    
+                    if team_specific_games:
+                        # Take the most recent (first in sorted list)
+                        team_games.append(team_specific_games[0])
+                
+                # Sort the final list by game time (most recent first)
+                team_games.sort(key=lambda x: x['start_time'], reverse=True)
+                new_recent_games = team_games
+            else:
+                # Limit to configured number if not using favorite teams only
+                new_recent_games = new_recent_games[:self.recent_games_to_show]
             
             if new_recent_games:
                 logger.info(f"[MLB] Found {len(new_recent_games)} recent games for favorite teams: {self.favorite_teams}")
@@ -1345,9 +1364,28 @@ class MLBUpcomingManager(BaseMLBManager):
                 else:
                     self.logger.info(f"[MLB] Skipping game {game_id} - not upcoming.")
                 
-            # Sort by game time (soonest first) and limit to upcoming_games_to_show
+            # Sort by game time (soonest first) and apply per-team logic
             new_upcoming_games.sort(key=lambda x: x['start_time'])
-            new_upcoming_games = new_upcoming_games[:self.upcoming_games_to_show]
+            
+            # If showing favorite teams only, select one game per team
+            if self.mlb_config.get("show_favorite_teams_only", False):
+                # Select one game per favorite team (earliest upcoming game for each team)
+                team_games = []
+                for team in self.favorite_teams:
+                    # Find games where this team is playing
+                    team_specific_games = [game for game in new_upcoming_games
+                                          if game['home_team'] == team or game['away_team'] == team]
+                    
+                    if team_specific_games:
+                        # Take the earliest (first in sorted list)
+                        team_games.append(team_specific_games[0])
+                
+                # Sort the final list by game time
+                team_games.sort(key=lambda x: x['start_time'])
+                new_upcoming_games = team_games
+            else:
+                # Limit to configured number if not using favorite teams only
+                new_upcoming_games = new_upcoming_games[:self.upcoming_games_to_show]
                 
             if new_upcoming_games:
                 logger.info(f"[MLB] Found {len(new_upcoming_games)} upcoming games for favorite teams")
