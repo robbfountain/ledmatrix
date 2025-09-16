@@ -8,7 +8,10 @@ from rgbmatrix import graphics
 import pytz
 from src.config_manager import ConfigManager
 import time
-import freetype
+try:
+    import freetype
+except ImportError:
+    freetype = None
 
 # Configure logger for this module
 logger = logging.getLogger(__name__)
@@ -73,7 +76,11 @@ class OfTheDayManager:
                         abs_font_path = os.path.abspath(font_path)
                         if os.path.exists(abs_font_path):
                             logger.debug(f"Loading BDF font: {abs_font_path}")
-                            return freetype.Face(abs_font_path)
+                            if freetype is not None:
+                                return freetype.Face(abs_font_path)
+                            else:
+                                logger.warning("freetype module not available, cannot load BDF fonts")
+                                return None
                     
                     logger.debug(f"Font file not found: {filename}")
                     # List available fonts for debugging
@@ -377,7 +384,7 @@ class OfTheDayManager:
         """Draw text for both BDF (FreeType Face) and PIL TTF fonts."""
         try:
             # If we have a PIL font, use native text rendering
-            if not isinstance(face, freetype.Face):
+            if freetype is None or not isinstance(face, freetype.Face):
                 draw.text((x, y), text, fill=color, font=face)
                 return
 
