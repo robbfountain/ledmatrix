@@ -425,7 +425,7 @@ class OfTheDayManager:
                 body_height = 8
             
             # --- Draw Title (always at top) ---
-            title_y = title_height  # Position title so its bottom is at title_height
+            title_y = 2  # Position title at top with small margin
             
             # Calculate title width for centering (robust to font type)
             try:
@@ -438,7 +438,7 @@ class OfTheDayManager:
             self._draw_bdf_text(draw, title_font, title, title_x, title_y, color=self.title_color)
             
             # Underline below title (centered)
-            underline_y = title_height + 1
+            underline_y = title_y + title_height + 2  # Space after title
             underline_x_start = title_x
             underline_x_end = title_x + title_width
             draw.line([(underline_x_start, underline_y), (underline_x_end, underline_y)], fill=self.title_color, width=1)
@@ -446,7 +446,7 @@ class OfTheDayManager:
             # --- Draw Subtitle or Description (rotating) ---
             # Start subtitle/description below the title and underline
             # Account for title height + underline + spacing
-            y_start = title_height + body_height + 4  # Space for underline
+            y_start = underline_y + 3  # Space after underline
             available_height = matrix_height - y_start
             available_width = matrix_width - 2
             
