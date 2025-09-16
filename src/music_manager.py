@@ -769,10 +769,16 @@ class MusicManager:
         ARTIST_Y_PERCENT = 0.34  # 34% from top  
         ALBUM_Y_PERCENT = 0.60   # 60% from top
         
-        # Calculate actual pixel positions
+        # Get font height for artist/album text
+        try:
+            artist_album_font_height = self.display_manager.get_font_height(font_artist_album)
+        except:
+            artist_album_font_height = LINE_HEIGHT_BDF  # Fallback to BDF height
+        
+        # Calculate actual pixel positions, shifted down by font height
         y_pos_title_top = 1
-        y_pos_artist_top = int(matrix_height * ARTIST_Y_PERCENT)
-        y_pos_album_top = int(matrix_height * ALBUM_Y_PERCENT)
+        y_pos_artist_top = int(matrix_height * ARTIST_Y_PERCENT) + artist_album_font_height
+        y_pos_album_top = int(matrix_height * ALBUM_Y_PERCENT) + artist_album_font_height
         
         TEXT_SCROLL_DIVISOR = 5
 
