@@ -1133,10 +1133,26 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
 
             # Filter for favorite teams
             if self.favorite_teams:
-                team_games = [game for game in processed_games
-                              if game['home_abbr'] in self.favorite_teams or
-                                 game['away_abbr'] in self.favorite_teams]
+                # Get all games involving favorite teams
+                favorite_team_games = [game for game in processed_games
+                                      if game['home_abbr'] in self.favorite_teams or
+                                         game['away_abbr'] in self.favorite_teams]
                 self.logger.info(f"[NCAAFB Recent] Found {favorite_games_found} favorite team games out of {len(processed_games)} total final games within last 21 days")
+                
+                # Select one game per favorite team (most recent game for each team)
+                team_games = []
+                for team in self.favorite_teams:
+                    # Find games where this team is playing
+                    team_specific_games = [game for game in favorite_team_games
+                                          if game['home_abbr'] == team or game['away_abbr'] == team]
+                    
+                    if team_specific_games:
+                        # Sort by game time and take the most recent
+                        team_specific_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+                        team_games.append(team_specific_games[0])
+                
+                # Sort the final list by game time (most recent first)
+                team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
                 
                 # Debug: Show which games are selected for display
                 for i, game in enumerate(team_games):
@@ -1144,12 +1160,10 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
             else:
                  team_games = processed_games # Show all recent games if no favorites defined
                  self.logger.info(f"[NCAAFB Recent] Found {len(processed_games)} total final games within last 21 days (no favorite teams configured)")
-
-            # Sort by game time, most recent first
-            team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
-            
-            # Limit to the specified number of recent games
-            team_games = team_games[:self.recent_games_to_show]
+                 # Sort by game time, most recent first
+                 team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+                 # Limit to the specified number of recent games
+                 team_games = team_games[:self.recent_games_to_show]
 
             # Check if the list of games to display has changed
             new_game_ids = {g['id'] for g in team_games}

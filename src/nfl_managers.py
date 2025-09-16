@@ -893,18 +893,32 @@ class NFLRecentManager(BaseNFLManager): # Renamed class
 
             # Filter for favorite teams only if the config is set
             if self.nfl_config.get("show_favorite_teams_only", False):
-                 team_games = [game for game in processed_games
-                              if game['home_abbr'] in self.favorite_teams or
-                                 game['away_abbr'] in self.favorite_teams]
+                # Get all games involving favorite teams
+                favorite_team_games = [game for game in processed_games
+                                      if game['home_abbr'] in self.favorite_teams or
+                                         game['away_abbr'] in self.favorite_teams]
+                
+                # Select one game per favorite team (most recent game for each team)
+                team_games = []
+                for team in self.favorite_teams:
+                    # Find games where this team is playing
+                    team_specific_games = [game for game in favorite_team_games
+                                          if game['home_abbr'] == team or game['away_abbr'] == team]
+                    
+                    if team_specific_games:
+                        # Sort by game time and take the most recent
+                        team_specific_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=self._get_timezone()), reverse=True)
+                        team_games.append(team_specific_games[0])
+                
+                # Sort the final list by game time (most recent first)
+                team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=self._get_timezone()), reverse=True)
             else:
                  team_games = processed_games # Show all recent games if no favorites defined
-
-            # Sort by game time, most recent first
-            team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=self._get_timezone()), reverse=True)
-            
-            # Limit to the specified number of recent games (default 5)
-            recent_games_to_show = self.nfl_config.get("recent_games_to_show", 5)
-            team_games = team_games[:recent_games_to_show]
+                 # Sort by game time, most recent first
+                 team_games.sort(key=lambda g: g.get('start_time_utc') or datetime.min.replace(tzinfo=self._get_timezone()), reverse=True)
+                 # Limit to the specified number of recent games (default 5)
+                 recent_games_to_show = self.nfl_config.get("recent_games_to_show", 5)
+                 team_games = team_games[:recent_games_to_show]
 
             # Check if the list of games to display has changed
             new_game_ids = {g['id'] for g in team_games}
