@@ -381,10 +381,21 @@ class OfTheDayManager:
                 draw.text((x, y), text, fill=color, font=face)
                 return
 
+            # Compute baseline from font ascender so caller can pass top-left y
+            try:
+                ascender_px = face.size.ascender >> 6
+            except Exception:
+                ascender_px = 0
+            baseline_y = y + ascender_px
+
             # Otherwise, render BDF glyphs manually
             for char in text:
                 face.load_char(char)
                 bitmap = face.glyph.bitmap
+                
+                # Get glyph metrics
+                glyph_left = face.glyph.bitmap_left
+                glyph_top = face.glyph.bitmap_top
                 
                 for i in range(bitmap.rows):
                     for j in range(bitmap.width):
@@ -393,9 +404,12 @@ class OfTheDayManager:
                             if byte_index < len(bitmap.buffer):
                                 byte = bitmap.buffer[byte_index]
                                 if byte & (1 << (7 - (j % 8))):
-                                    draw_y = y - face.glyph.bitmap_top + i
-                                    draw_x = x + face.glyph.bitmap_left + j
-                                    draw.point((draw_x, draw_y), fill=color)
+                                    # Calculate actual pixel position
+                                    pixel_x = x + glyph_left + j
+                                    pixel_y = baseline_y - glyph_top + i
+                                    # Only draw if within bounds
+                                    if (0 <= pixel_x < self.display_manager.width and 0 <= pixel_y < self.display_manager.height):
+                                        draw.point((pixel_x, pixel_y), fill=color)
                         except IndexError:
                             logger.warning(f"Index out of range for char '{char}' at position ({i}, {j})")
                             continue
