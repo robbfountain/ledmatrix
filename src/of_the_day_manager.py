@@ -438,10 +438,54 @@ class OfTheDayManager:
             except Exception:
                 body_height = 8
             
-            # --- Draw Title (always at top) ---
-            title_y = 2  # Position title at top with small margin
+            # --- Dynamic Spacing Calculation ---
+            # Calculate how much space we need and distribute it evenly
+            margin_top = 1
+            margin_bottom = 1
+            underline_space = 1  # Space for underline
             
-            # Calculate title width for centering (robust to font type)
+            # Determine current content
+            current_text = subtitle if (self.rotation_state == 0 and subtitle) else description
+            if not current_text:
+                current_text = ""
+            
+            # Pre-wrap the body text to determine how many lines we'll need
+            available_width = matrix_width - 4  # Leave some margin
+            wrapped_lines = self._wrap_text(current_text, available_width, body_font, max_lines=10, 
+                                          line_height=body_height, max_height=matrix_height)
+            # Filter out empty lines for spacing calculation
+            actual_body_lines = [line for line in wrapped_lines if line.strip()]
+            num_body_lines = len(actual_body_lines)
+            
+            # Calculate total content height needed
+            title_content_height = title_height
+            underline_content_height = underline_space
+            body_content_height = num_body_lines * body_height if num_body_lines > 0 else 0
+            
+            total_content_height = title_content_height + underline_content_height + body_content_height
+            available_space = matrix_height - margin_top - margin_bottom
+            
+            # Calculate dynamic spacing
+            if total_content_height < available_space:
+                # We have extra space - distribute it
+                extra_space = available_space - total_content_height
+                if num_body_lines > 0:
+                    # Distribute space: 30% after title, 70% between body lines
+                    space_after_title = max(2, int(extra_space * 0.3))
+                    space_between_lines = max(1, int(extra_space * 0.7 / max(1, num_body_lines - 1))) if num_body_lines > 1 else 0
+                else:
+                    # No body text - just center the title
+                    space_after_title = extra_space // 2
+                    space_between_lines = 0
+            else:
+                # Tight spacing
+                space_after_title = 2
+                space_between_lines = 1
+            
+            # --- Draw Title ---
+            title_y = margin_top
+            
+            # Calculate title width for centering
             try:
                 title_width = self.display_manager.get_text_width(title, title_font)
             except Exception:
@@ -451,48 +495,33 @@ class OfTheDayManager:
             title_x = (matrix_width - title_width) // 2
             self._draw_bdf_text(draw, title_font, title, title_x, title_y, color=self.title_color)
             
-            # Underline below title (centered)
-            underline_y = title_y + title_height + 2  # Space after title
+            # --- Draw Underline ---
+            underline_y = title_y + title_height + 1
             underline_x_start = title_x
             underline_x_end = title_x + title_width
             draw.line([(underline_x_start, underline_y), (underline_x_end, underline_y)], fill=self.title_color, width=1)
 
-            # --- Draw Subtitle or Description (rotating) ---
-            # Start subtitle/description below the title and underline
-            # Account for title height + underline + spacing
-            y_start = underline_y + 3  # Space after underline
-            available_height = matrix_height - y_start
-            available_width = matrix_width - 2
+            # --- Draw Body Text with Dynamic Spacing ---
+            if num_body_lines > 0:
+                body_start_y = underline_y + space_after_title
+                current_y = body_start_y
+                
+                for i, line in enumerate(actual_body_lines):
+                    if line.strip():  # Only draw non-empty lines
+                        # Center each line of body text
+                        try:
+                            line_width = self.display_manager.get_text_width(line, body_font)
+                        except Exception:
+                            line_width = len(line) * 6
+                        line_x = (matrix_width - line_width) // 2
+                        
+                        # Draw the line
+                        self._draw_bdf_text(draw, body_font, line, line_x, current_y, color=self.subtitle_color)
+                        
+                        # Move to next line position
+                        if i < len(actual_body_lines) - 1:  # Not the last line
+                            current_y += body_height + space_between_lines
             
-            if self.rotation_state == 0 and subtitle:
-                # Show subtitle
-                wrapped = self._wrap_text(subtitle, available_width, body_font, max_lines=3, line_height=body_height, max_height=available_height)
-                for i, line in enumerate(wrapped):
-                    if line.strip():  # Only draw non-empty lines
-                        # Center each line of body text
-                        try:
-                            line_width = self.display_manager.get_text_width(line, body_font)
-                        except Exception:
-                            line_width = len(line) * 6
-                        line_x = (matrix_width - line_width) // 2
-                        # Add one pixel buffer between lines
-                        line_y = y_start + i * (body_height + 1)
-                        self._draw_bdf_text(draw, body_font, line, line_x, line_y, color=self.subtitle_color)
-            elif self.rotation_state == 1 and description:
-                # Show description
-                wrapped = self._wrap_text(description, available_width, body_font, max_lines=3, line_height=body_height, max_height=available_height)
-                for i, line in enumerate(wrapped):
-                    if line.strip():  # Only draw non-empty lines
-                        # Center each line of body text
-                        try:
-                            line_width = self.display_manager.get_text_width(line, body_font)
-                        except Exception:
-                            line_width = len(line) * 6
-                        line_x = (matrix_width - line_width) // 2
-                        # Add one pixel buffer between lines
-                        line_y = y_start + i * (body_height + 1)
-                        self._draw_bdf_text(draw, body_font, line, line_x, line_y, color=self.subtitle_color)
-            # else: nothing to show
             return True
         except Exception as e:
             logger.error(f"Error drawing 'of the day' item: {e}", exc_info=True)
