@@ -781,7 +781,10 @@ class MusicManager:
         # Calculate actual pixel positions, shifted down by font height
         y_pos_title_top = 1
         y_pos_artist_top = int(matrix_height * ARTIST_Y_PERCENT) + font_shift
-        y_pos_album_top = int(matrix_height * ALBUM_Y_PERCENT) + font_shift
+        
+        # For album, use a smaller shift to ensure it fits above progress bar
+        album_shift = min(font_shift, 3)  # Cap album shift at 3 pixels to preserve space
+        y_pos_album_top = int(matrix_height * ALBUM_Y_PERCENT) + album_shift
         
         TEXT_SCROLL_DIVISOR = 5
 
