@@ -496,7 +496,7 @@ class OfTheDayManager:
             self._draw_bdf_text(draw, title_font, title, title_x, title_y, color=self.title_color)
             
             # --- Draw Underline ---
-            underline_y = title_y + title_height + 2  # Space after title
+            underline_y = title_y + title_height + 1  # Reduced space after title
             underline_x_start = title_x
             underline_x_end = title_x + title_width
             draw.line([(underline_x_start, underline_y), (underline_x_end, underline_y)], fill=self.title_color, width=1)
