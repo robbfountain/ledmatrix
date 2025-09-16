@@ -486,7 +486,7 @@ class OfTheDayManager:
                     space_between_lines = 0
             else:
                 # Tight spacing
-                space_after_title = 2
+                space_after_title = 3
                 space_between_lines = 1
             
             # --- Draw Title ---
