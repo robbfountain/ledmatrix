@@ -1271,20 +1271,25 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
 
                 # Display away team info
                 if away_abbr:
-                    if self.show_ranking:
-                        # Show ranking if available, fall back to record if unranked and show_records is enabled
+                    if self.show_ranking and self.show_records:
+                        # When both rankings and records are enabled, rankings replace records completely
                         rankings = self._fetch_team_rankings()
                         away_rank = rankings.get(away_abbr, 0)
                         if away_rank > 0:
                             away_text = f"#{away_rank}"
-                        elif self.show_records:
-                            # Fall back to record if team is unranked and show_records is enabled
-                            away_text = game.get('away_record', '')
                         else:
-                            # Show nothing if unranked and show_records is disabled
+                            # Show nothing for unranked teams when rankings are prioritized
+                            away_text = ''
+                    elif self.show_ranking:
+                        # Show ranking only if available
+                        rankings = self._fetch_team_rankings()
+                        away_rank = rankings.get(away_abbr, 0)
+                        if away_rank > 0:
+                            away_text = f"#{away_rank}"
+                        else:
                             away_text = ''
                     elif self.show_records:
-                        # Show record only if show_records is enabled and show_ranking is disabled
+                        # Show record only when rankings are disabled
                         away_text = game.get('away_record', '')
                     else:
                         away_text = ''
@@ -1296,20 +1301,25 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
 
                 # Display home team info
                 if home_abbr:
-                    if self.show_ranking:
-                        # Show ranking if available, fall back to record if unranked and show_records is enabled
+                    if self.show_ranking and self.show_records:
+                        # When both rankings and records are enabled, rankings replace records completely
                         rankings = self._fetch_team_rankings()
                         home_rank = rankings.get(home_abbr, 0)
                         if home_rank > 0:
                             home_text = f"#{home_rank}"
-                        elif self.show_records:
-                            # Fall back to record if team is unranked and show_records is enabled
-                            home_text = game.get('home_record', '')
                         else:
-                            # Show nothing if unranked and show_records is disabled
+                            # Show nothing for unranked teams when rankings are prioritized
+                            home_text = ''
+                    elif self.show_ranking:
+                        # Show ranking only if available
+                        rankings = self._fetch_team_rankings()
+                        home_rank = rankings.get(home_abbr, 0)
+                        if home_rank > 0:
+                            home_text = f"#{home_rank}"
+                        else:
                             home_text = ''
                     elif self.show_records:
-                        # Show record only if show_records is enabled and show_ranking is disabled
+                        # Show record only when rankings are disabled
                         home_text = game.get('home_record', '')
                     else:
                         home_text = ''
@@ -1616,20 +1626,25 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
 
                 # Display away team info
                 if away_abbr:
-                    if self.show_ranking:
-                        # Show ranking if available, fall back to record if unranked and show_records is enabled
+                    if self.show_ranking and self.show_records:
+                        # When both rankings and records are enabled, rankings replace records completely
                         rankings = self._fetch_team_rankings()
                         away_rank = rankings.get(away_abbr, 0)
                         if away_rank > 0:
                             away_text = f"#{away_rank}"
-                        elif self.show_records:
-                            # Fall back to record if team is unranked and show_records is enabled
-                            away_text = game.get('away_record', '')
                         else:
-                            # Show nothing if unranked and show_records is disabled
+                            # Show nothing for unranked teams when rankings are prioritized
+                            away_text = ''
+                    elif self.show_ranking:
+                        # Show ranking only if available
+                        rankings = self._fetch_team_rankings()
+                        away_rank = rankings.get(away_abbr, 0)
+                        if away_rank > 0:
+                            away_text = f"#{away_rank}"
+                        else:
                             away_text = ''
                     elif self.show_records:
-                        # Show record only if show_records is enabled and show_ranking is disabled
+                        # Show record only when rankings are disabled
                         away_text = game.get('away_record', '')
                     else:
                         away_text = ''
@@ -1641,20 +1656,25 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
 
                 # Display home team info
                 if home_abbr:
-                    if self.show_ranking:
-                        # Show ranking if available, fall back to record if unranked and show_records is enabled
+                    if self.show_ranking and self.show_records:
+                        # When both rankings and records are enabled, rankings replace records completely
                         rankings = self._fetch_team_rankings()
                         home_rank = rankings.get(home_abbr, 0)
                         if home_rank > 0:
                             home_text = f"#{home_rank}"
-                        elif self.show_records:
-                            # Fall back to record if team is unranked and show_records is enabled
-                            home_text = game.get('home_record', '')
                         else:
-                            # Show nothing if unranked and show_records is disabled
+                            # Show nothing for unranked teams when rankings are prioritized
+                            home_text = ''
+                    elif self.show_ranking:
+                        # Show ranking only if available
+                        rankings = self._fetch_team_rankings()
+                        home_rank = rankings.get(home_abbr, 0)
+                        if home_rank > 0:
+                            home_text = f"#{home_rank}"
+                        else:
                             home_text = ''
                     elif self.show_records:
-                        # Show record only if show_records is enabled and show_ranking is disabled
+                        # Show record only when rankings are disabled
                         home_text = game.get('home_record', '')
                     else:
                         home_text = ''
