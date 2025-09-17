@@ -32,6 +32,7 @@ class LogoDownloader:
         'fcs': 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams',  # FCS teams from same endpoint
         'ncaam_basketball': 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams',
         'ncaa_baseball': 'https://site.api.espn.com/apis/site/v2/sports/baseball/college-baseball/teams',
+        'ncaam_hockey': 'https://site.api.espn.com/apis/site/v2/sports/hockey/mens-college-hockey/teams',
         # Soccer leagues
         'soccer_eng.1': 'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams',
         'soccer_esp.1': 'https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/teams',
@@ -55,6 +56,7 @@ class LogoDownloader:
         'fcs': 'assets/sports/ncaa_logos',  # FCS teams go in same directory
         'ncaam_basketball': 'assets/sports/ncaa_logos',
         'ncaa_baseball': 'assets/sports/ncaa_logos',
+        'ncaam_hockey': 'assets/sports/ncaa_logos',
         # Soccer leagues - all use the same soccer_logos directory
         'soccer_eng.1': 'assets/sports/soccer_logos',
         'soccer_esp.1': 'assets/sports/soccer_logos',
@@ -181,7 +183,7 @@ class LogoDownloader:
         
         try:
             logger.info(f"Fetching team data for {league} from ESPN API...")
-            response = self.session.get(api_url, headers=self.headers, timeout=self.request_timeout)
+            response = self.session.get(api_url, params={'limit':1000},headers=self.headers, timeout=self.request_timeout)
             response.raise_for_status()
             data = response.json()
             
