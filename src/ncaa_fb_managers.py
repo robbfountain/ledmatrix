@@ -1255,8 +1255,10 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
             if self.show_records or self.show_ranking:
                 try:
                     record_font = ImageFont.truetype("assets/fonts/4x6-font.ttf", 6)
+                    self.logger.debug(f"Loaded 6px record font successfully")
                 except IOError:
                     record_font = ImageFont.load_default()
+                    self.logger.warning(f"Failed to load 6px font, using default font (size: {record_font.size})")
                 
                 # Get team abbreviations
                 away_abbr = game.get('away_abbr', '')
@@ -1265,6 +1267,7 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
                 record_bbox = draw_overlay.textbbox((0,0), "0-0", font=record_font)
                 record_height = record_bbox[3] - record_bbox[1]
                 record_y = self.display_height - record_height
+                self.logger.debug(f"Record positioning: height={record_height}, record_y={record_y}, display_height={self.display_height}")
 
                 # Display away team info
                 if away_abbr:
@@ -1288,6 +1291,7 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
                     
                     if away_text:
                         away_record_x = 0
+                        self.logger.debug(f"Drawing away ranking '{away_text}' at ({away_record_x}, {record_y}) with font size {record_font.size if hasattr(record_font, 'size') else 'unknown'}")
                         self._draw_text_with_outline(draw_overlay, away_text, (away_record_x, record_y), record_font)
 
                 # Display home team info
@@ -1314,6 +1318,7 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
                         home_record_bbox = draw_overlay.textbbox((0,0), home_text, font=record_font)
                         home_record_width = home_record_bbox[2] - home_record_bbox[0]
                         home_record_x = self.display_width - home_record_width
+                        self.logger.debug(f"Drawing home ranking '{home_text}' at ({home_record_x}, {record_y}) with font size {record_font.size if hasattr(record_font, 'size') else 'unknown'}")
                         self._draw_text_with_outline(draw_overlay, home_text, (home_record_x, record_y), record_font)
 
             # Composite and display
@@ -1595,8 +1600,10 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
             if self.show_records or self.show_ranking:
                 try:
                     record_font = ImageFont.truetype("assets/fonts/4x6-font.ttf", 6)
+                    self.logger.debug(f"Loaded 6px record font successfully")
                 except IOError:
                     record_font = ImageFont.load_default()
+                    self.logger.warning(f"Failed to load 6px font, using default font (size: {record_font.size})")
                 
                 # Get team abbreviations
                 away_abbr = game.get('away_abbr', '')
@@ -1605,6 +1612,7 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
                 record_bbox = draw_overlay.textbbox((0,0), "0-0", font=record_font)
                 record_height = record_bbox[3] - record_bbox[1]
                 record_y = self.display_height - record_height
+                self.logger.debug(f"Record positioning: height={record_height}, record_y={record_y}, display_height={self.display_height}")
 
                 # Display away team info
                 if away_abbr:
@@ -1628,6 +1636,7 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
                     
                     if away_text:
                         away_record_x = 0
+                        self.logger.debug(f"Drawing away ranking '{away_text}' at ({away_record_x}, {record_y}) with font size {record_font.size if hasattr(record_font, 'size') else 'unknown'}")
                         self._draw_text_with_outline(draw_overlay, away_text, (away_record_x, record_y), record_font)
 
                 # Display home team info
@@ -1654,6 +1663,7 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
                         home_record_bbox = draw_overlay.textbbox((0,0), home_text, font=record_font)
                         home_record_width = home_record_bbox[2] - home_record_bbox[0]
                         home_record_x = self.display_width - home_record_width
+                        self.logger.debug(f"Drawing home ranking '{home_text}' at ({home_record_x}, {record_y}) with font size {record_font.size if hasattr(record_font, 'size') else 'unknown'}")
                         self._draw_text_with_outline(draw_overlay, home_text, (home_record_x, record_y), record_font)
 
             # Composite and display
