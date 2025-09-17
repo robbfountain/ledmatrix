@@ -770,10 +770,12 @@ class MusicManager:
         ALBUM_Y_PERCENT = 0.60   # 60% from top
         
         # Use fixed positioning to ensure consistency across all songs
-        # The BDF 5x7 font has consistent metrics, so we don't need dynamic shifts
+        # Add a consistent font baseline shift for BDF fonts (not dynamic)
+        FIXED_BDF_BASELINE_SHIFT = 6  # Fixed shift for proper BDF font positioning
+        
         y_pos_title_top = 1
-        y_pos_artist_top = int(matrix_height * ARTIST_Y_PERCENT)
-        y_pos_album_top = int(matrix_height * ALBUM_Y_PERCENT)
+        y_pos_artist_top = int(matrix_height * ARTIST_Y_PERCENT) + FIXED_BDF_BASELINE_SHIFT
+        y_pos_album_top = int(matrix_height * ALBUM_Y_PERCENT) + FIXED_BDF_BASELINE_SHIFT
         
         TEXT_SCROLL_DIVISOR = 5
 
