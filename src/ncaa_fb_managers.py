@@ -51,7 +51,7 @@ class BaseNCAAFBManager: # Renamed class
         self.is_enabled = self.ncaa_fb_config.get("enabled", False)
         self.show_odds = self.ncaa_fb_config.get("show_odds", False)
         self.test_mode = self.ncaa_fb_config.get("test_mode", False)
-        self.logo_dir = self.ncaa_fb_config.get("logo_dir", "assets/sports/ncaa_fbs_logos") # Changed logo dir
+        self.logo_dir = self.ncaa_fb_config.get("logo_dir", "assets/sports/ncaa_logos") # Changed logo dir
         self.update_interval = self.ncaa_fb_config.get("update_interval_seconds", 60)
         self.show_records = self.ncaa_fb_config.get('show_records', False)
         self.show_ranking = self.ncaa_fb_config.get('show_ranking', False)
@@ -246,21 +246,6 @@ class BaseNCAAFBManager: # Renamed class
             # For immediate response, fetch current/recent games only
             year_events = self._fetch_immediate_games(year)
             all_events.extend(year_events)
-            
-            # Also try to fetch full season data immediately as fallback
-            try:
-                url = f"https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard"
-                response = self.session.get(url, params={"dates": year,"seasontype":2,"limit":1000},headers=self.headers, timeout=15)
-                response.raise_for_status()
-                data = response.json()
-                events = data.get('events', [])
-                if use_cache:
-                    self.cache_manager.set(cache_key, events)
-                self.logger.info(f"[NCAAFB] Successfully fetched and cached {len(events)} events for {year} season.")
-                all_events.extend(events)
-            except requests.exceptions.RequestException as e:
-                self.logger.error(f"[NCAAFB] API error fetching full schedule for {year}: {e}")
-                continue
         
         if not all_events:
             self.logger.warning("[NCAAFB] No events found in schedule data.")
@@ -538,20 +523,25 @@ class BaseNCAAFBManager: # Renamed class
             if not os.path.exists(logo_path):
                 self.logger.info(f"Logo not found for {team_abbrev} at {logo_path}. Attempting to download.")
                 
-                # Try to download the logo from ESPN API
+                # Try to download the logo from ESPN API (this will create placeholder if download fails)
                 success = download_missing_logo(team_abbrev, 'ncaa_fb', team_name)
                 
-                if not success:
-                    # Create placeholder if download fails
-                    self.logger.warning(f"Failed to download logo for {team_abbrev}. Creating placeholder.")
+                # If still no logo exists after download attempt, create a fallback placeholder
+                if not success and not os.path.exists(logo_path):
+                    self.logger.warning(f"Failed to download logo for {team_abbrev}. Creating fallback placeholder.")
                     os.makedirs(os.path.dirname(logo_path), exist_ok=True)
                     logo = Image.new('RGBA', (32, 32), (200, 200, 200, 255)) # Gray placeholder
                     draw = ImageDraw.Draw(logo)
                     draw.text((2, 10), team_abbrev, fill=(0, 0, 0, 255))
                     logo.save(logo_path)
-                    self.logger.info(f"Created placeholder logo at {logo_path}")
+                    self.logger.info(f"Created fallback placeholder logo at {logo_path}")
 
-            logo = Image.open(logo_path)
+            # Only try to open the logo if the file exists
+            if os.path.exists(logo_path):
+                logo = Image.open(logo_path)
+            else:
+                self.logger.error(f"Logo file still doesn't exist at {logo_path} after download attempt")
+                return None
             if logo.mode != 'RGBA':
                 logo = logo.convert('RGBA')
 
@@ -1349,8 +1339,10 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
             if self.show_records or self.show_ranking:
                 try:
                     record_font = ImageFont.truetype("assets/fonts/4x6-font.ttf", 6)
+                    self.logger.debug(f"Loaded 6px record font successfully")
                 except IOError:
                     record_font = ImageFont.load_default()
+                    self.logger.warning(f"Failed to load 6px font, using default font (size: {record_font.size})")
                 
                 # Get team abbreviations
                 away_abbr = game.get('away_abbr', '')
@@ -1359,57 +1351,68 @@ class NCAAFBRecentManager(BaseNCAAFBManager): # Renamed class
                 record_bbox = draw_overlay.textbbox((0,0), "0-0", font=record_font)
                 record_height = record_bbox[3] - record_bbox[1]
                 record_y = self.display_height - record_height
+                self.logger.debug(f"Record positioning: height={record_height}, record_y={record_y}, display_height={self.display_height}")
 
                 # Display away team info
                 if away_abbr:
-                    if self.show_ranking:
-                        # Show ranking if available
+                    if self.show_ranking and self.show_records:
+                        # When both rankings and records are enabled, rankings replace records completely
                         rankings = self._fetch_team_rankings()
                         away_rank = rankings.get(away_abbr, 0)
                         if away_rank > 0:
                             away_text = f"#{away_rank}"
-                        elif self.show_records:
-                            # Only show record if show_records is enabled
-                            away_text = game.get('away_record', '')
                         else:
-                            # Show nothing if show_records is false and team is unranked
+                            # Show nothing for unranked teams when rankings are prioritized
                             away_text = ''
+                    elif self.show_ranking:
+                        # Show ranking only if available
+                        rankings = self._fetch_team_rankings()
+                        away_rank = rankings.get(away_abbr, 0)
+                        if away_rank > 0:
+                            away_text = f"#{away_rank}"
+                        else:
+                            away_text = ''
+                    elif self.show_records:
+                        # Show record only when rankings are disabled
+                        away_text = game.get('away_record', '')
                     else:
-                        # Show record only if show_records is enabled
-                        if self.show_records:
-                            away_text = game.get('away_record', '')
-                        else:
-                            away_text = ''
+                        away_text = ''
                     
                     if away_text:
                         away_record_x = 0
+                        self.logger.debug(f"Drawing away ranking '{away_text}' at ({away_record_x}, {record_y}) with font size {record_font.size if hasattr(record_font, 'size') else 'unknown'}")
                         self._draw_text_with_outline(draw_overlay, away_text, (away_record_x, record_y), record_font)
 
                 # Display home team info
                 if home_abbr:
-                    if self.show_ranking:
-                        # Show ranking if available
+                    if self.show_ranking and self.show_records:
+                        # When both rankings and records are enabled, rankings replace records completely
                         rankings = self._fetch_team_rankings()
                         home_rank = rankings.get(home_abbr, 0)
                         if home_rank > 0:
                             home_text = f"#{home_rank}"
-                        elif self.show_records:
-                            # Only show record if show_records is enabled
-                            home_text = game.get('home_record', '')
                         else:
-                            # Show nothing if show_records is false and team is unranked
+                            # Show nothing for unranked teams when rankings are prioritized
                             home_text = ''
+                    elif self.show_ranking:
+                        # Show ranking only if available
+                        rankings = self._fetch_team_rankings()
+                        home_rank = rankings.get(home_abbr, 0)
+                        if home_rank > 0:
+                            home_text = f"#{home_rank}"
+                        else:
+                            home_text = ''
+                    elif self.show_records:
+                        # Show record only when rankings are disabled
+                        home_text = game.get('home_record', '')
                     else:
-                        # Show record only if show_records is enabled
-                        if self.show_records:
-                            home_text = game.get('home_record', '')
-                        else:
-                            home_text = ''
+                        home_text = ''
                     
                     if home_text:
                         home_record_bbox = draw_overlay.textbbox((0,0), home_text, font=record_font)
                         home_record_width = home_record_bbox[2] - home_record_bbox[0]
                         home_record_x = self.display_width - home_record_width
+                        self.logger.debug(f"Drawing home ranking '{home_text}' at ({home_record_x}, {record_y}) with font size {record_font.size if hasattr(record_font, 'size') else 'unknown'}")
                         self._draw_text_with_outline(draw_overlay, home_text, (home_record_x, record_y), record_font)
 
             # Composite and display
@@ -1713,8 +1716,10 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
             if self.show_records or self.show_ranking:
                 try:
                     record_font = ImageFont.truetype("assets/fonts/4x6-font.ttf", 6)
+                    self.logger.debug(f"Loaded 6px record font successfully")
                 except IOError:
                     record_font = ImageFont.load_default()
+                    self.logger.warning(f"Failed to load 6px font, using default font (size: {record_font.size})")
                 
                 # Get team abbreviations
                 away_abbr = game.get('away_abbr', '')
@@ -1723,57 +1728,68 @@ class NCAAFBUpcomingManager(BaseNCAAFBManager): # Renamed class
                 record_bbox = draw_overlay.textbbox((0,0), "0-0", font=record_font)
                 record_height = record_bbox[3] - record_bbox[1]
                 record_y = self.display_height - record_height
+                self.logger.debug(f"Record positioning: height={record_height}, record_y={record_y}, display_height={self.display_height}")
 
                 # Display away team info
                 if away_abbr:
-                    if self.show_ranking:
-                        # Show ranking if available
+                    if self.show_ranking and self.show_records:
+                        # When both rankings and records are enabled, rankings replace records completely
                         rankings = self._fetch_team_rankings()
                         away_rank = rankings.get(away_abbr, 0)
                         if away_rank > 0:
                             away_text = f"#{away_rank}"
-                        elif self.show_records:
-                            # Only show record if show_records is enabled
-                            away_text = game.get('away_record', '')
                         else:
-                            # Show nothing if show_records is false and team is unranked
+                            # Show nothing for unranked teams when rankings are prioritized
                             away_text = ''
+                    elif self.show_ranking:
+                        # Show ranking only if available
+                        rankings = self._fetch_team_rankings()
+                        away_rank = rankings.get(away_abbr, 0)
+                        if away_rank > 0:
+                            away_text = f"#{away_rank}"
+                        else:
+                            away_text = ''
+                    elif self.show_records:
+                        # Show record only when rankings are disabled
+                        away_text = game.get('away_record', '')
                     else:
-                        # Show record only if show_records is enabled
-                        if self.show_records:
-                            away_text = game.get('away_record', '')
-                        else:
-                            away_text = ''
+                        away_text = ''
                     
                     if away_text:
                         away_record_x = 0
+                        self.logger.debug(f"Drawing away ranking '{away_text}' at ({away_record_x}, {record_y}) with font size {record_font.size if hasattr(record_font, 'size') else 'unknown'}")
                         self._draw_text_with_outline(draw_overlay, away_text, (away_record_x, record_y), record_font)
 
                 # Display home team info
                 if home_abbr:
-                    if self.show_ranking:
-                        # Show ranking if available
+                    if self.show_ranking and self.show_records:
+                        # When both rankings and records are enabled, rankings replace records completely
                         rankings = self._fetch_team_rankings()
                         home_rank = rankings.get(home_abbr, 0)
                         if home_rank > 0:
                             home_text = f"#{home_rank}"
-                        elif self.show_records:
-                            # Only show record if show_records is enabled
-                            home_text = game.get('home_record', '')
                         else:
-                            # Show nothing if show_records is false and team is unranked
+                            # Show nothing for unranked teams when rankings are prioritized
                             home_text = ''
+                    elif self.show_ranking:
+                        # Show ranking only if available
+                        rankings = self._fetch_team_rankings()
+                        home_rank = rankings.get(home_abbr, 0)
+                        if home_rank > 0:
+                            home_text = f"#{home_rank}"
+                        else:
+                            home_text = ''
+                    elif self.show_records:
+                        # Show record only when rankings are disabled
+                        home_text = game.get('home_record', '')
                     else:
-                        # Show record only if show_records is enabled
-                        if self.show_records:
-                            home_text = game.get('home_record', '')
-                        else:
-                            home_text = ''
+                        home_text = ''
                     
                     if home_text:
                         home_record_bbox = draw_overlay.textbbox((0,0), home_text, font=record_font)
                         home_record_width = home_record_bbox[2] - home_record_bbox[0]
                         home_record_x = self.display_width - home_record_width
+                        self.logger.debug(f"Drawing home ranking '{home_text}' at ({home_record_x}, {record_y}) with font size {record_font.size if hasattr(record_font, 'size') else 'unknown'}")
                         self._draw_text_with_outline(draw_overlay, home_text, (home_record_x, record_y), record_font)
 
             # Composite and display

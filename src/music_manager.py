@@ -769,22 +769,13 @@ class MusicManager:
         ARTIST_Y_PERCENT = 0.34  # 34% from top  
         ALBUM_Y_PERCENT = 0.60   # 60% from top
         
-        # Get font height for artist/album text
-        try:
-            artist_album_font_height = self.display_manager.get_font_height(font_artist_album)
-        except:
-            artist_album_font_height = LINE_HEIGHT_BDF  # Fallback to BDF height
+        # Use fixed positioning to ensure consistency across all songs
+        # Add a consistent font baseline shift for BDF fonts (not dynamic)
+        FIXED_BDF_BASELINE_SHIFT = 6  # Fixed shift for proper BDF font positioning
         
-        # Ensure we have a reasonable shift (minimum 6 pixels)
-        font_shift = max(artist_album_font_height, 6)
-        
-        # Calculate actual pixel positions, shifted down by font height
         y_pos_title_top = 1
-        y_pos_artist_top = int(matrix_height * ARTIST_Y_PERCENT) + font_shift
-        
-        # For album, use a smaller shift to ensure it fits above progress bar
-        album_shift = min(font_shift, 5)  # Cap album shift at 5 pixels to preserve space
-        y_pos_album_top = int(matrix_height * ALBUM_Y_PERCENT) + album_shift
+        y_pos_artist_top = int(matrix_height * ARTIST_Y_PERCENT) + FIXED_BDF_BASELINE_SHIFT
+        y_pos_album_top = int(matrix_height * ALBUM_Y_PERCENT) + FIXED_BDF_BASELINE_SHIFT
         
         TEXT_SCROLL_DIVISOR = 5
 

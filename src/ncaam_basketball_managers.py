@@ -53,7 +53,7 @@ class BaseNCAAMBasketballManager:
         self.is_enabled = self.ncaam_basketball_config.get("enabled", False)
         self.show_odds = self.ncaam_basketball_config.get("show_odds", False)
         self.test_mode = self.ncaam_basketball_config.get("test_mode", False)
-        self.logo_dir = self.ncaam_basketball_config.get("logo_dir", "assets/sports/ncaa_fbs_logos")
+        self.logo_dir = self.ncaam_basketball_config.get("logo_dir", "assets/sports/ncaa_logos")
         self.update_interval = self.ncaam_basketball_config.get("update_interval_seconds", 60)
         self.show_records = self.ncaam_basketball_config.get('show_records', False)
         self.last_update = 0

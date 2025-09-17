@@ -36,7 +36,7 @@ class BaseNCAABaseballManager:
         self.logger.setLevel(logging.DEBUG)  # Set logger level to DEBUG
         
         # Logo handling
-        self.logo_dir = self.ncaa_baseball_config.get('logo_dir', os.path.join('assets', 'sports', 'ncaa_fbs_logos'))
+        self.logo_dir = self.ncaa_baseball_config.get('logo_dir', os.path.join('assets', 'sports', 'ncaa_logos'))
         if not os.path.exists(self.logo_dir):
             self.logger.warning(f"NCAA Baseball logos directory not found: {self.logo_dir}")
             try:

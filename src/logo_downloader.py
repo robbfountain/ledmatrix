@@ -32,7 +32,7 @@ class LogoDownloader:
         'fcs': 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams',  # FCS teams from same endpoint
         'ncaam_basketball': 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams',
         'ncaa_baseball': 'https://site.api.espn.com/apis/site/v2/sports/baseball/college-baseball/teams',
-        "ncaam_hockey": "https://site.api.espn.com/apis/site/v2/sports/hockey/mens-college-hockey/teams",
+        'ncaam_hockey': 'https://site.api.espn.com/apis/site/v2/sports/hockey/mens-college-hockey/teams',
         # Soccer leagues
         'soccer_eng.1': 'https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1/teams',
         'soccer_esp.1': 'https://site.api.espn.com/apis/site/v2/sports/soccer/esp.1/teams',
