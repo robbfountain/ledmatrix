@@ -11,6 +11,7 @@ from src.display_manager import DisplayManager
 from src.cache_manager import CacheManager
 from src.config_manager import ConfigManager
 from src.odds_manager import OddsManager
+from src.background_data_service import get_background_service
 import pytz
 
 # Constants
@@ -78,6 +79,20 @@ class BaseNFLManager: # Renamed class
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
 
+        # Initialize background data service
+        background_config = self.nfl_config.get("background_service", {})
+        if background_config.get("enabled", True):  # Default to enabled
+            max_workers = background_config.get("max_workers", 3)
+            self.background_service = get_background_service(self.cache_manager, max_workers)
+            self.background_fetch_requests = {}  # Track background fetch requests
+            self.background_enabled = True
+            self.logger.info(f"[NFL] Background service enabled with {max_workers} workers")
+        else:
+            self.background_service = None
+            self.background_fetch_requests = {}
+            self.background_enabled = False
+            self.logger.info("[NFL] Background service disabled")
+        
         self.logger.info(f"Initialized NFL manager with display dimensions: {self.display_width}x{self.display_height}")
         self.logger.info(f"Logo directory: {self.logo_dir}")
         self.logger.info(f"Display modes - Recent: {self.recent_enabled}, Upcoming: {self.upcoming_enabled}, Live: {self.live_enabled}")
@@ -139,20 +154,116 @@ class BaseNFLManager: # Renamed class
             
     def _fetch_nfl_api_data(self, use_cache: bool = True) -> Optional[Dict]:
         """
-        Fetches the full season schedule for NFL, caches it, and then filters
-        for relevant games based on the current configuration.
+        Fetches the full season schedule for NFL using background threading.
+        Returns cached data immediately if available, otherwise starts background fetch.
         """
         now = datetime.now(pytz.utc)
         current_year = now.year
         cache_key = f"nfl_schedule_{current_year}"
 
+        # Check cache first
         if use_cache:
             cached_data = self.cache_manager.get(cache_key)
             if cached_data:
-                self.logger.info(f"[NFL] Using cached schedule for {current_year}")
-                return {'events': cached_data}
+                # Validate cached data structure
+                if isinstance(cached_data, dict) and 'events' in cached_data:
+                    self.logger.info(f"[NFL] Using cached schedule for {current_year}")
+                    return cached_data
+                elif isinstance(cached_data, list):
+                    # Handle old cache format (list of events)
+                    self.logger.info(f"[NFL] Using cached schedule for {current_year} (legacy format)")
+                    return {'events': cached_data}
+                else:
+                    self.logger.warning(f"[NFL] Invalid cached data format for {current_year}: {type(cached_data)}")
+                    # Clear invalid cache
+                    self.cache_manager.delete(cache_key)
         
-        self.logger.info(f"[NFL] Fetching full {current_year} season schedule from ESPN API (cache_enabled={use_cache})...")
+        # If background service is disabled, fall back to synchronous fetch
+        if not self.background_enabled or not self.background_service:
+            return self._fetch_nfl_api_data_sync(use_cache)
+        
+        # Check if we already have a background fetch in progress
+        if current_year in self.background_fetch_requests:
+            request_id = self.background_fetch_requests[current_year]
+            result = self.background_service.get_result(request_id)
+            
+            if result and result.success:
+                self.logger.info(f"[NFL] Background fetch completed for {current_year}")
+                # Validate result data structure
+                if isinstance(result.data, dict) and 'events' in result.data:
+                    return result.data
+                elif isinstance(result.data, list):
+                    # Handle case where result.data is just the events list
+                    return {'events': result.data}
+                else:
+                    self.logger.error(f"[NFL] Invalid background fetch result format: {type(result.data)}")
+                    return None
+            elif result and not result.success:
+                self.logger.warning(f"[NFL] Background fetch failed for {current_year}: {result.error}")
+                # Remove failed request and try again
+                del self.background_fetch_requests[current_year]
+            else:
+                self.logger.info(f"[NFL] Background fetch in progress for {current_year}, using partial data")
+                # Return partial data if available, or None to indicate no data yet
+                partial_data = self._get_partial_nfl_data(current_year)
+                if partial_data:
+                    return {'events': partial_data}
+                return None
+        
+        # Start background fetch
+        self.logger.info(f"[NFL] Starting background fetch for {current_year} season schedule...")
+        
+        def fetch_callback(result):
+            """Callback when background fetch completes."""
+            if result.success:
+                self.logger.info(f"[NFL] Background fetch completed for {current_year}: {len(result.data)} events")
+            else:
+                self.logger.error(f"[NFL] Background fetch failed for {current_year}: {result.error}")
+            
+            # Clean up request tracking
+            if current_year in self.background_fetch_requests:
+                del self.background_fetch_requests[current_year]
+        
+        # Get background service configuration
+        background_config = self.nfl_config.get("background_service", {})
+        timeout = background_config.get("request_timeout", 30)
+        max_retries = background_config.get("max_retries", 3)
+        priority = background_config.get("priority", 2)
+        
+        # Submit background fetch request
+        url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
+        request_id = self.background_service.submit_fetch_request(
+            sport="nfl",
+            year=current_year,
+            url=url,
+            cache_key=cache_key,
+            params={"dates": current_year, "limit": 1000},
+            headers=self.headers,
+            timeout=timeout,
+            max_retries=max_retries,
+            priority=priority,
+            callback=fetch_callback
+        )
+        
+        # Track the request
+        self.background_fetch_requests[current_year] = request_id
+        
+        # For immediate response, try to get partial data
+        partial_data = self._get_partial_nfl_data(current_year)
+        if partial_data:
+            return {'events': partial_data}
+        
+        return None
+    
+    def _fetch_nfl_api_data_sync(self, use_cache: bool = True) -> Optional[Dict]:
+        """
+        Synchronous fallback for fetching NFL data when background service is disabled.
+        """
+        now = datetime.now(pytz.utc)
+        current_year = now.year
+        cache_key = f"nfl_schedule_{current_year}"
+
+        self.logger.info(f"[NFL] Fetching full {current_year} season schedule from ESPN API (sync mode)...")
         try:
             url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
             response = self.session.get(url, params={"dates": current_year, "limit":1000}, headers=self.headers, timeout=15)
@@ -168,6 +279,39 @@ class BaseNFLManager: # Renamed class
         except requests.exceptions.RequestException as e:
             self.logger.error(f"[NFL] API error fetching full schedule: {e}")
             return None
+    
+    def _get_partial_nfl_data(self, year: int) -> Optional[List]:
+        """
+        Get partial NFL data for immediate display while background fetch is in progress.
+        This fetches current/recent games only for quick response.
+        """
+        try:
+            # Fetch current week and next few days for immediate display
+            now = datetime.now(pytz.utc)
+            immediate_events = []
+            
+            for days_offset in range(-1, 7):  # Yesterday through next 6 days
+                check_date = now + timedelta(days=days_offset)
+                date_str = check_date.strftime('%Y%m%d')
+                
+                url = f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={date_str}"
+                response = self.session.get(url, headers=self.headers, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+                date_events = data.get('events', [])
+                immediate_events.extend(date_events)
+                
+                if days_offset == 0:  # Today
+                    self.logger.debug(f"[NFL] Immediate fetch - Current date ({date_str}): {len(date_events)} events")
+            
+            if immediate_events:
+                self.logger.info(f"[NFL] Using {len(immediate_events)} immediate events while background fetch completes")
+                return immediate_events
+                
+        except requests.exceptions.RequestException as e:
+            self.logger.warning(f"[NFL] Error fetching immediate games for {year}: {e}")
+        
+        return None
 
     def _fetch_data(self, date_str: str = None) -> Optional[Dict]:
         """Fetch data using shared data mechanism or direct fetch for live."""
@@ -299,9 +443,24 @@ class BaseNFLManager: # Renamed class
     def _extract_game_details(self, game_event: Dict) -> Optional[Dict]:
         """Extract relevant game details from ESPN NFL API response."""
         # --- THIS METHOD NEEDS SIGNIFICANT ADAPTATION FOR NFL API ---
-        if not game_event: return None
+        if not game_event: 
+            return None
+
+        # Validate event structure
+        if not isinstance(game_event, dict):
+            self.logger.warning(f"[NFL] Skipping invalid game event (not dict): {type(game_event)}")
+            return None
 
         try:
+            # Validate required fields
+            if "competitions" not in game_event or not game_event["competitions"]:
+                self.logger.warning(f"[NFL] Skipping event without competitions: {game_event.get('id', 'unknown')}")
+                return None
+                
+            if "date" not in game_event:
+                self.logger.warning(f"[NFL] Skipping event without date: {game_event.get('id', 'unknown')}")
+                return None
+
             competition = game_event["competitions"][0]
             status = competition["status"]
             competitors = competition["competitors"]
@@ -873,10 +1032,20 @@ class NFLRecentManager(BaseNFLManager): # Renamed class
                 filtered_events = []
                 for event in events:
                     try:
+                        # Validate event structure
+                        if not isinstance(event, dict):
+                            self.logger.warning(f"[NFL Recent] Skipping invalid event (not dict): {type(event)}")
+                            continue
+                        
+                        if "competitions" not in event or not event["competitions"]:
+                            self.logger.warning(f"[NFL Recent] Skipping event without competitions: {event.get('id', 'unknown')}")
+                            continue
+                            
                         competitors = event["competitions"][0]["competitors"]
                         if any(c["team"]["abbreviation"] in self.favorite_teams for c in competitors):
                             filtered_events.append(event)
-                    except (KeyError, IndexError):
+                    except (KeyError, IndexError, TypeError) as e:
+                        self.logger.warning(f"[NFL Recent] Skipping malformed event: {e}")
                         continue # Skip event if data structure is unexpected
                 events = filtered_events
                 self.logger.info(f"[NFL Recent] Filtered to {len(events)} events for favorite teams.")
@@ -1107,10 +1276,20 @@ class NFLUpcomingManager(BaseNFLManager): # Renamed class
                 filtered_events = []
                 for event in events:
                     try:
+                        # Validate event structure
+                        if not isinstance(event, dict):
+                            self.logger.warning(f"[NFL Upcoming] Skipping invalid event (not dict): {type(event)}")
+                            continue
+                        
+                        if "competitions" not in event or not event["competitions"]:
+                            self.logger.warning(f"[NFL Upcoming] Skipping event without competitions: {event.get('id', 'unknown')}")
+                            continue
+                            
                         competitors = event["competitions"][0]["competitors"]
                         if any(c["team"]["abbreviation"] in self.favorite_teams for c in competitors):
                             filtered_events.append(event)
-                    except (KeyError, IndexError):
+                    except (KeyError, IndexError, TypeError) as e:
+                        self.logger.warning(f"[NFL Upcoming] Skipping malformed event: {e}")
                         continue # Skip event if data structure is unexpected
                 events = filtered_events
                 self.logger.info(f"[NFL Upcoming] Filtered to {len(events)} events for favorite teams.")
