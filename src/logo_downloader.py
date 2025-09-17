@@ -50,11 +50,11 @@ class LogoDownloader:
         'nba': 'assets/sports/nba_logos', 
         'mlb': 'assets/sports/mlb_logos',
         'nhl': 'assets/sports/nhl_logos',
-        'ncaa_fb': 'assets/sports/ncaa_fbs_logos',
-        'ncaa_fb_all': 'assets/sports/ncaa_fbs_logos',  # FCS teams go in same directory
-        'fcs': 'assets/sports/ncaa_fbs_logos',  # FCS teams go in same directory
-        'ncaam_basketball': 'assets/sports/ncaa_fbs_logos',
-        'ncaa_baseball': 'assets/sports/ncaa_fbs_logos',
+        'ncaa_fb': 'assets/sports/ncaa_logos',
+        'ncaa_fb_all': 'assets/sports/ncaa_logos',  # FCS teams go in same directory
+        'fcs': 'assets/sports/ncaa_logos',  # FCS teams go in same directory
+        'ncaam_basketball': 'assets/sports/ncaa_logos',
+        'ncaa_baseball': 'assets/sports/ncaa_logos',
         # Soccer leagues - all use the same soccer_logos directory
         'soccer_eng.1': 'assets/sports/soccer_logos',
         'soccer_esp.1': 'assets/sports/soccer_logos',

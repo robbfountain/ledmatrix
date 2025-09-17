@@ -51,7 +51,7 @@ class BaseNCAAFBManager: # Renamed class
         self.is_enabled = self.ncaa_fb_config.get("enabled", False)
         self.show_odds = self.ncaa_fb_config.get("show_odds", False)
         self.test_mode = self.ncaa_fb_config.get("test_mode", False)
-        self.logo_dir = self.ncaa_fb_config.get("logo_dir", "assets/sports/ncaa_fbs_logos") # Changed logo dir
+        self.logo_dir = self.ncaa_fb_config.get("logo_dir", "assets/sports/ncaa_logos") # Changed logo dir
         self.update_interval = self.ncaa_fb_config.get("update_interval_seconds", 60)
         self.show_records = self.ncaa_fb_config.get('show_records', False)
         self.show_ranking = self.ncaa_fb_config.get('show_ranking', False)
@@ -486,20 +486,25 @@ class BaseNCAAFBManager: # Renamed class
             if not os.path.exists(logo_path):
                 self.logger.info(f"Logo not found for {team_abbrev} at {logo_path}. Attempting to download.")
                 
-                # Try to download the logo from ESPN API
+                # Try to download the logo from ESPN API (this will create placeholder if download fails)
                 success = download_missing_logo(team_abbrev, 'ncaa_fb', team_name)
                 
-                if not success:
-                    # Create placeholder if download fails
-                    self.logger.warning(f"Failed to download logo for {team_abbrev}. Creating placeholder.")
+                # If still no logo exists after download attempt, create a fallback placeholder
+                if not success and not os.path.exists(logo_path):
+                    self.logger.warning(f"Failed to download logo for {team_abbrev}. Creating fallback placeholder.")
                     os.makedirs(os.path.dirname(logo_path), exist_ok=True)
                     logo = Image.new('RGBA', (32, 32), (200, 200, 200, 255)) # Gray placeholder
                     draw = ImageDraw.Draw(logo)
                     draw.text((2, 10), team_abbrev, fill=(0, 0, 0, 255))
                     logo.save(logo_path)
-                    self.logger.info(f"Created placeholder logo at {logo_path}")
+                    self.logger.info(f"Created fallback placeholder logo at {logo_path}")
 
-            logo = Image.open(logo_path)
+            # Only try to open the logo if the file exists
+            if os.path.exists(logo_path):
+                logo = Image.open(logo_path)
+            else:
+                self.logger.error(f"Logo file still doesn't exist at {logo_path} after download attempt")
+                return None
             if logo.mode != 'RGBA':
                 logo = logo.convert('RGBA')
 

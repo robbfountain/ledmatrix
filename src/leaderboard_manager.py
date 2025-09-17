@@ -109,8 +109,8 @@ class LeaderboardManager:
             'ncaa_fb': {
                 'sport': 'football',
                 'league': 'college-football',
-                'logo_dir': 'assets/sports/ncaa_fbs_logos',
-                'league_logo': 'assets/sports/ncaa_fbs_logos/ncaa_fb.png',
+                'logo_dir': 'assets/sports/ncaa_logos',
+                'league_logo': 'assets/sports/ncaa_logos/ncaa_fb.png',
                 'teams_url': 'https://site.api.espn.com/apis/site/v2/sports/football/college-football/teams',
                 'enabled': self.enabled_sports.get('ncaa_fb', {}).get('enabled', False),
                 'top_teams': self.enabled_sports.get('ncaa_fb', {}).get('top_teams', 25),
@@ -131,8 +131,8 @@ class LeaderboardManager:
             'ncaam_basketball': {
                 'sport': 'basketball',
                 'league': 'mens-college-basketball',
-                'logo_dir': 'assets/sports/ncaa_fbs_logos',
-                'league_logo': 'assets/sports/ncaa_fbs_logos/ncaam.png',
+                'logo_dir': 'assets/sports/ncaa_logos',
+                'league_logo': 'assets/sports/ncaa_logos/ncaam.png',
                 'teams_url': 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/teams',
                 'enabled': self.enabled_sports.get('ncaam_basketball', {}).get('enabled', False),
                 'top_teams': self.enabled_sports.get('ncaam_basketball', {}).get('top_teams', 25)
@@ -140,8 +140,8 @@ class LeaderboardManager:
             'ncaa_baseball': {
                 'sport': 'baseball',
                 'league': 'college-baseball',
-                'logo_dir': 'assets/sports/ncaa_fbs_logos',
-                'league_logo': 'assets/sports/ncaa_fbs_logos/ncaa_baseball.png',
+                'logo_dir': 'assets/sports/ncaa_logos',
+                'league_logo': 'assets/sports/ncaa_logos/ncaa_baseball.png',
                 'standings_url': 'https://site.api.espn.com/apis/v2/sports/baseball/college-baseball/standings',
                 'scoreboard_url': 'https://site.api.espn.com/apis/site/v2/sports/baseball/college-baseball/scoreboard',
                 'enabled': self.enabled_sports.get('ncaa_baseball', {}).get('enabled', False),

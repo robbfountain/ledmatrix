@@ -154,7 +154,7 @@ class OddsTickerManager:
                 'sport': 'football',
                 'league': 'college-football',
                 'logo_league': 'ncaa_fb',  # ESPN API league identifier for logo downloading
-                'logo_dir': 'assets/sports/ncaa_fbs_logos',
+                'logo_dir': 'assets/sports/ncaa_logos',
                 'favorite_teams': config.get('ncaa_fb_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('ncaa_fb_scoreboard', {}).get('enabled', False)
             },
@@ -178,7 +178,7 @@ class OddsTickerManager:
                 'sport': 'basketball',
                 'league': 'mens-college-basketball',
                 'logo_league': 'ncaam_basketball',  # ESPN API league identifier for logo downloading
-                'logo_dir': 'assets/sports/ncaa_fbs_logos',
+                'logo_dir': 'assets/sports/ncaa_logos',
                 'favorite_teams': config.get('ncaam_basketball_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('ncaam_basketball_scoreboard', {}).get('enabled', False)
             },
@@ -186,7 +186,7 @@ class OddsTickerManager:
                 'sport': 'baseball',
                 'league': 'college-baseball',
                 'logo_league': 'ncaa_baseball',  # ESPN API league identifier for logo downloading
-                'logo_dir': 'assets/sports/ncaa_fbs_logos',
+                'logo_dir': 'assets/sports/ncaa_logos',
                 'favorite_teams': config.get('ncaa_baseball_scoreboard', {}).get('favorite_teams', []),
                 'enabled': config.get('ncaa_baseball_scoreboard', {}).get('enabled', False)
             },
