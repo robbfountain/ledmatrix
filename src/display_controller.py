@@ -508,11 +508,15 @@ class DisplayController:
                 if not hasattr(self, '_last_logged_duration') or self._last_logged_duration != dynamic_duration:
                     logger.info(f"Using dynamic duration for stocks: {dynamic_duration} seconds")
                     self._last_logged_duration = dynamic_duration
+                # Debug: Always log the current dynamic duration value
+                logger.debug(f"Stocks dynamic duration check: {dynamic_duration}s")
                 return dynamic_duration
             except Exception as e:
                 logger.error(f"Error getting dynamic duration for stocks: {e}")
                 # Fall back to configured duration
-                return self.display_durations.get(mode_key, 60)
+                fallback_duration = self.display_durations.get(mode_key, 60)
+                logger.debug(f"Using fallback duration for stocks: {fallback_duration}s")
+                return fallback_duration
 
         # Handle dynamic duration for stock_news
         if mode_key == 'stock_news' and self.news:
@@ -542,19 +546,20 @@ class DisplayController:
                 # Fall back to configured duration
                 return self.display_durations.get(mode_key, 60)
 
-        # Handle dynamic duration for leaderboard
+        # Handle leaderboard duration (user choice between fixed or dynamic)
         if mode_key == 'leaderboard' and self.leaderboard:
             try:
-                dynamic_duration = self.leaderboard.get_dynamic_duration()
+                duration = self.leaderboard.get_duration()
+                mode_type = "dynamic" if self.leaderboard.dynamic_duration else "fixed"
                 # Only log if duration has changed or we haven't logged this duration yet
-                if not hasattr(self, '_last_logged_leaderboard_duration') or self._last_logged_leaderboard_duration != dynamic_duration:
-                    logger.info(f"Using dynamic duration for leaderboard: {dynamic_duration} seconds")
-                    self._last_logged_leaderboard_duration = dynamic_duration
-                return dynamic_duration
+                if not hasattr(self, '_last_logged_leaderboard_duration') or self._last_logged_leaderboard_duration != duration:
+                    logger.info(f"Using leaderboard {mode_type} duration: {duration} seconds")
+                    self._last_logged_leaderboard_duration = duration
+                return duration
             except Exception as e:
-                logger.error(f"Error getting dynamic duration for leaderboard: {e}")
+                logger.error(f"Error getting duration for leaderboard: {e}")
                 # Fall back to configured duration
-                return self.display_durations.get(mode_key, 60)
+                return self.display_durations.get(mode_key, 600)
 
         # Simplify weather key handling
         if mode_key.startswith('weather_'):
@@ -576,6 +581,8 @@ class DisplayController:
             # Defer updates for modules that might cause lag during scrolling
             if self.odds_ticker: 
                 self.display_manager.defer_update(self.odds_ticker.update, priority=1)
+            if self.leaderboard:
+                self.display_manager.defer_update(self.leaderboard.update, priority=1)
             if self.stocks: 
                 self.display_manager.defer_update(self.stocks.update_stock_data, priority=2)
             if self.news: 
@@ -1127,8 +1134,9 @@ class DisplayController:
                 # Update data for all modules first
                 self._update_modules()
                 
-                # Process any deferred updates that may have accumulated
-                self.display_manager.process_deferred_updates()
+                # Process deferred updates less frequently when scrolling to improve performance
+                if not self.display_manager.is_currently_scrolling() or (current_time % 2.0 < 0.1):
+                    self.display_manager.process_deferred_updates()
                 
                 # Update live modes in rotation if needed
                 self._update_live_modes_in_rotation()
@@ -1250,6 +1258,10 @@ class DisplayController:
                                 if hasattr(self, '_last_logged_duration'):
                                     delattr(self, '_last_logged_duration')
                         elif current_time - self.last_switch >= self.get_current_duration() or self.force_change:
+                            # Debug timing information
+                            elapsed_time = current_time - self.last_switch
+                            expected_duration = self.get_current_duration()
+                            logger.debug(f"Mode switch triggered: {self.current_display_mode} - Elapsed: {elapsed_time:.1f}s, Expected: {expected_duration}s, Force: {self.force_change}")
                             self.force_change = False
                             if self.current_display_mode == 'calendar' and self.calendar:
                                 self.calendar.advance_event()
@@ -1271,6 +1283,8 @@ class DisplayController:
                         if needs_switch:
                             self.force_clear = True
                             self.last_switch = current_time
+                            # Debug: Log when we set the switch time for a new mode
+                            logger.debug(f"Mode switch completed: {self.current_display_mode} - Switch time set to {current_time}, Duration: {self.get_current_duration()}s")
                         else:
                             self.force_clear = False
                         # Only set manager_to_display if it hasn't been set by live priority logic
