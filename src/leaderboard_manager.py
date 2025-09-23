@@ -1262,9 +1262,6 @@ class LeaderboardManager:
             # Scroll the image every frame for smooth animation
             self.scroll_position += self.scroll_speed
             
-            # Add scroll delay like other managers for consistent timing
-            time.sleep(self.scroll_delay)
-            
             # Get display dimensions once
             width = self.display_manager.matrix.width
             height = self.display_manager.matrix.height
