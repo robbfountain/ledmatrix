@@ -136,7 +136,7 @@ The system can be configured through a JSON configuration file that allows users
 - Various ways to enable this depending on your Bonnet / HAT.
 
 Your display will look like it is "sort of" working but still messed up. 
-<img width="1386" height="699" alt="image" src="https://github.com/user-attachments/assets/2887044d-1526-46c0-9fe5-9252d4373314" />
+<img width="841" height="355" alt="image" src="https://github.com/user-attachments/assets/7b8cfa98-270c-4c41-9cdc-146535eec32f" />
 or 
 <img width="924" height="316" alt="image" src="https://github.com/user-attachments/assets/fda59057-faca-401b-8d55-f0e360cadbdf" />
 or
