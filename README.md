@@ -56,7 +56,10 @@ The system supports live, recent, and upcoming game information for multiple spo
 ![DSC01359](https://github.com/user-attachments/assets/71e985f1-d2c9-4f0e-8ea1-13eaefeec01c)
 
 - NFL (Football)
+  <img width="2109" height="541" alt="image" src="https://github.com/user-attachments/assets/d10212c9-0d45-4f87-b61d-0a33afb9f160" />
 - NCAA Football
+  <img width="2417" height="610" alt="image" src="https://github.com/user-attachments/assets/9be92869-ee29-4809-9337-69977f228e23" />
+
 - NCAA Men's Basketball
 - NCAA Men's Baseball
 - Soccer (Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Liga Portugal, Champions League, Europa League, MLS)
@@ -113,8 +116,13 @@ The system can be configured through a JSON configuration file that allows users
 
 ## Hardware Requirements
 - Raspberry Pi 3b or 4 (NOT RPI5!) : Amazon Affiliate Link: Raspberry Pi 4 4GB (https://amzn.to/4dJixuX)
-- Adafruit RGB Matrix Bonnet/HAT : https://www.adafruit.com/product/3211
-- 2x LED Matrix panels (64x32) (Designed for 128x32 but has a lot of dynamic scaling elements that could work on a variety of displays, pixel pitch is user preference) : https://www.adafruit.com/product/2278 
+- RGB Matrix Bonnet / HAT
+  -   Adafruit RGB Matrix Bonnet/HAT that only supports one "chain" of horizontally connected displays : https://www.adafruit.com/product/3211  
+  -   Adafruit Triple LED Matrix Bonnet that supports up to 3 vertical "chains" of horizontally connected strings of displays : https://www.adafruit.com/product/6358
+  -   Electrodragon RGB HAT that supports up to 3 vertical "chains" of horizonally connected strings of displays : https://www.electrodragon.com/product/rgb-matrix-panel-drive-board-raspberry-pi/
+- LED Matrix panels (2x in a chain is recommended)
+  -   Adafruit (64x32) (Designed for 128x32 but has a lot of dynamic scaling elements that could work on a variety of displays, pixel pitch is user preference) : https://www.adafruit.com/product/2278
+  -   Waveshare (92x46) (higher resolution, requires soldering of the "E" Addressable pad on the [Adafruit RGB Bonnet](https://www.adafruit.com/product/3211) to "8"  OR to toggle the dip switch on the Adafruit Triple LED Matrix Bonnet (No Soldering!) - Amazon Affiliate Link - ChuckBuilds gets a small commission if your purchase : https://amzn.to/4pQdezE
 - 5V 4A DC Power Supply for Adafruit RGB HAT : https://www.adafruit.com/product/1466
 
 ## Optional but recommended mod for Adafruit RGB Matrix Bonnet
