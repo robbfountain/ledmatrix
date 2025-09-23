@@ -215,7 +215,9 @@ sudo ./first_time_install.sh
 
 This single script installs services, dependencies, configures permissions and sudoers, and validates the setup.
 
------ OLD STEPS (left for manual review) -----
+
+-----------------------------------------------------------------------------------
+----- OLD STEPS (left for manual review, you don't need to run these if you run the First Time Install Script) -----
 4. Install dependencies:
 ```bash
 sudo pip3 install --break-system-packages -r requirements.txt
@@ -298,7 +300,7 @@ sudo reboot
 
 The system uses a template-based configuration approach to avoid Git conflicts during updates:
 
-1. **First-time setup**: Copy the template to create your config:
+1. **First-time setup**: (First Time Script should do this for you) Copy the template to create your config:
    ```bash
    cp config/config.template.json config/config.json
    ```
@@ -308,6 +310,11 @@ The system uses a template-based configuration approach to avoid Git conflicts d
    sudo nano config/config.json
    ```
 or edit via web interface at http://ledpi:5001
+
+3. **Having Issues?**: Run the First Time Script again:
+  ```bash
+  sudo ./first_time_install.sh
+  ```
 
 
 ### API Keys and Secrets
