@@ -29,35 +29,35 @@
 Modular, rotating Displays that can be individually enabled or disabled per the user's needs with some configuration around display durations, teams, stocks, weather, timezones, and more. Displays include:
 
 ### Time and Weather
-- Real-time clock display
+- Real-time clock display (2x 64x32 Displays 4mm Pixel Pitch)
 ![DSC01361](https://github.com/user-attachments/assets/c4487d40-5872-45f5-a553-debf8cea17e9)
 
 
-- Current Weather, Daily Weather, and Hourly Weather Forecasts
+- Current Weather, Daily Weather, and Hourly Weather Forecasts (2x 64x32 Displays 4mm Pixel Pitch)
 ![DSC01362](https://github.com/user-attachments/assets/d31df736-522f-4f61-9451-29151d69f164)
 ![DSC01364](https://github.com/user-attachments/assets/eb2d16ad-6b12-49d9-ba41-e39a6a106682)
 ![DSC01365](https://github.com/user-attachments/assets/f8a23426-e6fa-4774-8c87-19bb94cfbe73)
 
 
-- Google Calendar event display
+- Google Calendar event display (2x 64x32 Displays 4mm Pixel Pitch)
 ![DSC01374-1](https://github.com/user-attachments/assets/5bc89917-876e-489d-b944-4d60274266e3)
 
 
 
 ### Sports Information
 The system supports live, recent, and upcoming game information for multiple sports leagues:
-- NHL (Hockey)
+- NHL (Hockey) (2x 64x32 Displays 4mm Pixel Pitch)
 ![DSC01356](https://github.com/user-attachments/assets/64c359b6-4b99-4dee-aca0-b74debda30e0)
 ![DSC01339](https://github.com/user-attachments/assets/2ccc52af-b4ed-4c06-a341-581506c02153)
 ![DSC01337](https://github.com/user-attachments/assets/f4faf678-9f43-4d37-be56-89ecbd09acf6)
 
 - NBA (Basketball)
-- MLB (Baseball)
+- MLB (Baseball) (2x 64x32 Displays 4mm Pixel Pitch)
 ![DSC01359](https://github.com/user-attachments/assets/71e985f1-d2c9-4f0e-8ea1-13eaefeec01c)
 
-- NFL (Football)
+- NFL (Football) (2x 96x48 Displays 2.5mm Pixel Pitch)
   <img width="2109" height="541" alt="image" src="https://github.com/user-attachments/assets/d10212c9-0d45-4f87-b61d-0a33afb9f160" />
-- NCAA Football
+- NCAA Football (2x 96x48 Displays 2.5mm Pixel Pitch)
   <img width="2417" height="610" alt="image" src="https://github.com/user-attachments/assets/9be92869-ee29-4809-9337-69977f228e23" />
 
 - NCAA Men's Basketball
@@ -69,7 +69,7 @@ The system supports live, recent, and upcoming game information for multiple spo
 ### Financial Information
 - Near real-time stock & crypto price updates
 - Stock news headlines
-- Customizable stock & crypto watchlists
+- Customizable stock & crypto watchlists (2x 64x32 Displays 4mm Pixel Pitch)
 ![DSC01366](https://github.com/user-attachments/assets/95b67f50-0f69-4479-89d0-1d87c3daefd3)
 ![DSC01368](https://github.com/user-attachments/assets/c4b75546-388b-4d4a-8b8c-8c5a62f139f9)
 
@@ -80,17 +80,17 @@ The system supports live, recent, and upcoming game information for multiple spo
   - Spotify integration
   - YouTube Music integration
 - Album art display
-- Now playing information with scrolling text
+- Now playing information with scrolling text (2x 64x32 Displays 4mm Pixel Pitch)
 ![DSC01354](https://github.com/user-attachments/assets/7524b149-f55d-4eb7-b6c6-6e336e0d1ac1)
 ![DSC01389](https://github.com/user-attachments/assets/3f768651-5446-4ff5-9357-129cd8b3900d)
 
 
 
 ### Custom Display Features
-- Custom Text display
+- Custom Text display (2x 64x32 Displays 4mm Pixel Pitch)
 ![DSC01379](https://github.com/user-attachments/assets/338b7578-9d4b-4465-851c-7e6a1d999e07)
 
-- Youtube Subscriber Count Display
+- Youtube Subscriber Count Display (2x 64x32 Displays 4mm Pixel Pitch)
 ![DSC01376](https://github.com/user-attachments/assets/7ea5f42d-afce-422f-aa97-6b2a179aa7d2)
 
 - Font testing Display (not in rotation)
@@ -130,6 +130,32 @@ The system can be configured through a JSON configuration file that allows users
 - If you do the mod, we will use the default config with led-gpio-mapping=adafruit-hat-pwm, otherwise just adjust your mapping in config.json to adafruit-hat
 - More information available: https://github.com/hzeller/rpi-rgb-led-matrix/tree/master?tab=readme-ov-file
 ![DSC00079](https://github.com/user-attachments/assets/4282d07d-dfa2-4546-8422-ff1f3a9c0703)
+
+## Possibly required depending on the display you are using.
+- Some LED Matrix displays require an "E" addressable line to draw the display properly. The [64x32 Adafruit display](https://www.adafruit.com/product/2278) does NOT require the E addressable line, however the [92x46 Waveshare display](https://amzn.to/4pQdezE) DOES require the "E" Addressable line.
+- Various ways to enable this depending on your Bonnet / HAT.
+
+Your display will look like it is "sort of" working but still messed up. 
+<img width="1386" height="699" alt="image" src="https://github.com/user-attachments/assets/2887044d-1526-46c0-9fe5-9252d4373314" />
+or 
+<img width="924" height="316" alt="image" src="https://github.com/user-attachments/assets/fda59057-faca-401b-8d55-f0e360cadbdf" />
+or
+<img width="1363" height="703" alt="image" src="https://github.com/user-attachments/assets/0e833721-1690-4446-a6a9-7c48eed7a633" />
+
+How to set addressable E line on various HATs:
+
+- Adafruit Single Chain HATs
+<img width="719" height="958" alt="IMG_5228" src="https://github.com/user-attachments/assets/b30e839c-6fc9-4129-a99c-0f4eaf62c89d" />
+or
+<img width="349" height="302" alt="image" src="https://github.com/user-attachments/assets/2175fa40-98a8-4da7-bcd3-d6b1714e33d2" />
+
+- Adafruit Triple Chain HAT
+  ![6358-06](https://github.com/user-attachments/assets/f9570fe5-25c6-4340-811a-a3f0d71559a0)
+
+- ElectroDragon RGB LED Matrix Panel Drive Board
+![RGB-Matrix-Panel-Drive-Board-For-Raspberry-Pi-02-768x574](https://github.com/user-attachments/assets/6cfe2545-0fc4-49d6-a314-dfdb229258c6)
+
+
 
 -----------------------------------------------------------------------------------
 ## Mount/Stand
