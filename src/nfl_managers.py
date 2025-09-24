@@ -12,6 +12,7 @@ from src.cache_manager import CacheManager
 from src.config_manager import ConfigManager
 from src.odds_manager import OddsManager
 from src.background_data_service import get_background_service
+from src.background_cache_mixin import BackgroundCacheMixin
 import pytz
 
 # Constants
@@ -27,7 +28,7 @@ logging.basicConfig(
 
 
 
-class BaseNFLManager: # Renamed class
+class BaseNFLManager(BackgroundCacheMixin): # Renamed class
     """Base class for NFL managers with common functionality."""
     # Class variables for warning tracking
     _no_data_warning_logged = False
@@ -330,13 +331,22 @@ class BaseNFLManager: # Renamed class
             return None
 
     def _fetch_data(self, date_str: str = None) -> Optional[Dict]:
-        """Fetch data using shared data mechanism or direct fetch for live."""
+        """
+        Fetch data using background service cache first, fallback to direct API call.
+        This eliminates redundant caching and ensures Recent/Upcoming managers
+        use the same data source as the background service.
+        """
+        # For Live managers, always fetch fresh data
         if isinstance(self, NFLLiveManager):
             # Live games should fetch only current games, not entire season
             return self._fetch_current_nfl_games()
-        else:
-            # Recent and Upcoming managers should use cached season data
-            return self._fetch_nfl_api_data(use_cache=True)
+        
+        # For Recent/Upcoming managers, use the centralized background cache method
+        return self._fetch_data_with_background_cache(
+            sport_key='nfl',
+            api_fetch_method=self._fetch_nfl_api_data,
+            live_manager_class=NFLLiveManager
+        )
 
     def _load_fonts(self):
         """Load fonts used by the scoreboard."""
