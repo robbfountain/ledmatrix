@@ -1,7 +1,6 @@
 import time
 import logging
 import sys
-import pytz
 from typing import Dict, Any, List
 from datetime import datetime, time as time_obj
 
@@ -324,7 +323,7 @@ class DisplayController:
         
         # Set initial display to first available mode (clock)
         self.current_mode_index = 0
-        self.current_display_mode = self.available_modes[0] if self.available_modes else 'none'
+        self.current_display_mode = "none"
         # Reset logged duration when mode is initialized
         if hasattr(self, '_last_logged_duration'):
             delattr(self, '_last_logged_duration')
@@ -501,25 +500,21 @@ class DisplayController:
                 return self.display_durations.get(mode_key, 60)
 
         # Handle dynamic duration for stocks
-        if mode_key == 'stocks' and self.stocks:
+        elif mode_key == 'stocks' and self.stocks:
             try:
                 dynamic_duration = self.stocks.get_dynamic_duration()
                 # Only log if duration has changed or we haven't logged this duration yet
                 if not hasattr(self, '_last_logged_duration') or self._last_logged_duration != dynamic_duration:
                     logger.info(f"Using dynamic duration for stocks: {dynamic_duration} seconds")
                     self._last_logged_duration = dynamic_duration
-                # Debug: Always log the current dynamic duration value
-                logger.debug(f"Stocks dynamic duration check: {dynamic_duration}s")
                 return dynamic_duration
             except Exception as e:
                 logger.error(f"Error getting dynamic duration for stocks: {e}")
                 # Fall back to configured duration
-                fallback_duration = self.display_durations.get(mode_key, 60)
-                logger.debug(f"Using fallback duration for stocks: {fallback_duration}s")
-                return fallback_duration
+                return self.display_durations.get(mode_key, 60)
 
         # Handle dynamic duration for stock_news
-        if mode_key == 'stock_news' and self.news:
+        elif mode_key == 'stock_news' and self.news:
             try:
                 dynamic_duration = self.news.get_dynamic_duration()
                 # Only log if duration has changed or we haven't logged this duration yet
@@ -533,7 +528,7 @@ class DisplayController:
                 return self.display_durations.get(mode_key, 60)
 
         # Handle dynamic duration for odds_ticker
-        if mode_key == 'odds_ticker' and self.odds_ticker:
+        elif mode_key == 'odds_ticker' and self.odds_ticker:
             try:
                 dynamic_duration = self.odds_ticker.get_dynamic_duration()
                 # Only log if duration has changed or we haven't logged this duration yet
@@ -546,23 +541,22 @@ class DisplayController:
                 # Fall back to configured duration
                 return self.display_durations.get(mode_key, 60)
 
-        # Handle leaderboard duration (user choice between fixed or dynamic)
-        if mode_key == 'leaderboard' and self.leaderboard:
+        # Handle dynamic duration for leaderboard
+        elif mode_key == 'leaderboard' and self.leaderboard:
             try:
-                duration = self.leaderboard.get_duration()
-                mode_type = "dynamic" if self.leaderboard.dynamic_duration else "fixed"
+                dynamic_duration = self.leaderboard.get_dynamic_duration()
                 # Only log if duration has changed or we haven't logged this duration yet
-                if not hasattr(self, '_last_logged_leaderboard_duration') or self._last_logged_leaderboard_duration != duration:
-                    logger.info(f"Using leaderboard {mode_type} duration: {duration} seconds")
-                    self._last_logged_leaderboard_duration = duration
-                return duration
+                if not hasattr(self, '_last_logged_leaderboard_duration') or self._last_logged_leaderboard_duration != dynamic_duration:
+                    logger.info(f"Using dynamic duration for leaderboard: {dynamic_duration} seconds")
+                    self._last_logged_leaderboard_duration = dynamic_duration
+                return dynamic_duration
             except Exception as e:
-                logger.error(f"Error getting duration for leaderboard: {e}")
+                logger.error(f"Error getting dynamic duration for leaderboard: {e}")
                 # Fall back to configured duration
-                return self.display_durations.get(mode_key, 600)
+                return self.display_durations.get(mode_key, 60)
 
         # Simplify weather key handling
-        if mode_key.startswith('weather_'):
+        elif mode_key.startswith('weather_'):
             return self.display_durations.get(mode_key, 15)
             # duration_key = mode_key.split('_', 1)[1]
             # if duration_key == 'current': duration_key = 'weather_current' # Keep specific keys
@@ -581,8 +575,6 @@ class DisplayController:
             # Defer updates for modules that might cause lag during scrolling
             if self.odds_ticker: 
                 self.display_manager.defer_update(self.odds_ticker.update, priority=1)
-            if self.leaderboard:
-                self.display_manager.defer_update(self.leaderboard.update, priority=1)
             if self.stocks: 
                 self.display_manager.defer_update(self.stocks.update_stock_data, priority=2)
             if self.news: 
@@ -600,55 +592,6 @@ class DisplayController:
                 self.display_manager.defer_update(self.nfl_recent.update, priority=3)
             if hasattr(self, 'nfl_upcoming') and self.nfl_upcoming:
                 self.display_manager.defer_update(self.nfl_upcoming.update, priority=3)
-            # Defer other sport manager updates
-            if hasattr(self, 'nhl_live') and self.nhl_live:
-                self.display_manager.defer_update(self.nhl_live.update, priority=3)
-            if hasattr(self, 'nhl_recent') and self.nhl_recent:
-                self.display_manager.defer_update(self.nhl_recent.update, priority=3)
-            if hasattr(self, 'nhl_upcoming') and self.nhl_upcoming:
-                self.display_manager.defer_update(self.nhl_upcoming.update, priority=3)
-            if hasattr(self, 'nba_live') and self.nba_live:
-                self.display_manager.defer_update(self.nba_live.update, priority=3)
-            if hasattr(self, 'nba_recent') and self.nba_recent:
-                self.display_manager.defer_update(self.nba_recent.update, priority=3)
-            if hasattr(self, 'nba_upcoming') and self.nba_upcoming:
-                self.display_manager.defer_update(self.nba_upcoming.update, priority=3)
-            if hasattr(self, 'mlb_live') and self.mlb_live:
-                self.display_manager.defer_update(self.mlb_live.update, priority=3)
-            if hasattr(self, 'mlb_recent') and self.mlb_recent:
-                self.display_manager.defer_update(self.mlb_recent.update, priority=3)
-            if hasattr(self, 'mlb_upcoming') and self.mlb_upcoming:
-                self.display_manager.defer_update(self.mlb_upcoming.update, priority=3)
-            if hasattr(self, 'milb_live') and self.milb_live:
-                self.display_manager.defer_update(self.milb_live.update, priority=3)
-            if hasattr(self, 'milb_recent') and self.milb_recent:
-                self.display_manager.defer_update(self.milb_recent.update, priority=3)
-            if hasattr(self, 'milb_upcoming') and self.milb_upcoming:
-                self.display_manager.defer_update(self.milb_upcoming.update, priority=3)
-            if hasattr(self, 'soccer_live') and self.soccer_live:
-                self.display_manager.defer_update(self.soccer_live.update, priority=3)
-            if hasattr(self, 'soccer_recent') and self.soccer_recent:
-                self.display_manager.defer_update(self.soccer_recent.update, priority=3)
-            if hasattr(self, 'soccer_upcoming') and self.soccer_upcoming:
-                self.display_manager.defer_update(self.soccer_upcoming.update, priority=3)
-            if hasattr(self, 'ncaa_baseball_live') and self.ncaa_baseball_live:
-                self.display_manager.defer_update(self.ncaa_baseball_live.update, priority=3)
-            if hasattr(self, 'ncaa_baseball_recent') and self.ncaa_baseball_recent:
-                self.display_manager.defer_update(self.ncaa_baseball_recent.update, priority=3)
-            if hasattr(self, 'ncaa_baseball_upcoming') and self.ncaa_baseball_upcoming:
-                self.display_manager.defer_update(self.ncaa_baseball_upcoming.update, priority=3)
-            if hasattr(self, 'ncaam_basketball_live') and self.ncaam_basketball_live:
-                self.display_manager.defer_update(self.ncaam_basketball_live.update, priority=3)
-            if hasattr(self, 'ncaam_basketball_recent') and self.ncaam_basketball_recent:
-                self.display_manager.defer_update(self.ncaam_basketball_recent.update, priority=3)
-            if hasattr(self, 'ncaam_basketball_upcoming') and self.ncaam_basketball_upcoming:
-                self.display_manager.defer_update(self.ncaam_basketball_upcoming.update, priority=3)
-            if hasattr(self, 'ncaam_hockey_live') and self.ncaam_hockey_live:
-                self.display_manager.defer_update(self.ncaam_hockey_live.update, priority=3)
-            if hasattr(self, 'ncaam_hockey_recent') and self.ncaam_hockey_recent:
-                self.display_manager.defer_update(self.ncaam_hockey_recent.update, priority=3)
-            if hasattr(self, 'ncaam_hockey_upcoming') and self.ncaam_hockey_upcoming:
-                self.display_manager.defer_update(self.ncaam_hockey_upcoming.update, priority=3)
             # Continue with non-scrolling-sensitive updates
             if self.weather: self.weather.get_weather()
             if self.calendar: self.calendar.update(time.time())
@@ -665,57 +608,6 @@ class DisplayController:
             if self.youtube: self.youtube.update()
             if self.text_display: self.text_display.update()
             if self.of_the_day: self.of_the_day.update(time.time())
-            
-            # Update all sports managers in background
-            # NHL managers
-            if self.nhl_live: self.nhl_live.update()
-            if self.nhl_recent: self.nhl_recent.update()
-            if self.nhl_upcoming: self.nhl_upcoming.update()
-            
-            # NBA managers
-            if self.nba_live: self.nba_live.update()
-            if self.nba_recent: self.nba_recent.update()
-            if self.nba_upcoming: self.nba_upcoming.update()
-            
-            # MLB managers
-            if self.mlb_live: self.mlb_live.update()
-            if self.mlb_recent: self.mlb_recent.update()
-            if self.mlb_upcoming: self.mlb_upcoming.update()
-            
-            # MiLB managers
-            if self.milb_live: self.milb_live.update()
-            if self.milb_recent: self.milb_recent.update()
-            if self.milb_upcoming: self.milb_upcoming.update()
-            
-            # Soccer managers
-            if self.soccer_live: self.soccer_live.update()
-            if self.soccer_recent: self.soccer_recent.update()
-            if self.soccer_upcoming: self.soccer_upcoming.update()
-            
-            # NFL managers
-            if self.nfl_live: self.nfl_live.update()
-            if self.nfl_recent: self.nfl_recent.update()
-            if self.nfl_upcoming: self.nfl_upcoming.update()
-            
-            # NCAAFB managers
-            if self.ncaa_fb_live: self.ncaa_fb_live.update()
-            if self.ncaa_fb_recent: self.ncaa_fb_recent.update()
-            if self.ncaa_fb_upcoming: self.ncaa_fb_upcoming.update()
-            
-            # NCAA Baseball managers
-            if self.ncaa_baseball_live: self.ncaa_baseball_live.update()
-            if self.ncaa_baseball_recent: self.ncaa_baseball_recent.update()
-            if self.ncaa_baseball_upcoming: self.ncaa_baseball_upcoming.update()
-            
-            # NCAA Basketball managers
-            if self.ncaam_basketball_live: self.ncaam_basketball_live.update()
-            if self.ncaam_basketball_recent: self.ncaam_basketball_recent.update()
-            if self.ncaam_basketball_upcoming: self.ncaam_basketball_upcoming.update()
-            
-            # NCAA Hockey managers
-            if self.ncaam_hockey_live: self.ncaam_hockey_live.update()
-            if self.ncaam_hockey_recent: self.ncaam_hockey_recent.update()
-            if self.ncaam_hockey_upcoming: self.ncaam_hockey_upcoming.update()
         
         # News manager fetches data when displayed, not during updates
         # if self.news_manager: self.news_manager.fetch_news_data()
@@ -1039,15 +931,7 @@ class DisplayController:
                 self.is_display_active = True
             return
 
-        # Get current time in configured timezone
-        timezone_str = self.config.get('timezone', 'UTC')
-        try:
-            tz = pytz.timezone(timezone_str)
-        except pytz.exceptions.UnknownTimeZoneError:
-            logger.warning(f"Unknown timezone: {timezone_str}, falling back to UTC")
-            tz = pytz.UTC
-        
-        now_time = datetime.now(tz).time()
+        now_time = datetime.now().time()
         
         # Handle overnight schedules
         if self.start_time <= self.end_time:
@@ -1122,6 +1006,10 @@ class DisplayController:
             return
              
         try:
+            self.cache_manager.clear_cache()
+            self._update_modules()
+            time.sleep(5)
+            self.current_display_mode = self.available_modes[self.current_mode_index] if self.available_modes else 'none'
             while True:
                 current_time = time.time()
 
@@ -1134,9 +1022,8 @@ class DisplayController:
                 # Update data for all modules first
                 self._update_modules()
                 
-                # Process deferred updates less frequently when scrolling to improve performance
-                if not self.display_manager.is_currently_scrolling() or (current_time % 2.0 < 0.1):
-                    self.display_manager.process_deferred_updates()
+                # Process any deferred updates that may have accumulated
+                self.display_manager.process_deferred_updates()
                 
                 # Update live modes in rotation if needed
                 self._update_live_modes_in_rotation()
@@ -1258,10 +1145,6 @@ class DisplayController:
                                 if hasattr(self, '_last_logged_duration'):
                                     delattr(self, '_last_logged_duration')
                         elif current_time - self.last_switch >= self.get_current_duration() or self.force_change:
-                            # Debug timing information
-                            elapsed_time = current_time - self.last_switch
-                            expected_duration = self.get_current_duration()
-                            logger.debug(f"Mode switch triggered: {self.current_display_mode} - Elapsed: {elapsed_time:.1f}s, Expected: {expected_duration}s, Force: {self.force_change}")
                             self.force_change = False
                             if self.current_display_mode == 'calendar' and self.calendar:
                                 self.calendar.advance_event()
@@ -1283,8 +1166,6 @@ class DisplayController:
                         if needs_switch:
                             self.force_clear = True
                             self.last_switch = current_time
-                            # Debug: Log when we set the switch time for a new mode
-                            logger.debug(f"Mode switch completed: {self.current_display_mode} - Switch time set to {current_time}, Duration: {self.get_current_duration()}s")
                         else:
                             self.force_clear = False
                         # Only set manager_to_display if it hasn't been set by live priority logic

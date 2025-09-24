@@ -5,6 +5,7 @@ from typing import Dict, Any, List, Optional
 import os
 import time
 from PIL import Image, ImageDraw, ImageFont
+from pathlib import Path
 try:
     from .display_manager import DisplayManager
     from .cache_manager import CacheManager
@@ -38,17 +39,19 @@ class LeaderboardManager:
         self.is_enabled = self.leaderboard_config.get('enabled', False)
         self.enabled_sports = self.leaderboard_config.get('enabled_sports', {})
         self.update_interval = self.leaderboard_config.get('update_interval', 3600)
-        self.scroll_speed = self.leaderboard_config.get('scroll_speed', 1)
-        self.scroll_delay = self.leaderboard_config.get('scroll_delay', 0.01)
+        self.scroll_speed = self.leaderboard_config.get('scroll_speed', 2)
+        self.scroll_delay = self.leaderboard_config.get('scroll_delay', 0.05)
+        self.display_duration = self.leaderboard_config.get('display_duration', 30)
         self.loop = self.leaderboard_config.get('loop', True)
         self.request_timeout = self.leaderboard_config.get('request_timeout', 30)
         self.time_over = 0
-        
-        # Duration settings - user can choose between fixed or dynamic (exception-based)
-        self.dynamic_duration = self.leaderboard_config.get('dynamic_duration', True)
-        # Get duration from main display_durations section
-        self.display_duration = config.get('display', {}).get('display_durations', {}).get('leaderboard', 300)
-        self.max_display_time = self.leaderboard_config.get('max_display_time', 600)  # 10 minutes maximum
+        # Dynamic duration settings
+        self.dynamic_duration_enabled = self.leaderboard_config.get('dynamic_duration', True)
+        self.min_duration = self.leaderboard_config.get('min_duration', 30)
+        self.max_duration = self.leaderboard_config.get('max_duration', 300)
+        self.duration_buffer = self.leaderboard_config.get('duration_buffer', 0.1)
+        self.dynamic_duration = 60  # Default duration in seconds
+        self.total_scroll_width = 0  # Track total width for dynamic duration calculation
         
         # Initialize managers
         self.cache_manager = CacheManager()
@@ -77,19 +80,6 @@ class LeaderboardManager:
         self.current_sport_index = 0
         self.leaderboard_image = None  # This will hold the single, wide image
         self.last_display_time = 0
-        
-        # FPS tracking variables
-        self.frame_times = []  # Store last 30 frame times for averaging
-        self.last_frame_time = 0
-        self.fps_log_interval = 10.0  # Log FPS every 10 seconds
-        self.last_fps_log_time = 0
-        
-        # Performance optimization caches
-        self._cached_draw = None
-        self._last_visible_image = None
-        self._last_scroll_position = -1
-        self._text_measurement_cache = {}  # Cache for font measurements
-        self._logo_cache = {}  # Cache for resized logos
         
         # Font setup
         self.fonts = self._load_fonts()
@@ -251,19 +241,6 @@ class LeaderboardManager:
             }
         return fonts
 
-    def _get_cached_text_bbox(self, text, font_name):
-        """Get cached text bounding box measurements."""
-        cache_key = f"{text}_{font_name}"
-        if cache_key not in self._text_measurement_cache:
-            font = self.fonts[font_name]
-            bbox = font.getbbox(text)
-            self._text_measurement_cache[cache_key] = {
-                'width': bbox[2] - bbox[0],
-                'height': bbox[3] - bbox[1],
-                'bbox': bbox
-            }
-        return self._text_measurement_cache[cache_key]
-    
     def _draw_text_with_outline(self, draw, text, position, font, fill=(255, 255, 255), outline_color=(0, 0, 0)):
         """Draw text with a black outline for better readability on LED matrix."""
         x, y = position
@@ -273,35 +250,31 @@ class LeaderboardManager:
         # Draw text
         draw.text((x, y), text, font=font, fill=fill)
 
-    def _get_cached_resized_logo(self, team_abbr: str, logo_dir: str, size: int, league: str = None, team_name: str = None) -> Optional[Image.Image]:
-        """Get cached resized team logo."""
-        cache_key = f"{team_abbr}_{logo_dir}_{size}"
-        if cache_key not in self._logo_cache:
-            logo = self._get_team_logo(team_abbr, logo_dir, league, team_name)
-            if logo:
-                resized_logo = logo.resize((size, size), Image.Resampling.LANCZOS)
-                self._logo_cache[cache_key] = resized_logo
-            else:
-                self._logo_cache[cache_key] = None
-        return self._logo_cache[cache_key]
-    
-    def _get_team_logo(self, team_abbr: str, logo_dir: str, league: str = None, team_name: str = None) -> Optional[Image.Image]:
+    def _get_team_logo(self, league: str, team_id: str, team_abbr: str, logo_dir: str) -> Optional[Image.Image]:
         """Get team logo from the configured directory, downloading if missing."""
         if not team_abbr or not logo_dir:
+            logger.debug("Cannot get team logo with missing team_abbr or logo_dir")
             return None
         try:
-            logo_path = os.path.join(logo_dir, f"{team_abbr}.png")
+            logo_path = Path(logo_dir, f"{team_abbr}.png")
+            logger.debug(f"Attempting to load logo from path: {logo_path}")
             if os.path.exists(logo_path):
                 logo = Image.open(logo_path)
+                logger.debug(f"Successfully loaded logo for {team_abbr} from {logo_path}")
                 return logo
             else:
+                logger.warning(f"Logo not found at path: {logo_path}")
+                
                 # Try to download the missing logo if we have league information
                 if league:
-                    success = download_missing_logo(team_abbr, league, team_name)
+                    logger.info(f"Attempting to download missing logo for {team_abbr} in league {league}")
+                    #  league: str, team_id: str, team_abbreviation: str, logo_path: Path, logo_url: str | None = None, create_placeholder: bool = True
+                    success = download_missing_logo(league, team_id, team_abbr, logo_path, None)
                     if success:
                         # Try to load the downloaded logo
                         if os.path.exists(logo_path):
                             logo = Image.open(logo_path)
+                            logger.info(f"Successfully downloaded and loaded logo for {team_abbr}")
                             return logo
                 
                 return None
@@ -467,6 +440,7 @@ class LeaderboardManager:
             for team_data in teams:
                 team_info = team_data.get('team', {})
                 team_name = team_info.get('name', 'Unknown')
+                team_id = team_info.get('id')
                 team_abbr = team_info.get('abbreviation', 'Unknown')
                 current_rank = team_data.get('current', 0)
                 record_summary = team_data.get('recordSummary', '0-0')
@@ -496,6 +470,7 @@ class LeaderboardManager:
                 
                 standings.append({
                     'name': team_name,
+                    'id': team_id,
                     'abbreviation': team_abbr,
                     'rank': current_rank,
                     'wins': wins,
@@ -571,6 +546,7 @@ class LeaderboardManager:
             # Process each team in the ranking
             for team_data in teams:
                 team_info = team_data.get('team', {})
+                team_id = team_info.get('id')
                 team_name = team_info.get('name', 'Unknown')
                 team_abbr = team_info.get('abbreviation', 'Unknown')
                 current_rank = team_data.get('current', 0)
@@ -601,6 +577,7 @@ class LeaderboardManager:
                 
                 standings.append({
                     'name': team_name,
+                    'id': team_id,
                     'abbreviation': team_abbr,
                     'rank': current_rank,
                     'wins': wins,
@@ -676,6 +653,7 @@ class LeaderboardManager:
                     
                     team_name = team_data.get('displayName', 'Unknown')
                     team_abbr = team_data.get('abbreviation', 'Unknown')
+                    team_id = team_data.get('id')
                     
                     # Extract record from stats
                     wins = 0
@@ -715,6 +693,7 @@ class LeaderboardManager:
                     
                     standings.append({
                         'name': team_name,
+                        'id': team_id,
                         'abbreviation': team_abbr,
                         'wins': wins,
                         'losses': losses,
@@ -741,6 +720,7 @@ class LeaderboardManager:
                         
                         team_name = team_data.get('displayName', 'Unknown')
                         team_abbr = team_data.get('abbreviation', 'Unknown')
+                        team_id = team_data.get('id')
                         
                         # Extract record from stats
                         wins = 0
@@ -780,6 +760,7 @@ class LeaderboardManager:
                         
                         standings.append({
                             'name': team_name,
+                            'id': team_id,
                             'abbreviation': team_abbr,
                             'wins': wins,
                             'losses': losses,
@@ -913,8 +894,7 @@ class LeaderboardManager:
             
             # Calculate total width needed
             total_width = 0
-            # Use display width for spacing between leagues (simulates blank screen)
-            spacing = self.display_manager.matrix.width
+            spacing = 40  # Spacing between leagues
             
             # Calculate width for each league section
             for league_data in self.leaderboard_data:
@@ -950,13 +930,13 @@ class LeaderboardManager:
                         # For other leagues, show position
                         number_text = f"{i+1}."
                     
-                    number_measurements = self._get_cached_text_bbox(number_text, 'xlarge')
-                    number_width = number_measurements['width']
+                    number_bbox = self.fonts['xlarge'].getbbox(number_text)
+                    number_width = number_bbox[2] - number_bbox[0]
                     
                     # Calculate width for team abbreviation (use large font like in drawing)
                     team_text = team['abbreviation']
-                    text_measurements = self._get_cached_text_bbox(team_text, 'large')
-                    text_width = text_measurements['width']
+                    text_bbox = self.fonts['large'].getbbox(team_text)
+                    text_width = text_bbox[2] - text_bbox[0]
                     
                     # Total team width: bold number + spacing + logo + spacing + text + spacing
                     team_width = number_width + 4 + logo_size + 4 + text_width + 12  # Spacing between teams
@@ -971,7 +951,6 @@ class LeaderboardManager:
             draw = ImageDraw.Draw(self.leaderboard_image)
             
             current_x = 0
-            
             for league_idx, league_data in enumerate(self.leaderboard_data):
                 league_key = league_data['league']
                 league_config = league_data['league_config']
@@ -992,7 +971,6 @@ class LeaderboardManager:
                     
                     league_logo = league_logo.resize((logo_width, logo_height), Image.Resampling.LANCZOS)
                     self.leaderboard_image.paste(league_logo, (logo_x, logo_y), league_logo if league_logo.mode == 'RGBA' else None)
-                    
                     # League name removed - only show league logo
                 else:
                     # No league logo available - skip league name display
@@ -1026,16 +1004,17 @@ class LeaderboardManager:
                         # For other leagues, show position
                         number_text = f"{i+1}."
                     
-                    number_measurements = self._get_cached_text_bbox(number_text, 'xlarge')
-                    number_width = number_measurements['width']
-                    number_height = number_measurements['height']
+                    number_bbox = self.fonts['xlarge'].getbbox(number_text)
+                    number_width = number_bbox[2] - number_bbox[0]
+                    number_height = number_bbox[3] - number_bbox[1]
                     number_y = (height - number_height) // 2
                     self._draw_text_with_outline(draw, number_text, (team_x, number_y), self.fonts['xlarge'], fill=(255, 255, 0))
                     
-                    # Draw team logo (cached and resized)
-                    team_logo = self._get_cached_resized_logo(team['abbreviation'], league_config['logo_dir'], 
-                                                            logo_size, league=league_key, team_name=team.get('name'))
+                    # Draw team logo (95% of display height, centered vertically)
+                    team_logo = self._get_team_logo(league_key, team["id"], team['abbreviation'], league_config['logo_dir'])
                     if team_logo:
+                        # Resize team logo to dynamic size (95% of display height)
+                        team_logo = team_logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
                         
                         # Paste team logo after the bold number (centered vertically)
                         logo_x = team_x + number_width + 4
@@ -1044,9 +1023,9 @@ class LeaderboardManager:
                         
                         # Draw team abbreviation after the logo (centered vertically)
                         team_text = team['abbreviation']
-                        text_measurements = self._get_cached_text_bbox(team_text, 'large')
-                        text_width = text_measurements['width']
-                        text_height = text_measurements['height']
+                        text_bbox = self.fonts['large'].getbbox(team_text)
+                        text_width = text_bbox[2] - text_bbox[0]
+                        text_height = text_bbox[3] - text_bbox[1]
                         text_x = logo_x + logo_size + 4
                         text_y = (height - text_height) // 2
                         self._draw_text_with_outline(draw, team_text, (text_x, text_y), self.fonts['large'], fill=(255, 255, 255))
@@ -1056,9 +1035,9 @@ class LeaderboardManager:
                     else:
                         # Fallback if no logo - draw team abbreviation after bold number (centered vertically)
                         team_text = team['abbreviation']
-                        text_measurements = self._get_cached_text_bbox(team_text, 'large')
-                        text_width = text_measurements['width']
-                        text_height = text_measurements['height']
+                        text_bbox = self.fonts['large'].getbbox(team_text)
+                        text_width = text_bbox[2] - text_bbox[0]
+                        text_height = text_bbox[3] - text_bbox[1]
                         text_x = team_x + number_width + 4
                         text_y = (height - text_height) // 2
                         self._draw_text_with_outline(draw, team_text, (text_x, text_y), self.fonts['large'], fill=(255, 255, 255))
@@ -1072,12 +1051,12 @@ class LeaderboardManager:
                 # Move to next league section (match width calculation logic)
                 # Update current_x to where team drawing actually ended
                 logger.info(f"League {league_idx+1} ({league_key}) teams ended at x={team_x}px")
-                current_x = team_x + spacing  # team_x is at end of teams, add display width gap (simulates blank screen)
-                logger.info(f"Next league will start at x={current_x}px (gap: {spacing}px)")
+                current_x = team_x + 20 + spacing  # team_x is at end of teams, add internal spacing + inter-league spacing
+                logger.info(f"Next league will start at x={current_x}px (gap: {20 + spacing}px)")
             
             # Set total scroll width for dynamic duration calculation
             # Use actual content width (current_x at end) instead of pre-calculated total_width
-            actual_content_width = current_x - spacing  # Remove the final spacing that won't be used
+            actual_content_width = current_x - (20 + spacing)  # Remove the final spacing that won't be used
             self.total_scroll_width = actual_content_width
             logger.info(f"Content width - Calculated: {total_width}px, Actual: {actual_content_width}px")
             
@@ -1109,11 +1088,11 @@ class LeaderboardManager:
                     else:
                         number_text = f"{j+1}."
                     
-                    number_measurements = self._get_cached_text_bbox(number_text, 'xlarge')
-                    number_width = number_measurements['width']
+                    number_bbox = self.fonts['xlarge'].getbbox(number_text)
+                    number_width = number_bbox[2] - number_bbox[0]
                     team_text = team['abbreviation']
-                    text_measurements = self._get_cached_text_bbox(team_text, 'large')
-                    text_width = text_measurements['width']
+                    text_bbox = self.fonts['large'].getbbox(team_text)
+                    text_width = text_bbox[2] - text_bbox[0]
                     team_width = number_width + 4 + logo_size + 4 + text_width + 12
                     teams_width += team_width
                 
@@ -1132,22 +1111,128 @@ class LeaderboardManager:
                 else:
                     logger.info(f"  Final league ends at: {league_end_x}px")
             
-            logger.info(f"Total image width: {total_width}px, Display width: {self.display_manager.matrix.width}px")
+            logger.info(f"Total image width: {total_width}px, Display width: {height}px")
             
+            # Calculate dynamic duration using proper scroll-based calculation
+            if self.dynamic_duration_enabled:
+                self.calculate_dynamic_duration()
             logger.info(f"Created leaderboard image with width {total_width}")
             
         except Exception as e:
             logger.error(f"Error creating leaderboard image: {e}")
             self.leaderboard_image = None
 
-    def get_duration(self) -> int:
-        """Get the duration for display based on user preference"""
-        if self.dynamic_duration:
-            # Use long timeout and let content determine when done via StopIteration
-            return self.max_display_time
-        else:
-            # Use fixed duration from config
-            return self.display_duration
+    def calculate_dynamic_duration(self):
+        """Calculate the exact time needed to display all leaderboard content"""
+        logger.info(f"Calculating dynamic duration - enabled: {self.dynamic_duration_enabled}, content width: {self.total_scroll_width}px")
+        
+        # If dynamic duration is disabled, use fixed duration from config
+        if not self.dynamic_duration_enabled:
+            self.dynamic_duration = self.leaderboard_config.get('display_duration', 60)
+            logger.debug(f"Dynamic duration disabled, using fixed duration: {self.dynamic_duration}s")
+            return
+            
+        if not self.total_scroll_width:
+            self.dynamic_duration = self.min_duration  # Use configured minimum
+            logger.debug(f"total_scroll_width is 0, using minimum duration: {self.min_duration}s")
+            return
+            
+        try:
+            # Get display width (assume full width of display)
+            display_width = getattr(self.display_manager, 'matrix', None)
+            if display_width:
+                display_width = display_width.width
+            else:
+                display_width = 128  # Default to 128 if not available
+            
+            # Calculate total scroll distance needed
+            # For looping content, we need to scroll the entire content width
+            # For non-looping content, we need content width minus display width (since last part shows fully)
+            if self.loop:
+                total_scroll_distance = self.total_scroll_width
+            else:
+                # For single pass, we need to scroll until the last content is fully visible
+                total_scroll_distance = max(0, self.total_scroll_width - display_width)
+            
+            # Calculate time based on scroll speed and delay
+            # scroll_speed = pixels per frame, scroll_delay = seconds per frame
+            # However, actual observed speed is slower than theoretical calculation
+            # Based on log analysis: 1950px in 36s = 54.2 px/s actual speed
+            # vs theoretical: 1px/0.01s = 100 px/s
+            # Use actual observed speed for more accurate timing
+            actual_scroll_speed = 54.2  # pixels per second (calculated from logs)
+            total_time = total_scroll_distance / actual_scroll_speed
+            
+            # Add buffer time for smooth cycling (configurable %)
+            buffer_time = total_time * self.duration_buffer
+            
+            # Calculate duration for single complete pass
+            if self.loop:
+                # For looping: set duration to exactly one loop cycle (no extra time to prevent multiple loops)
+                calculated_duration = int(total_time)
+                logger.debug(f"Looping enabled, duration set to exactly one loop cycle: {calculated_duration}s")
+            else:
+                # For single pass: precise calculation to show content exactly once
+                # Add buffer to prevent cutting off the last content
+                completion_buffer = total_time * 0.05  # 5% extra to ensure complete display
+                calculated_duration = int(total_time + buffer_time + completion_buffer)
+                logger.debug(f"Single pass mode, added {completion_buffer:.2f}s completion buffer for precise timing")
+            
+            # Apply configured min/max limits
+            if calculated_duration < self.min_duration:
+                self.dynamic_duration = self.min_duration
+                logger.debug(f"Duration capped to minimum: {self.min_duration}s")
+            elif calculated_duration > self.max_duration:
+                self.dynamic_duration = self.max_duration
+                logger.debug(f"Duration capped to maximum: {self.max_duration}s")
+            else:
+                self.dynamic_duration = calculated_duration
+            
+            # Additional safety check: if the calculated duration seems too short for the content,
+            # ensure we have enough time to display all content properly
+            if self.dynamic_duration < 45 and self.total_scroll_width > 200:
+                # If we have content but short duration, increase it
+                # Use a more generous calculation: at least 45s or 1s per 20px
+                self.dynamic_duration = max(45, int(self.total_scroll_width / 20))
+                logger.debug(f"Adjusted duration for content: {self.dynamic_duration}s (content width: {self.total_scroll_width}px)")
+                
+            logger.info(f"Leaderboard dynamic duration calculation:")
+            logger.info(f"  Display width: {display_width}px")
+            logger.info(f"  Content width: {self.total_scroll_width}px")
+            logger.info(f"  Total scroll distance: {total_scroll_distance}px")
+            logger.info(f"  Configured scroll speed: {self.scroll_speed}px/frame")
+            logger.info(f"  Configured scroll delay: {self.scroll_delay}s/frame")
+            logger.info(f"  Actual observed scroll speed: {actual_scroll_speed}px/s (from log analysis)")
+            logger.info(f"  Base time: {total_time:.2f}s")
+            logger.info(f"  Buffer time: {buffer_time:.2f}s ({self.duration_buffer*100}%)")
+            logger.info(f"  Looping enabled: {self.loop}")
+            logger.info(f"  Calculated duration: {calculated_duration}s")
+            logger.info(f"Final calculated duration: {self.dynamic_duration}s")
+            
+            # Verify the duration makes sense for the content
+            expected_scroll_time = self.total_scroll_width / actual_scroll_speed
+            logger.info(f"  Verification - Time to scroll content: {expected_scroll_time:.1f}s")
+            
+        except Exception as e:
+            logger.error(f"Error calculating dynamic duration: {e}")
+            self.dynamic_duration = self.min_duration  # Use configured minimum as fallback
+
+    def get_dynamic_duration(self) -> int:
+        """Get the calculated dynamic duration for display"""
+        # If we don't have a valid dynamic duration yet (total_scroll_width is 0),
+        # try to update the data first
+        if self.total_scroll_width == 0 and self.is_enabled:
+            logger.debug("get_dynamic_duration called but total_scroll_width is 0, attempting update...")
+            try:
+                # Force an update to get the data and calculate proper duration
+                # Bypass the update interval check for duration calculation
+                self.update()
+                logger.debug(f"Force update completed, total_scroll_width: {self.total_scroll_width}px")
+            except Exception as e:
+                logger.error(f"Error updating leaderboard for dynamic duration: {e}")
+        
+        logger.debug(f"get_dynamic_duration called, returning: {self.dynamic_duration}s")
+        return self.dynamic_duration
 
     def update(self) -> None:
         """Update leaderboard data."""
@@ -1199,71 +1284,67 @@ class LeaderboardManager:
 
     def display(self, force_clear: bool = False) -> None:
         """Display the leaderboard."""
+        logger.debug("Entering leaderboard display method")
+        logger.debug(f"Leaderboard enabled: {self.is_enabled}")
+        logger.debug(f"Current scroll position: {self.scroll_position}")
+        logger.debug(f"Leaderboard image width: {self.leaderboard_image.width if self.leaderboard_image else 'None'}")
+        logger.debug(f"Using dynamic duration for leaderboard: {self.dynamic_duration}s")
+        
         if not self.is_enabled:
+            logger.debug("Leaderboard is disabled, exiting display method.")
             return
         
         # Reset display start time when force_clear is True or when starting fresh
         if force_clear or not hasattr(self, '_display_start_time'):
             self._display_start_time = time.time()
+            logger.debug(f"Reset/initialized display start time: {self._display_start_time}")
             # Also reset scroll position for clean start
             self.scroll_position = 0
-            # Initialize FPS tracking
-            self.last_frame_time = 0
-            self.frame_times = []
-            self.last_fps_log_time = time.time()
-            # Reset performance caches
-            self._cached_draw = None
-            self._last_visible_image = None
-            self._last_scroll_position = -1
-            # Clear caches but limit their size to prevent memory leaks
-            if len(self._text_measurement_cache) > 100:
-                self._text_measurement_cache.clear()
-            if len(self._logo_cache) > 50:
-                self._logo_cache.clear()
-            logger.info("Leaderboard FPS tracking initialized")
+        else:
+            # Check if the display start time is too old (more than 2x the dynamic duration)
+            current_time = time.time()
+            elapsed_time = current_time - self._display_start_time
+            if elapsed_time > (self.dynamic_duration * 2):
+                logger.debug(f"Display start time is too old ({elapsed_time:.1f}s), resetting")
+                self._display_start_time = current_time
+                self.scroll_position = 0
         
+        logger.debug(f"Number of leagues in data at start of display method: {len(self.leaderboard_data)}")
         if not self.leaderboard_data:
+            logger.warning("Leaderboard has no data. Attempting to update...")
             self.update()
             if not self.leaderboard_data:
+                logger.warning("Still no data after update. Displaying fallback message.")
                 self._display_fallback_message()
                 return
         
         if self.leaderboard_image is None:
+            logger.warning("Leaderboard image is not available. Attempting to create it.")
             self._create_leaderboard_image()
             if self.leaderboard_image is None:
+                logger.error("Failed to create leaderboard image.")
                 self._display_fallback_message()
                 return
 
         try:
             current_time = time.time()
             
-            # FPS tracking only (no artificial throttling)
-            if self.last_frame_time > 0:
-                frame_time = current_time - self.last_frame_time
-                
-                # FPS tracking - use circular buffer to prevent memory growth
-                self.frame_times.append(frame_time)
-                if len(self.frame_times) > 30:  # Keep buffer size reasonable
-                    self.frame_times.pop(0)
-                
-                # Log FPS status every 10 seconds
-                if current_time - self.last_fps_log_time >= self.fps_log_interval:
-                    if self.frame_times:
-                        avg_frame_time = sum(self.frame_times) / len(self.frame_times)
-                        current_fps = 1.0 / frame_time if frame_time > 0 else 0
-                        avg_fps = 1.0 / avg_frame_time if avg_frame_time > 0 else 0
-                        logger.info(f"Leaderboard FPS: Current={current_fps:.1f}, Average={avg_fps:.1f}, Frame Time={frame_time*1000:.1f}ms")
-                    self.last_fps_log_time = current_time
-            
-            self.last_frame_time = current_time
+            # Check if we should be scrolling
+            should_scroll = current_time - self.last_scroll_time >= self.scroll_delay
             
             # Signal scrolling state to display manager
-            self.display_manager.set_scrolling_state(True)
+            if should_scroll:
+                self.display_manager.set_scrolling_state(True)
+            else:
+                # If we're not scrolling, check if we should process deferred updates
+                self.display_manager.process_deferred_updates()
             
-            # Scroll the image every frame for smooth animation
-            self.scroll_position += self.scroll_speed
+            # Scroll the image
+            if should_scroll:
+                self.scroll_position += self.scroll_speed
+                self.last_scroll_time = current_time
             
-            # Get display dimensions once
+            # Calculate crop region
             width = self.display_manager.matrix.width
             height = self.display_manager.matrix.height
             
@@ -1271,51 +1352,67 @@ class LeaderboardManager:
             if self.loop:
                 # Reset position when we've scrolled past the end for a continuous loop
                 if self.scroll_position >= self.leaderboard_image.width:
+                    logger.info(f"Leaderboard loop reset: scroll_position {self.scroll_position} >= image width {self.leaderboard_image.width}")
                     self.scroll_position = 0
+                    logger.info("Leaderboard starting new loop cycle")
             else:
                 # Stop scrolling when we reach the end
                 if self.scroll_position >= self.leaderboard_image.width - width:
+                    logger.info(f"Leaderboard reached end: scroll_position {self.scroll_position} >= {self.leaderboard_image.width - width}")
                     self.scroll_position = self.leaderboard_image.width - width
                     # Signal that scrolling has stopped
                     self.display_manager.set_scrolling_state(False)
+                    logger.info("Leaderboard scrolling stopped - reached end of content")
                     if self.time_over == 0:
                         self.time_over = time.time()
                     elif time.time() - self.time_over >= 2:
                         self.time_over = 0
                         raise StopIteration 
             
-            # Simple timeout check - prevent hanging beyond maximum display time
+            # Check if we're at a natural break point for mode switching
             elapsed_time = current_time - self._display_start_time
-            if elapsed_time > self.max_display_time:
-                raise StopIteration("Maximum display time exceeded")
+            remaining_time = self.dynamic_duration - elapsed_time
             
-            # Optimize: Only create new visible image if scroll position changed significantly
-            # Use integer scroll position to reduce unnecessary crops
-            int_scroll_position = int(self.scroll_position)
-            if int_scroll_position != self._last_scroll_position:
-                # Ensure crop coordinates are within bounds
-                crop_left = max(0, int_scroll_position)
-                crop_right = min(self.leaderboard_image.width, int_scroll_position + width)
+            # Log scroll progress every 50 pixels to help debug (less verbose)
+            if self.scroll_position % 50 == 0 and self.scroll_position > 0:
+                logger.info(f"Leaderboard progress: elapsed={elapsed_time:.1f}s, remaining={remaining_time:.1f}s, scroll_pos={self.scroll_position}/{self.leaderboard_image.width}px")
+            
+            # If we have less than 2 seconds remaining, check if we can complete the content display
+            if remaining_time < 2.0 and self.scroll_position > 0:
+                # Calculate how much time we need to complete the current scroll position
+                # Use actual observed scroll speed (54.2 px/s) instead of theoretical calculation
+                actual_scroll_speed = 54.2  # pixels per second (calculated from logs)
                 
-                if crop_right > crop_left:  # Valid crop region
-                    # Create the visible part of the image by cropping from the leaderboard_image
-                    self._last_visible_image = self.leaderboard_image.crop((
-                        crop_left,
-                        0,
-                        crop_right,
-                        height
-                    ))
-                    self._last_scroll_position = int_scroll_position
-                    
-                    # Cache the draw object to avoid creating it every frame
-                    self._cached_draw = ImageDraw.Draw(self._last_visible_image)
+                if self.loop:
+                    # For looping, we need to complete one full cycle
+                    distance_to_complete = self.leaderboard_image.width - self.scroll_position
                 else:
-                    # Invalid crop region, skip this frame
-                    return
+                    # For single pass, we need to reach the end (content width minus display width)
+                    end_position = max(0, self.leaderboard_image.width - width)
+                    distance_to_complete = end_position - self.scroll_position
+                
+                time_to_complete = distance_to_complete / actual_scroll_speed
+                
+                if time_to_complete <= remaining_time:
+                    # We have enough time to complete the scroll, continue normally
+                    logger.debug(f"Sufficient time remaining ({remaining_time:.1f}s) to complete scroll ({time_to_complete:.1f}s)")
+                else:
+                    # Not enough time, reset to beginning for clean transition
+                    logger.warning(f"Not enough time to complete content display - remaining: {remaining_time:.1f}s, needed: {time_to_complete:.1f}s")
+                    logger.debug(f"Resetting scroll position for clean transition")
+                    self.scroll_position = 0
+            
+            # Create the visible part of the image by cropping from the leaderboard_image
+            visible_image = self.leaderboard_image.crop((
+                self.scroll_position,
+                0,
+                self.scroll_position + width,
+                height
+            ))
             
             # Display the visible portion
-            self.display_manager.image = self._last_visible_image
-            self.display_manager.draw = self._cached_draw
+            self.display_manager.image = visible_image
+            self.display_manager.draw = ImageDraw.Draw(self.display_manager.image)
             self.display_manager.update_display()
             
         except StopIteration as e:
