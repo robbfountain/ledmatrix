@@ -101,6 +101,7 @@ class LogoDownloader:
         """Normalize team abbreviation for consistent filename usage."""
         # Handle special characters that can cause filesystem issues
         normalized = abbreviation.upper()
+        
         # Replace problematic characters with safe alternatives
         normalized = normalized.replace('&', 'AND')
         normalized = normalized.replace('/', '_')
@@ -113,6 +114,23 @@ class LogoDownloader:
         normalized = normalized.replace('>', '_')
         normalized = normalized.replace('|', '_')
         return normalized
+    
+    @staticmethod
+    def get_logo_filename_variations(abbreviation: str) -> list:
+        """Get possible filename variations for a team abbreviation."""
+        variations = []
+        original = abbreviation.upper()
+        normalized = LogoDownloader.normalize_abbreviation(abbreviation)
+        
+        # Add original and normalized versions
+        variations.extend([f"{original}.png", f"{normalized}.png"])
+        
+        # Special handling for known cases
+        if original == 'TA&M':
+            # TA&M has a file named TA&M.png, but normalize creates TAANDM.png
+            variations = [f"{original}.png", f"{normalized}.png"]
+        
+        return variations
     
     def get_logo_directory(self, league: str) -> str:
         """Get the logo directory for a given league."""
