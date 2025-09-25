@@ -28,6 +28,9 @@ class BaseNCAAFBManager(Football): # Renamed class
     def __init__(self, config: Dict[str, Any], display_manager: DisplayManager, cache_manager: CacheManager):
         self.logger = logging.getLogger('NCAAFB') # Changed logger name
         super().__init__(config=config, display_manager=display_manager, cache_manager=cache_manager, logger=self.logger, sport_key="ncaa_fb")
+        
+        # Configuration is already set in base class
+        # self.logo_dir and self.update_interval are already configured
 
         # Check display modes to determine what data to fetch
         display_modes = self.mode_config.get("display_modes", {})
@@ -140,7 +143,7 @@ class BaseNCAAFBManager(Football): # Renamed class
         
         # Submit background fetch request
         request_id = self.background_service.submit_fetch_request(
-            sport="nfl",
+            sport="ncaa_fb",
             year=season_year,
             url=ESPN_NCAAFB_SCOREBOARD_URL,
             cache_key=cache_key,
@@ -184,7 +187,7 @@ class BaseNCAAFBManager(Football): # Renamed class
         except requests.exceptions.RequestException as e:
             self.logger.error(f"[API error fetching full schedule: {e}")
             return None
-    
+
     def _fetch_data(self) -> Optional[Dict]:
         """Fetch data using shared data mechanism or direct fetch for live."""
         if isinstance(self, NCAAFBLiveManager):

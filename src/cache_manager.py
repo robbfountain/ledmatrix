@@ -308,14 +308,19 @@ class CacheManager:
                 cache_path = self._get_cache_path(key)
                 if cache_path and os.path.exists(cache_path):
                     os.remove(cache_path)
+                self.logger.info(f"Cleared cache for key: {key}")
             else:
                 # Clear all keys
+                memory_count = len(self._memory_cache)
                 self._memory_cache.clear()
                 self._memory_cache_timestamps.clear()
+                file_count = 0
                 if self.cache_dir:
                     for file in os.listdir(self.cache_dir):
                         if file.endswith('.json'):
                             os.remove(os.path.join(self.cache_dir, file))
+                            file_count += 1
+                self.logger.info(f"Cleared all cache: {memory_count} memory entries, {file_count} cache files")
 
     def has_data_changed(self, data_type: str, new_data: Dict[str, Any]) -> bool:
         """Check if data has changed from cached version."""
@@ -511,11 +516,8 @@ class CacheManager:
         
         try:
             config = self.config_manager.config
-            # For MiLB, look for "milb" config instead of "milb_scoreboard"
-            if sport_key == 'milb':
-                sport_config = config.get("milb", {})
-            else:
-                sport_config = config.get(f"{sport_key}_scoreboard", {})
+            # All sports now use _scoreboard suffix
+            sport_config = config.get(f"{sport_key}_scoreboard", {})
             return sport_config.get("live_update_interval", 60)  # Default to 60 seconds
         except Exception as e:
             self.logger.warning(f"Could not get live_update_interval for {sport_key}: {e}")
@@ -536,10 +538,8 @@ class CacheManager:
         upcoming_interval = None
         if self.config_manager and sport_key:
             try:
-                if sport_key == 'milb':
-                    sport_cfg = self.config_manager.config.get('milb', {})
-                else:
-                    sport_cfg = self.config_manager.config.get(f"{sport_key}_scoreboard", {})
+                # All sports now use _scoreboard suffix
+                sport_cfg = self.config_manager.config.get(f"{sport_key}_scoreboard", {})
                 recent_interval = sport_cfg.get('recent_update_interval')
                 upcoming_interval = sport_cfg.get('upcoming_update_interval')
             except Exception as e:

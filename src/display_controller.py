@@ -133,8 +133,8 @@ class DisplayController:
 
         # Initialize MLB managers if enabled
         mlb_time = time.time()
-        mlb_enabled = self.config.get('mlb', {}).get('enabled', False)
-        mlb_display_modes = self.config.get('mlb', {}).get('display_modes', {})
+        mlb_enabled = self.config.get('mlb_scoreboard', {}).get('enabled', False)
+        mlb_display_modes = self.config.get('mlb_scoreboard', {}).get('display_modes', {})
         
         if mlb_enabled:
             self.mlb_live = MLBLiveManager(self.config, self.display_manager, self.cache_manager) if mlb_display_modes.get('mlb_live', True) else None
@@ -148,8 +148,8 @@ class DisplayController:
 
         # Initialize MiLB managers if enabled
         milb_time = time.time()
-        milb_enabled = self.config.get('milb', {}).get('enabled', False)
-        milb_display_modes = self.config.get('milb', {}).get('display_modes', {})
+        milb_enabled = self.config.get('milb_scoreboard', {}).get('enabled', False)
+        milb_display_modes = self.config.get('milb_scoreboard', {}).get('display_modes', {})
         
         if milb_enabled:
             self.milb_live = MiLBLiveManager(self.config, self.display_manager, self.cache_manager) if milb_display_modes.get('milb_live', True) else None
@@ -256,14 +256,14 @@ class DisplayController:
         # Track MLB rotation state
         self.mlb_current_team_index = 0
         self.mlb_showing_recent = True
-        self.mlb_favorite_teams = self.config.get('mlb', {}).get('favorite_teams', [])
+        self.mlb_favorite_teams = self.config.get('mlb_scoreboard', {}).get('favorite_teams', [])
         self.in_mlb_rotation = False
         
         # Read live_priority flags for all sports
         self.nhl_live_priority = self.config.get('nhl_scoreboard', {}).get('live_priority', True)
         self.nba_live_priority = self.config.get('nba_scoreboard', {}).get('live_priority', True)
-        self.mlb_live_priority = self.config.get('mlb', {}).get('live_priority', True)
-        self.milb_live_priority = self.config.get('milb', {}).get('live_priority', True)
+        self.mlb_live_priority = self.config.get('mlb_scoreboard', {}).get('live_priority', True)
+        self.milb_live_priority = self.config.get('milb_scoreboard', {}).get('live_priority', True)
         self.soccer_live_priority = self.config.get('soccer_scoreboard', {}).get('live_priority', True)
         self.nfl_live_priority = self.config.get('nfl_scoreboard', {}).get('live_priority', True)
         self.ncaa_fb_live_priority = self.config.get('ncaa_fb_scoreboard', {}).get('live_priority', True)
@@ -438,7 +438,7 @@ class DisplayController:
         if mlb_enabled:
             logger.info(f"MLB Favorite teams: {self.mlb_favorite_teams}")
         if milb_enabled:
-            logger.info(f"MiLB Favorite teams: {self.config.get('milb', {}).get('favorite_teams', [])}")
+            logger.info(f"MiLB Favorite teams: {self.config.get('milb_scoreboard', {}).get('favorite_teams', [])}")
         if soccer_enabled: # Check if soccer is enabled
             logger.info(f"Soccer Favorite teams: {self.soccer_favorite_teams}")
         if nfl_enabled: # Check if NFL is enabled
@@ -541,19 +541,20 @@ class DisplayController:
                 # Fall back to configured duration
                 return self.display_durations.get(mode_key, 60)
 
-        # Handle dynamic duration for leaderboard
+        # Handle leaderboard duration (user choice between fixed or dynamic)
         elif mode_key == 'leaderboard' and self.leaderboard:
             try:
-                dynamic_duration = self.leaderboard.get_dynamic_duration()
+                duration = self.leaderboard.get_duration()
+                mode_type = "dynamic" if self.leaderboard.dynamic_duration else "fixed"
                 # Only log if duration has changed or we haven't logged this duration yet
-                if not hasattr(self, '_last_logged_leaderboard_duration') or self._last_logged_leaderboard_duration != dynamic_duration:
-                    logger.info(f"Using dynamic duration for leaderboard: {dynamic_duration} seconds")
-                    self._last_logged_leaderboard_duration = dynamic_duration
-                return dynamic_duration
+                if not hasattr(self, '_last_logged_leaderboard_duration') or self._last_logged_leaderboard_duration != duration:
+                    logger.info(f"Using leaderboard {mode_type} duration: {duration} seconds")
+                    self._last_logged_leaderboard_duration = duration
+                return duration
             except Exception as e:
-                logger.error(f"Error getting dynamic duration for leaderboard: {e}")
+                logger.error(f"Error getting duration for leaderboard: {e}")
                 # Fall back to configured duration
-                return self.display_durations.get(mode_key, 60)
+                return self.display_durations.get(mode_key, 600)
 
         # Simplify weather key handling
         elif mode_key.startswith('weather_'):
@@ -575,6 +576,8 @@ class DisplayController:
             # Defer updates for modules that might cause lag during scrolling
             if self.odds_ticker: 
                 self.display_manager.defer_update(self.odds_ticker.update, priority=1)
+            if self.leaderboard:
+                self.display_manager.defer_update(self.leaderboard.update, priority=1)
             if self.stocks: 
                 self.display_manager.defer_update(self.stocks.update_stock_data, priority=2)
             if self.news: 
@@ -608,6 +611,17 @@ class DisplayController:
             if self.youtube: self.youtube.update()
             if self.text_display: self.text_display.update()
             if self.of_the_day: self.of_the_day.update(time.time())
+            
+            # Update sports managers for leaderboard data
+            if self.leaderboard: self.leaderboard.update()
+            
+            # Update key sports managers that feed the leaderboard
+            if self.nfl_live: self.nfl_live.update()
+            if self.nfl_recent: self.nfl_recent.update()
+            if self.nfl_upcoming: self.nfl_upcoming.update()
+            if self.ncaa_fb_live: self.ncaa_fb_live.update()
+            if self.ncaa_fb_recent: self.ncaa_fb_recent.update()
+            if self.ncaa_fb_upcoming: self.ncaa_fb_upcoming.update()
         
         # News manager fetches data when displayed, not during updates
         # if self.news_manager: self.news_manager.fetch_news_data()
@@ -824,7 +838,7 @@ class DisplayController:
             manager_recent = self.mlb_recent
             manager_upcoming = self.mlb_upcoming
         elif sport == 'milb':
-            favorite_teams = self.config.get('milb', {}).get('favorite_teams', [])
+            favorite_teams = self.config.get('milb_scoreboard', {}).get('favorite_teams', [])
             manager_recent = self.milb_recent
             manager_upcoming = self.milb_upcoming
         elif sport == 'soccer':
@@ -862,8 +876,8 @@ class DisplayController:
             current_team = self.mlb_favorite_teams[self.mlb_current_team_index]
             # ... (rest of MLB rotation logic)
         elif sport == 'milb':
-            if not self.config.get('milb', {}).get('favorite_teams', []): return
-            current_team = self.config['milb']['favorite_teams'][self.milb_current_team_index]
+            if not self.config.get('milb_scoreboard', {}).get('favorite_teams', []): return
+            current_team = self.config['milb_scoreboard']['favorite_teams'][self.milb_current_team_index]
             # ... (rest of MiLB rotation logic)
         elif sport == 'soccer':
             if not self.soccer_favorite_teams: return
@@ -978,8 +992,8 @@ class DisplayController:
         # Check if each sport is enabled before processing
         nhl_enabled = self.config.get('nhl_scoreboard', {}).get('enabled', False)
         nba_enabled = self.config.get('nba_scoreboard', {}).get('enabled', False)
-        mlb_enabled = self.config.get('mlb', {}).get('enabled', False)
-        milb_enabled = self.config.get('milb', {}).get('enabled', False)
+        mlb_enabled = self.config.get('mlb_scoreboard', {}).get('enabled', False)
+        milb_enabled = self.config.get('milb_scoreboard', {}).get('enabled', False)
         soccer_enabled = self.config.get('soccer_scoreboard', {}).get('enabled', False)
         nfl_enabled = self.config.get('nfl_scoreboard', {}).get('enabled', False)
         ncaa_fb_enabled = self.config.get('ncaa_fb_scoreboard', {}).get('enabled', False)
@@ -1006,8 +1020,10 @@ class DisplayController:
             return
              
         try:
+            logger.info("Clearing cache and refetching data to prevent stale data issues...")
             self.cache_manager.clear_cache()
             self._update_modules()
+            logger.info("Cache cleared, waiting 5 seconds for fresh data fetch...")
             time.sleep(5)
             self.current_display_mode = self.available_modes[self.current_mode_index] if self.available_modes else 'none'
             while True:
