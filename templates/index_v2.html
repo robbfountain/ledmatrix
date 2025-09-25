@@ -2132,7 +2132,11 @@
                     body: JSON.stringify({ mode })
                 });
                 const data = await res.json();
-                showNotification(data.message || 'Requested on-demand start', data.status || 'success');
+                if(data.status === 'success'){
+                    showNotification(data.message || 'On-demand started successfully', 'success');
+                } else {
+                    showNotification(data.message || 'Failed to start on-demand', 'error');
+                }
                 refreshOnDemandStatus();
             }catch(err){
                 showNotification('Error starting on-demand: ' + err, 'error');
@@ -2268,9 +2272,14 @@
                 startPreviewPolling();
             });
             
-            socket.on('display_update', function(data) {
-                updateDisplayPreview(data);
-            });
+        socket.on('display_update', function(data) {
+            updateDisplayPreview(data);
+        });
+        
+        socket.on('ondemand_error', function(data) {
+            showNotification(`On-demand error: ${data.error}`, 'error');
+            refreshOnDemandStatus();
+        });
         }
 
         async function updateApiMetrics(){
@@ -2381,19 +2390,25 @@
                 img.src = `data:image/png;base64,${data.image}`;
                 const meta = document.getElementById('previewMeta');
                 if (meta) {
-                    meta.textContent = `${data.width || 128} x ${data.height || 32} @ ${scale}x`;
+                    // Use config dimensions as fallback instead of hardcoded values
+                    const configWidth = {{ main_config.get('display', {}).get('hardware', {}).get('cols', 64) * main_config.get('display', {}).get('hardware', {}).get('chain_length', 1) }};
+                    const configHeight = {{ main_config.get('display', {}).get('hardware', {}).get('rows', 32) * main_config.get('display', {}).get('hardware', {}).get('parallel', 1) }};
+                    meta.textContent = `${data.width || configWidth} x ${data.height || configHeight} @ ${scale}x`;
                 }
 
                 // Once image loads, size the canvas to match
-                const width = (data.width || 128) * scale;
-                const height = (data.height || 32) * scale;
+                // Use config dimensions as fallback instead of hardcoded values
+                const configWidth = {{ main_config.get('display', {}).get('hardware', {}).get('cols', 64) * main_config.get('display', {}).get('hardware', {}).get('chain_length', 1) }};
+                const configHeight = {{ main_config.get('display', {}).get('hardware', {}).get('rows', 32) * main_config.get('display', {}).get('hardware', {}).get('parallel', 1) }};
+                const width = (data.width || configWidth) * scale;
+                const height = (data.height || configHeight) * scale;
                 img.style.width = width + 'px';
                 img.style.height = height + 'px';
                 ledCanvas.width = width;
                 ledCanvas.height = height;
                 canvas.width = width;
                 canvas.height = height;
-                drawGrid(canvas, data.width || 128, data.height || 32, scale);
+                drawGrid(canvas, data.width || configWidth, data.height || configHeight, scale);
                 renderLedDots();
             } else {
                 stage.style.display = 'none';
@@ -3528,24 +3543,26 @@
                 const cfg = currentConfig;
                 const leaguePrefixes = {
                     'nfl_scoreboard': 'nfl',
-                    'mlb': 'mlb',
-                    'milb': 'milb',
+                    'mlb_scoreboard': 'mlb',
+                    'milb_scoreboard': 'milb',
                     'nhl_scoreboard': 'nhl',
                     'nba_scoreboard': 'nba',
                     'ncaa_fb_scoreboard': 'ncaa_fb',
                     'ncaa_baseball_scoreboard': 'ncaa_baseball',
                     'ncaam_basketball_scoreboard': 'ncaam_basketball',
+                    'ncaam_hockey_scoreboard': 'ncaam_hockey',
                     'soccer_scoreboard': 'soccer'
                 };
                 const leagues = [
                     { key: 'nfl_scoreboard', label: 'NFL' },
-                    { key: 'mlb', label: 'MLB' },
-                    { key: 'milb', label: 'MiLB' },
+                    { key: 'mlb_scoreboard', label: 'MLB' },
+                    { key: 'milb_scoreboard', label: 'MiLB' },
                     { key: 'nhl_scoreboard', label: 'NHL' },
                     { key: 'nba_scoreboard', label: 'NBA' },
                     { key: 'ncaa_fb_scoreboard', label: 'NCAA FB' },
                     { key: 'ncaa_baseball_scoreboard', label: 'NCAA Baseball' },
                     { key: 'ncaam_basketball_scoreboard', label: 'NCAAM Basketball' },
+                    { key: 'ncaam_hockey_scoreboard', label: 'NCAAM Hockey' },
                     { key: 'soccer_scoreboard', label: 'Soccer' }
                 ];
                 const container = document.getElementById('sports-config');
