@@ -16,8 +16,8 @@ from src.logo_downloader import download_missing_logo, LogoDownloader
 from pathlib import Path
 
 # Import new architecture components (individual classes will import what they need)
-from .api_extractors import ESPNFootballExtractor, ESPNBaseballExtractor, ESPNHockeyExtractor
-from .data_sources import ESPNDataSource, MLBAPIDataSource
+from src.base_classes.api_extractors import APIDataExtractor
+from src.base_classes.data_sources import DataSource
 from src.dynamic_team_resolver import DynamicTeamResolver
 
 class SportsCore:
@@ -33,11 +33,13 @@ class SportsCore:
         self.display_height = self.display_manager.matrix.height
 
         self.sport_key = sport_key
+        self.sport = None
+        self.league = None
         
         # Initialize new architecture components (will be overridden by sport-specific classes)
         self.sport_config = None
-        self.api_extractor = None
-        self.data_source = None
+        self.api_extractor: APIDataExtractor
+        self.data_source: DataSource
         self.mode_config = config.get(f"{sport_key}_scoreboard", {})  # Changed config key
         self.is_enabled = self.mode_config.get("enabled", False)
         self.show_odds = self.mode_config.get("show_odds", False)
@@ -52,6 +54,7 @@ class SportsCore:
             "recent_games_to_show", 5)  # Show last 5 games
         self.upcoming_games_to_show = self.mode_config.get(
             "upcoming_games_to_show", 10)  # Show next 10 games
+        self.show_favorite_teams_only = self.mode_config.get("show_favorite_teams_only", False)
 
         self.session = requests.Session()
         retry_strategy = Retry(
@@ -257,8 +260,10 @@ class SportsCore:
 
     def _load_and_resize_logo(self, team_id: str, team_abbrev: str, logo_path: Path, logo_url: str | None ) -> Optional[Image.Image]:
         """Load and resize a team logo, with caching and automatic download if missing."""
-
         self.logger.debug(f"Logo path: {logo_path}")
+        if team_abbrev in self._logo_cache:
+            self.logger.debug(f"Using cached logo for {team_abbrev}")
+            return self._logo_cache[team_abbrev]
 
         try:
             # Try different filename variations first (for cases like TA&M vs TAANDM)
@@ -302,118 +307,15 @@ class SportsCore:
         except Exception as e:
             self.logger.error(f"Error loading logo for {team_abbrev}: {e}", exc_info=True)
             return None
-        
-    def _fetch_data(self) -> Optional[Dict]:
-        """Fetch data using the new architecture components."""
-        try:
-            # Use the data source to fetch live games
-            live_games = self.data_source.fetch_live_games(self.sport_key, self.sport_key)
-            
-            if not live_games:
-                self.logger.debug(f"No live games found for {self.sport_key}")
-                return None
-            
-            # Use the API extractor to process each game
-            processed_games = []
-            for game_event in live_games:
-                game_details = self.api_extractor.extract_game_details(game_event)
-                if game_details:
-                    # Add sport-specific fields
-                    sport_fields = self.api_extractor.get_sport_specific_fields(game_event)
-                    game_details.update(sport_fields)
-                    
-                    # Fetch odds if enabled
-                    if self.show_odds:
-                        self._fetch_odds(game_details, self.sport_key, self.sport_key)
-                    
-                    processed_games.append(game_details)
-            
-            if processed_games:
-                self.logger.debug(f"Successfully processed {len(processed_games)} games for {self.sport_key}")
-                return {
-                    'games': processed_games,
-                    'sport': self.sport_key,
-                    'timestamp': time.time()
-                }
-            else:
-                self.logger.debug(f"No valid games processed for {self.sport_key}")
-                return None
-                
-        except Exception as e:
-            self.logger.error(f"Error fetching data for {self.sport_key}: {e}")
-            return None
 
-    def _get_partial_schedule_data(self, year: int) -> List[Dict]:
-        """Get schedule data using the new architecture components."""
-        try:
-            # Calculate date range for the year
-            start_date = datetime(year, 1, 1)
-            end_date = datetime(year, 12, 31)
-            
-            # Use the data source to fetch schedule
-            schedule_games = self.data_source.fetch_schedule(
-                self.sport_key, 
-                self.sport_key, 
-                (start_date, end_date)
-            )
-            
-            if not schedule_games:
-                self.logger.debug(f"No schedule data found for {self.sport_key} in {year}")
-                return []
-            
-            # Use the API extractor to process each game
-            processed_games = []
-            for game_event in schedule_games:
-                game_details = self.api_extractor.extract_game_details(game_event)
-                if game_details:
-                    # Add sport-specific fields
-                    sport_fields = self.api_extractor.get_sport_specific_fields(game_event)
-                    game_details.update(sport_fields)
-                    processed_games.append(game_details)
-            
-            self.logger.debug(f"Successfully processed {len(processed_games)} schedule games for {self.sport_key} in {year}")
-            return processed_games
-            
-        except Exception as e:
-            self.logger.error(f"Error fetching schedule data for {self.sport_key} in {year}: {e}")
-            return []
-
-    def _fetch_immediate_games(self) -> List[Dict]:
-        """Fetch immediate games using the new architecture components."""
-        try:
-            # Use the data source to fetch live games
-            live_games = self.data_source.fetch_live_games(self.sport_key, self.sport_key)
-            
-            if not live_games:
-                self.logger.debug(f"No immediate games found for {self.sport_key}")
-                return []
-            
-            # Use the API extractor to process each game
-            processed_games = []
-            for game_event in live_games:
-                game_details = self.api_extractor.extract_game_details(game_event)
-                if game_details:
-                    # Add sport-specific fields
-                    sport_fields = self.api_extractor.get_sport_specific_fields(game_event)
-                    game_details.update(sport_fields)
-                    processed_games.append(game_details)
-            
-            self.logger.debug(f"Successfully processed {len(processed_games)} immediate games for {self.sport_key}")
-            return processed_games
-            
-        except Exception as e:
-            self.logger.error(f"Error fetching immediate games for {self.sport_key}: {e}")
-            return []
-
-    def _fetch_game_odds(self, game: Dict) -> None:
+    def _fetch_odds(self, game: Dict) -> None:
         """Fetch odds for a specific game using the new architecture."""
         try:
             if not self.show_odds:
                 return
             
             # Check if we should only fetch for favorite teams
-            is_favorites_only = self.mode_config.get("show_favorite_teams_only", False)
-            if is_favorites_only:
+            if self.show_favorite_teams_only:
                 home_abbr = game.get('home_abbr')
                 away_abbr = game.get('away_abbr')
                 if not (home_abbr in self.favorite_teams or away_abbr in self.favorite_teams):
@@ -427,8 +329,8 @@ class SportsCore:
             
             # Fetch odds using OddsManager
             odds_data = self.odds_manager.get_odds(
-                sport=self.sport_key,
-                league=self.sport_key,
+                sport=self.sport,
+                league=self.league,
                 event_id=game['id'],
                 update_interval_seconds=update_interval
             )
@@ -441,47 +343,6 @@ class SportsCore:
                 
         except Exception as e:
             self.logger.error(f"Error fetching odds for game {game.get('id', 'N/A')}: {e}")
-
-    def _fetch_odds(self, game: Dict, sport: str, league: str) -> None:
-        """Fetch odds for a specific game if conditions are met."""
-        # Check if odds should be shown for this sport
-        if not self.show_odds:
-            return
-
-        # Check if we should only fetch for favorite teams
-        is_favorites_only = self.mode_config.get("show_favorite_teams_only", False)
-        if is_favorites_only:
-            home_abbr = game.get('home_abbr')
-            away_abbr = game.get('away_abbr')
-            if not (home_abbr in self.favorite_teams or away_abbr in self.favorite_teams):
-                self.logger.debug(f"Skipping odds fetch for non-favorite game in favorites-only mode: {away_abbr}@{home_abbr}")
-                return
-
-        self.logger.debug(f"Proceeding with odds fetch for game: {game.get('id', 'N/A')}")
-        
-        # Fetch odds using OddsManager (ESPN API)
-        try:
-            # Determine update interval based on game state
-            is_live = game.get('status', '').lower() == 'in'
-            update_interval = self.mode_config.get("live_odds_update_interval", 60) if is_live \
-                else self.mode_config.get("odds_update_interval", 3600)
-
-            odds_data = self.odds_manager.get_odds(
-                sport=sport,
-                league=league,
-                event_id=game['id'],
-                update_interval_seconds=update_interval
-            )
-            
-            if odds_data:
-                game['odds'] = odds_data
-                self.logger.debug(f"Successfully fetched and attached odds for game {game['id']}")
-            else:
-                self.logger.debug(f"No odds data returned for game {game['id']}")
-
-        except Exception as e:
-            self.logger.error(f"Error fetching odds for game {game.get('id', 'N/A')}: {e}")
-            
 
     def _get_timezone(self):
         try:
@@ -500,24 +361,41 @@ class SportsCore:
 
     def _fetch_team_rankings(self) -> Dict[str, int]:
         """Fetch team rankings using the new architecture components."""
+        current_time = time.time()
+        
+        # Check if we have cached rankings that are still valid
+        if (self._team_rankings_cache and 
+            current_time - self._rankings_cache_timestamp < self._rankings_cache_duration):
+            return self._team_rankings_cache
+        
         try:
-            # Use the data source to fetch standings
-            standings_data = self.data_source.fetch_standings(self.sport_key, self.sport_key)
+            data = self.data_source.fetch_standings(self.sport, self.league)
             
-            if not standings_data:
-                self.logger.debug(f"No standings data found for {self.sport_key}")
-                return {}
-            
-            # Extract rankings from standings data
             rankings = {}
-            # This would need to be implemented based on the specific data structure
-            # returned by each data source
+            rankings_data = data.get('rankings', [])
             
-            self.logger.debug(f"Successfully fetched rankings for {self.sport_key}")
+            if rankings_data:
+                # Use the first ranking (usually AP Top 25)
+                first_ranking = rankings_data[0]
+                teams = first_ranking.get('ranks', [])
+                
+                for team_data in teams:
+                    team_info = team_data.get('team', {})
+                    team_abbr = team_info.get('abbreviation', '')
+                    current_rank = team_data.get('current', 0)
+                    
+                    if team_abbr and current_rank > 0:
+                        rankings[team_abbr] = current_rank
+            
+            # Cache the results
+            self._team_rankings_cache = rankings
+            self._rankings_cache_timestamp = current_time
+            
+            self.logger.debug(f"Fetched rankings for {len(rankings)} teams")
             return rankings
             
         except Exception as e:
-            self.logger.error(f"Error fetching team rankings for {self.sport_key}: {e}")
+            self.logger.error(f"Error fetching team rankings: {e}")
             return {}
 
     def _extract_game_details_common(self, game_event: Dict) -> tuple[Dict | None, Dict | None, Dict | None, Dict | None, Dict | None]:
@@ -617,25 +495,28 @@ class SportsCore:
     # def display(self, force_clear=False):
     #     pass
 
-    def _fetch_todays_games(self, sport: str, league: str) -> Optional[Dict]:
+    def _fetch_data(self) -> Optional[Dict]:
+        pass
+
+    def _fetch_todays_games(self) -> Optional[Dict]:
         """Fetch only today's games for live updates (not entire season)."""
         try:
             now = datetime.now()
             formatted_date = now.strftime("%Y%m%d")
             # Fetch todays games only
-            url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard"
+            url = f"https://site.api.espn.com/apis/site/v2/sports/{self.sport}/{self.league}/scoreboard"
             response = self.session.get(url, params={"dates": formatted_date, "limit": 1000}, headers=self.headers, timeout=10)
             response.raise_for_status()
             data = response.json()
             events = data.get('events', [])
             
-            self.logger.info(f"Fetched {len(events)} todays games for {sport} - {league}")
+            self.logger.info(f"Fetched {len(events)} todays games for {self.sport} - {self.league}")
             return {'events': events}
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"API error fetching todays games for {sport} - {league}: {e}")
+            self.logger.error(f"API error fetching todays games for {self.sport} - {self.league}: {e}")
             return None
         
-    def _get_weeks_data(self, sport: str, league: str) -> Optional[Dict]:
+    def _get_weeks_data(self) -> Optional[Dict]:
         """
         Get partial data for immediate display while background fetch is in progress.
         This fetches current/recent games only for quick response.
@@ -648,7 +529,7 @@ class SportsCore:
             start_date = now + timedelta(weeks=-2)
             end_date = now + timedelta(weeks=1)
             date_str = f"{start_date.strftime('%Y%m%d')}-{end_date.strftime('%Y%m%d')}"
-            url = f"https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard"
+            url = f"https://site.api.espn.com/apis/site/v2/sports/{self.sport}/{self.league}/scoreboard"
             response = self.session.get(url, params={"dates": date_str, "limit": 1000},headers=self.headers, timeout=10)
             response.raise_for_status()
             data = response.json()
@@ -659,7 +540,7 @@ class SportsCore:
                 return {'events': immediate_events}
                 
         except requests.exceptions.RequestException as e:
-            self.logger.warning(f"Error fetching this weeks games for {sport} - {league} - {date_str}: {e}")
+            self.logger.warning(f"Error fetching this weeks games for {self.sport} - {self.league} - {date_str}: {e}")
         return None
 
 class SportsUpcoming(SportsCore):
@@ -713,7 +594,7 @@ class SportsUpcoming(SportsCore):
                 # Filter criteria: must be upcoming ('pre' state)
                 if game and game['is_upcoming']:
                     # Only fetch odds for games that will be displayed
-                    if self.mode_config.get("show_favorite_teams_only", False):
+                    if self.show_favorite_teams_only:
                         if not self.favorite_teams:
                             continue
                         if game['home_abbr'] not in self.favorite_teams and game['away_abbr'] not in self.favorite_teams:
@@ -724,7 +605,7 @@ class SportsUpcoming(SportsCore):
                         game['away_abbr'] in self.favorite_teams):
                         favorite_games_found += 1
                     if self.show_odds:
-                        self._fetch_game_odds(game)
+                        self._fetch_odds(game)
 
             # Enhanced logging for debugging
             self.logger.info(f"Found {all_upcoming_games} total upcoming games in data")
@@ -771,7 +652,7 @@ class SportsUpcoming(SportsCore):
                 self.logger.info(f"Found {favorite_games_found} favorite team upcoming games")
 
             # Filter for favorite teams only if the config is set
-            if self.mode_config.get("show_favorite_teams_only", False):
+            if self.show_favorite_teams_only:
                 # Get all games involving favorite teams
                 favorite_team_games = [game for game in processed_games
                                       if game['home_abbr'] in self.favorite_teams or
@@ -926,8 +807,7 @@ class SportsUpcoming(SportsCore):
                 if away_abbr:
                     if self.show_ranking and self.show_records:
                         # When both rankings and records are enabled, rankings replace records completely
-                        rankings = self._fetch_team_rankings()
-                        away_rank = rankings.get(away_abbr, 0)
+                        away_rank = self._team_rankings_cache.get(away_abbr, 0)
                         if away_rank > 0:
                             away_text = f"#{away_rank}"
                         else:
@@ -935,8 +815,7 @@ class SportsUpcoming(SportsCore):
                             away_text = ''
                     elif self.show_ranking:
                         # Show ranking only if available
-                        rankings = self._fetch_team_rankings()
-                        away_rank = rankings.get(away_abbr, 0)
+                        away_rank = rankself._team_rankings_cacheings.get(away_abbr, 0)
                         if away_rank > 0:
                             away_text = f"#{away_rank}"
                         else:
@@ -956,8 +835,7 @@ class SportsUpcoming(SportsCore):
                 if home_abbr:
                     if self.show_ranking and self.show_records:
                         # When both rankings and records are enabled, rankings replace records completely
-                        rankings = self._fetch_team_rankings()
-                        home_rank = rankings.get(home_abbr, 0)
+                        home_rank = self._team_rankings_cache.get(home_abbr, 0)
                         if home_rank > 0:
                             home_text = f"#{home_rank}"
                         else:
@@ -965,8 +843,7 @@ class SportsUpcoming(SportsCore):
                             home_text = ''
                     elif self.show_ranking:
                         # Show ranking only if available
-                        rankings = self._fetch_team_rankings()
-                        home_rank = rankings.get(home_abbr, 0)
+                        home_rank = self._team_rankings_cache.get(home_abbr, 0)
                         if home_rank > 0:
                             home_text = f"#{home_rank}"
                         else:
@@ -1227,8 +1104,7 @@ class SportsRecent(SportsCore):
                 if away_abbr:
                     if self.show_ranking and self.show_records:
                         # When both rankings and records are enabled, rankings replace records completely
-                        rankings = self._fetch_team_rankings()
-                        away_rank = rankings.get(away_abbr, 0)
+                        away_rank = self._team_rankings_cache.get(away_abbr, 0)
                         if away_rank > 0:
                             away_text = f"#{away_rank}"
                         else:
@@ -1236,8 +1112,7 @@ class SportsRecent(SportsCore):
                             away_text = ''
                     elif self.show_ranking:
                         # Show ranking only if available
-                        rankings = self._fetch_team_rankings()
-                        away_rank = rankings.get(away_abbr, 0)
+                        away_rank = self._team_rankings_cache.get(away_abbr, 0)
                         if away_rank > 0:
                             away_text = f"#{away_rank}"
                         else:
@@ -1257,8 +1132,7 @@ class SportsRecent(SportsCore):
                 if home_abbr:
                     if self.show_ranking and self.show_records:
                         # When both rankings and records are enabled, rankings replace records completely
-                        rankings = self._fetch_team_rankings()
-                        home_rank = rankings.get(home_abbr, 0)
+                        home_rank = self._team_rankings_cache.get(home_abbr, 0)
                         if home_rank > 0:
                             home_text = f"#{home_rank}"
                         else:
@@ -1266,8 +1140,7 @@ class SportsRecent(SportsCore):
                             home_text = ''
                     elif self.show_ranking:
                         # Show ranking only if available
-                        rankings = self._fetch_team_rankings()
-                        home_rank = rankings.get(home_abbr, 0)
+                        home_rank = self._team_rankings_cache.get(home_abbr, 0)
                         if home_rank > 0:
                             home_text = f"#{home_rank}"
                         else:

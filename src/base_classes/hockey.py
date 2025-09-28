@@ -12,36 +12,13 @@ from src.base_classes.data_sources import ESPNDataSource
 class Hockey(SportsCore):
     """Base class for hockey sports with common functionality."""
     
-    # Hockey sport configuration (moved from sport_configs.py)
-    SPORT_CONFIG = {
-        'update_cadence': 'daily',
-        'season_length': 82,  # NHL default
-        'games_per_week': 3,
-        'api_endpoints': ['scoreboard', 'standings'],
-        'sport_specific_fields': ['period', 'power_play', 'penalties', 'shots_on_goal'],
-        'update_interval_seconds': 30,
-        'logo_dir': 'assets/sports/nhl_logos',
-        'show_records': True,
-        'show_ranking': True,
-        'show_odds': True,
-        'data_source_type': 'espn',
-        'api_base_url': 'https://site.api.espn.com/apis/site/v2/sports/hockey'
-    }
-    
     def __init__(self, config: Dict[str, Any], display_manager: DisplayManager, cache_manager: CacheManager, logger: logging.Logger, sport_key: str):
         super().__init__(config, display_manager, cache_manager, logger, sport_key)
         
         # Initialize hockey-specific architecture components
-        self.sport_config = self.get_sport_config()
         self.api_extractor = ESPNHockeyExtractor(logger)
         self.data_source = ESPNDataSource(logger)
-    
-    def get_sport_config(self) -> Dict[str, Any]:
-        """Get hockey sport configuration."""
-        return self.SPORT_CONFIG.copy()
-
-    def _fetch_odds(self, game: Dict, league: str) -> None:
-        super()._fetch_odds(game, "hockey", league)
+        self.sport = "hockey"
 
 
     def _extract_game_details(self, game_event: Dict) -> Optional[Dict]:
@@ -53,11 +30,20 @@ class Hockey(SportsCore):
         try:
             competition = game_event["competitions"][0]
             status = competition["status"]
+            powerplay = False
+            penalties = ""
+            shots_on_goal = {"home": 0, "away": 0}
 
             if situation and status["type"]["state"] == "in":
                 # Detect scoring events from status detail
                 status_detail = status["type"].get("detail", "").lower()
                 status_short = status["type"].get("shortDetail", "").lower()
+                powerplay = situation.get("isPowerPlay", False)
+                penalties = situation.get("penalties", "")
+                shots_on_goal = {
+                    "home": situation.get("homeShots", 0),
+                    "away": situation.get("awayShots", 0)
+                }
 
             # Format period/quarter
             period = status.get("period", 0)
@@ -79,7 +65,10 @@ class Hockey(SportsCore):
             details.update({
                 "period": period,
                 "period_text": period_text, # Formatted quarter/status
-                "clock": status.get("displayClock", "0:00")
+                "clock": status.get("displayClock", "0:00"),
+                "power_play": powerplay,
+                "penalties": penalties,
+                "shots_on_goal": shots_on_goal
             })
 
             # Basic validation (can be expanded)
@@ -118,6 +107,9 @@ class HockeyLive(Hockey):
         if current_time - self.last_update >= interval:
             self.last_update = current_time
             
+            if self.show_ranking:
+                self._fetch_team_rankings()
+
             if self.test_mode:
                 # For testing, we'll just update the clock to show it's working
                 if self.current_game:
@@ -149,7 +141,7 @@ class HockeyLive(Hockey):
                             new_live_games.append(details)
                     
                     # Filter for favorite teams only if the config is set
-                    if self.mode_config.get("show_favorite_teams_only", False):
+                    if self.show_favorite_teams_only:
                         new_live_games = [game for game in new_live_games 
                                          if game['home_abbr'] in self.favorite_teams or 
                                             game['away_abbr'] in self.favorite_teams]
@@ -163,12 +155,12 @@ class HockeyLive(Hockey):
                     
                     if should_log:
                         if new_live_games:
-                            filter_text = "favorite teams" if self.mode_config.get("show_favorite_teams_only", False) else "all teams"
+                            filter_text = "favorite teams" if self.show_favorite_teams_only else "all teams"
                             self.logger.info(f"[NCAAMH] Found {len(new_live_games)} live games involving {filter_text}")
                             for game in new_live_games:
                                 self.logger.info(f"[NCAAMH] Live game: {game['away_abbr']} vs {game['home_abbr']} - Period {game['period']}, {game['clock']}")
                         else:
-                            filter_text = "favorite teams" if self.mode_config.get("show_favorite_teams_only", False) else "criteria"
+                            filter_text = "favorite teams" if self.show_favorite_teams_only else "criteria"
                             self.logger.info(f"[NCAAMH] No live games found matching {filter_text}")
                         self.last_log_time = current_time
                     
@@ -287,8 +279,7 @@ class HockeyLive(Hockey):
                 if away_abbr:
                     if self.show_ranking and self.show_records:
                         # When both rankings and records are enabled, rankings replace records completely
-                        rankings = self._fetch_team_rankings()
-                        away_rank = rankings.get(away_abbr, 0)
+                        away_rank = self._team_rankings_cache.get(away_abbr, 0)
                         if away_rank > 0:
                             away_text = f"#{away_rank}"
                         else:
@@ -296,8 +287,7 @@ class HockeyLive(Hockey):
                             away_text = ''
                     elif self.show_ranking:
                         # Show ranking only if available
-                        rankings = self._fetch_team_rankings()
-                        away_rank = rankings.get(away_abbr, 0)
+                        away_rank = self._team_rankings_cache.get(away_abbr, 0)
                         if away_rank > 0:
                             away_text = f"#{away_rank}"
                         else:
@@ -317,8 +307,7 @@ class HockeyLive(Hockey):
                 if home_abbr:
                     if self.show_ranking and self.show_records:
                         # When both rankings and records are enabled, rankings replace records completely
-                        rankings = self._fetch_team_rankings()
-                        home_rank = rankings.get(home_abbr, 0)
+                        home_rank = self._team_rankings_cache.get(home_abbr, 0)
                         if home_rank > 0:
                             home_text = f"#{home_rank}"
                         else:
@@ -326,8 +315,7 @@ class HockeyLive(Hockey):
                             home_text = ''
                     elif self.show_ranking:
                         # Show ranking only if available
-                        rankings = self._fetch_team_rankings()
-                        home_rank = rankings.get(home_abbr, 0)
+                        home_rank = self._team_rankings_cache.get(home_abbr, 0)
                         if home_rank > 0:
                             home_text = f"#{home_rank}"
                         else:
