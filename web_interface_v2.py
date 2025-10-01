@@ -580,7 +580,7 @@ def index():
         main_config_json = json.dumps(main_config_data, indent=4)
         secrets_config_json = json.dumps(secrets_config_data, indent=4)
         
-        return render_template('index_v2.html', 
+        return render_template('index_v3.html', 
                              schedule_config=schedule_config,
                              main_config=DictWrapper(main_config),
                              main_config_data=main_config_data,
@@ -597,7 +597,7 @@ def index():
         logger.error(f"Error loading configuration on index: {e}", exc_info=True)
         safe_system_status = get_system_status()
         safe_secrets = {'weather': {'api_key': ''}}
-        return render_template('index_v2.html',
+        return render_template('index_v3.html',
                                schedule_config={},
                                main_config=DictWrapper({}),
                                main_config_data={},
