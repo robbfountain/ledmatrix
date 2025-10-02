@@ -130,7 +130,8 @@ The system supports live, recent, and upcoming game information for multiple spo
   > Amazon Affiliate Link – ChuckBuilds receives a small commission on purchases  
 
 ### Power Supply
-- [5V 4A DC Pow
+- [5V 4A DC Power Supply](https://www.adafruit.com/product/658) (good for 2 -3 displays, depending on brightness and pixel density, you'll need higher amperage for more)
+- [5V 10AM DC Power Supply](https://amzn.to/3IKlYqe) (good for 6-8 displays, depending on brightness and pixel density)
 
 ## Optional but recommended mod for Adafruit RGB Matrix Bonnet
 - By soldering a jumper between pins 4 and 18, you can run a specialized command for polling the matrix display. This provides better brightness, less flicker, and better color.
