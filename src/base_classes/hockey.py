@@ -25,6 +25,7 @@ class Hockey(SportsCore):
         super().__init__(config, display_manager, cache_manager, logger, sport_key)
         self.data_source = ESPNDataSource(logger)
         self.sport = "hockey"
+        self.show_shots_on_goal = self.mode_config.get("show_shots_on_goal", False)
 
     def _extract_game_details(self, game_event: Dict) -> Optional[Dict]:
         """Extract relevant game details from ESPN NCAA FB API response."""
@@ -74,7 +75,7 @@ class Hockey(SportsCore):
 
             home_shots = 0
             away_shots = 0
-
+            status_short = ""
             if home_team_saves_per > 0:
                 away_shots = round(home_team_saves / home_team_saves_per)
             if away_team_saves_per > 0:
@@ -82,8 +83,8 @@ class Hockey(SportsCore):
 
             if situation and status["type"]["state"] == "in":
                 # Detect scoring events from status detail
-                status_detail = status["type"].get("detail", "").lower()
-                status_short = status["type"].get("shortDetail", "").lower()
+                # status_detail = status["type"].get("detail", "")
+                status_short = status["type"].get("shortDetail", "")
                 powerplay = situation.get("isPowerPlay", False)
                 penalties = situation.get("penalties", "")
 
@@ -114,6 +115,8 @@ class Hockey(SportsCore):
                     "penalties": penalties,
                     "home_shots": home_shots,
                     "away_shots": away_shots,
+                    "is_period_break": status["type"]["name"] == "STATUS_END_PERIOD",
+                    "status_short": status_short,
                 }
             )
 
@@ -225,8 +228,8 @@ class HockeyLive(Hockey, SportsLive):
             period_clock_text = (
                 f"{game.get('period_text', '')} {game.get('clock', '')}".strip()
             )
-            if game.get("is_halftime"):
-                period_clock_text = "Halftime"  # Override for halftime
+            if game.get("is_period_break"):
+                period_clock_text = game.get("status_short", "Period Break")
 
             status_width = draw_overlay.textlength(
                 period_clock_text, font=self.fonts["time"]
@@ -254,18 +257,19 @@ class HockeyLive(Hockey, SportsLive):
             )
 
             # Shots on Goal
-            shots_font = ImageFont.truetype("assets/fonts/4x6-font.ttf", 6)
-            home_shots = str(game.get("home_shots", "0"))
-            away_shots = str(game.get("away_shots", "0"))
-            shots_text = f"{away_shots}   SHOTS   {home_shots}"
-            shots_width = draw_overlay.textlength(shots_text, font=shots_font)
-            shots_x = (self.display_width - shots_width) // 2
-            shots_y = (
-                self.display_height - 10
-            )  # centered #from 14 # Position score higher
-            self._draw_text_with_outline(
-                draw_overlay, shots_text, (shots_x, shots_y), shots_font
-            )
+            if self.show_shots_on_goal:
+                shots_font = ImageFont.truetype("assets/fonts/4x6-font.ttf", 6)
+                home_shots = str(game.get("home_shots", "0"))
+                away_shots = str(game.get("away_shots", "0"))
+                shots_text = f"{away_shots}   SHOTS   {home_shots}"
+                shots_bbox = draw_overlay.textbbox((0, 0), shots_text, font=shots_font)
+                shots_height = shots_bbox[3] - shots_bbox[1]
+                shots_y = self.display_height - shots_height - 1
+                shots_width = draw_overlay.textlength(shots_text, font=shots_font)
+                shots_x = (self.display_width - shots_width) // 2
+                self._draw_text_with_outline(
+                    draw_overlay, shots_text, (shots_x, shots_y), shots_font
+                )
 
             # Draw odds if available
             if "odds" in game and game["odds"]:
@@ -290,7 +294,7 @@ class HockeyLive(Hockey, SportsLive):
 
                 record_bbox = draw_overlay.textbbox((0, 0), "0-0", font=record_font)
                 record_height = record_bbox[3] - record_bbox[1]
-                record_y = self.display_height - record_height - 4
+                record_y = self.display_height - record_height - 1
                 self.logger.debug(
                     f"Record positioning: height={record_height}, record_y={record_y}, display_height={self.display_height}"
                 )

@@ -6,14 +6,13 @@ with baseball-specific logic for innings, outs, bases, strikes, balls, etc.
 """
 
 import logging
-import random
 import time
 from typing import Any, Dict, Optional
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 from src.base_classes.data_sources import ESPNDataSource
-from src.base_classes.sports import SportsCore, SportsLive
+from src.base_classes.sports import SportsCore, SportsLive, SportsRecent
 
 
 class Baseball(SportsCore):
@@ -34,6 +33,7 @@ class Baseball(SportsCore):
         self.show_bases = self.mode_config.get("show_bases", True)
         self.show_count = self.mode_config.get("show_count", True)
         self.show_pitcher_batter = self.mode_config.get("show_pitcher_batter", False)
+        self.show_series_summary = self.mode_config.get("show_series_summary", False)
         self.data_source = ESPNDataSource(logger)
         self.sport = "baseball"
 
@@ -157,7 +157,10 @@ class Baseball(SportsCore):
                 self.logger.debug(
                     f"Status shortDetail: {status['type'].get('shortDetail', '')}"
                 )
-
+            series = game_event["competitions"][0].get("series", None)
+            series_summary = ""
+            if series:
+                series_summary = series.get("summary", "")
             # Get game state information
             if status_state == "in":
                 # For live games, get detailed state
@@ -297,6 +300,7 @@ class Baseball(SportsCore):
                     "outs": outs,
                     "bases_occupied": bases_occupied,
                     "start_time": game_event["date"],
+                    "series_summary": series_summary,
                 }
             )
 
@@ -320,6 +324,38 @@ class Baseball(SportsCore):
             )
             return None
 
+    def display_series_summary(self, game: dict, draw_overlay: ImageDraw.ImageDraw):
+        if not self.show_series_summary:
+            return
+        
+        series_summary = game.get("series_summary", "")
+        font = ImageFont.truetype("assets/fonts/4x6-font.ttf", 6)
+        bbox = draw_overlay.textbbox((0, 0), series_summary, font=self.fonts['time'])
+        height = bbox[3] - bbox[1]
+        shots_y = (self.display_height - height) // 2
+        shots_width = draw_overlay.textlength(series_summary, font=self.fonts['time'])
+        shots_x = (self.display_width - shots_width) // 2
+        self._draw_text_with_outline(
+            draw_overlay, series_summary, (shots_x, shots_y), self.fonts['time']
+        )
+
+class BaseballRecent(Baseball, SportsRecent):
+    """Base class for recent baseball games."""
+
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        display_manager,
+        cache_manager,
+        logger: logging.Logger,
+        sport_key: str,
+    ):
+        super().__init__(config, display_manager, cache_manager, logger, sport_key)
+
+
+    def _custom_scorebug_layout(self, game: dict, draw_overlay: ImageDraw.ImageDraw):
+        self.display_series_summary(game, draw_overlay)
+
 
 class BaseballLive(Baseball, SportsLive):
     """Base class for live baseball games."""
@@ -342,14 +378,25 @@ class BaseballLive(Baseball, SportsLive):
             # self.current_game["balls"] = random.choice([1, 2, 3])
             # self.current_game["strikes"] = random.choice([1, 2])
             # self.current_game["outs"] = random.choice([1, 2])
-            if self.current_game["inning_half"] == "top": self.current_game["inning_half"] = "bottom"
-            else: self.current_game["inning_half"] = "top"; self.current_game["inning"] += 1
+            if self.current_game["inning_half"] == "top":
+                self.current_game["inning_half"] = "bottom"
+            else:
+                self.current_game["inning_half"] = "top"
+                self.current_game["inning"] += 1
             self.current_game["balls"] = (self.current_game["balls"] + 1) % 4
             self.current_game["strikes"] = (self.current_game["strikes"] + 1) % 3
             self.current_game["outs"] = (self.current_game["outs"] + 1) % 3
-            self.current_game["bases_occupied"] = [not b for b in self.current_game["bases_occupied"]]
-            if self.current_game["inning"] % 2 == 0: self.current_game["home_score"] = str(int(self.current_game["home_score"]) + 1)
-            else: self.current_game["away_score"] = str(int(self.current_game["away_score"]) + 1)
+            self.current_game["bases_occupied"] = [
+                not b for b in self.current_game["bases_occupied"]
+            ]
+            if self.current_game["inning"] % 2 == 0:
+                self.current_game["home_score"] = str(
+                    int(self.current_game["home_score"]) + 1
+                )
+            else:
+                self.current_game["away_score"] = str(
+                    int(self.current_game["away_score"]) + 1
+                )
 
     def _draw_scorebug_layout(self, game: Dict, force_clear: bool = False) -> None:
         """Draw the detailed scorebug layout for a live NCAA FB game."""  # Updated docstring
@@ -676,5 +723,5 @@ class BaseballLive(Baseball, SportsLive):
 
         except Exception as e:
             self.logger.error(
-                f"Error displaying live Football game: {e}", exc_info=True
+                f"Error displaying live Baseball game: {e}", exc_info=True
             )  # Changed log prefix
