@@ -114,8 +114,9 @@ The system supports live, recent, and upcoming game information for multiple spo
 - Raspberry Pi 3b or 4 (NOT RPI5!) : Amazon Affiliate Link: Raspberry Pi 4 4GB (https://amzn.to/4dJixuX)
 - RGB Matrix Bonnet / HAT
   -   Adafruit RGB Matrix Bonnet/HAT that only supports one "chain" of horizontally connected displays : https://www.adafruit.com/product/3211  
-  -   Adafruit Triple LED Matrix Bonnet that supports up to 3 vertical "chains" of horizontally connected strings of displays : https://www.adafruit.com/product/6358
+  -   Adafruit Triple LED Matrix Bonnet that supports up to 3 vertical "chains" of horizontally connected strings of displays : https://www.adafruit.com/product/6358  (use "regular-pi1" as hardware mapping)
   -   Electrodragon RGB HAT that supports up to 3 vertical "chains" of horizonally connected strings of displays : https://www.electrodragon.com/product/rgb-matrix-panel-drive-board-raspberry-pi/
+  -   Seengreat Matrix adapter board for single chain LED Matrix: https://amzn.to/3KsnT3j (use "regular" as hardware mapping)
 - LED Matrix panels (2x in a chain is recommended)
   -   Adafruit (64x32) (Designed for 128x32 but has a lot of dynamic scaling elements that could work on a variety of displays, pixel pitch is user preference) : https://www.adafruit.com/product/2278
   -   Waveshare (92x46) (higher resolution, requires soldering of the "E" Addressable pad on the [Adafruit RGB Bonnet](https://www.adafruit.com/product/3211) to "8"  OR to toggle the dip switch on the Adafruit Triple LED Matrix Bonnet (No Soldering!) - Amazon Affiliate Link - ChuckBuilds gets a small commission if your purchase : https://amzn.to/4pQdezE
