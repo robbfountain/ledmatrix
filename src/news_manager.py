@@ -514,6 +514,10 @@ class NewsManager:
         """Remove a custom RSS feed"""
         if name in self.custom_feeds:
             del self.custom_feeds[name]
+            # Also remove from enabled_feeds if present
+            if name in self.enabled_feeds:
+                self.enabled_feeds.remove(name)
+                self.config['news_manager']['enabled_feeds'] = self.enabled_feeds
             # Update config
             self.config['news_manager']['custom_feeds'] = self.custom_feeds
             self.config_manager.save_config(self.config)

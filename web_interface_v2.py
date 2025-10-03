@@ -1361,17 +1361,22 @@ def get_news_manager_status():
         config = config_manager.load_config()
         news_config = config.get('news_manager', {})
         
+        # Build available feeds list - default feeds + custom feed names
+        default_feeds = [
+            'MLB', 'NFL', 'NCAA FB', 'NHL', 'NBA', 'TOP SPORTS', 
+            'BIG10', 'NCAA', 'Other'
+        ]
+        custom_feeds = news_config.get('custom_feeds', {})
+        available_feeds = default_feeds + list(custom_feeds.keys())
+        
         # Try to get status from the running display controller if possible
         status = {
             'enabled': news_config.get('enabled', False),
             'enabled_feeds': news_config.get('enabled_feeds', []),
-            'available_feeds': [
-                'MLB', 'NFL', 'NCAA FB', 'NHL', 'NBA', 'TOP SPORTS', 
-                'BIG10', 'NCAA', 'Other'
-            ],
+            'available_feeds': available_feeds,
             'headlines_per_feed': news_config.get('headlines_per_feed', 2),
             'rotation_enabled': news_config.get('rotation_enabled', True),
-            'custom_feeds': news_config.get('custom_feeds', {})
+            'custom_feeds': custom_feeds
         }
         
         return jsonify({
@@ -1465,6 +1470,13 @@ def remove_custom_news_feed():
         
         if name in custom_feeds:
             del custom_feeds[name]
+            
+            # Also remove from enabled_feeds if present
+            enabled_feeds = config.get('news_manager', {}).get('enabled_feeds', [])
+            if name in enabled_feeds:
+                enabled_feeds.remove(name)
+                config['news_manager']['enabled_feeds'] = enabled_feeds
+            
             config_manager.save_config(config)
             
             return jsonify({

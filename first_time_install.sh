@@ -438,6 +438,36 @@ fi
 echo "✓ Web interface dependencies installed"
 echo ""
 
+CURRENT_STEP="Install Tailwind CSS dependencies"
+echo "Step 7.5: Installing Node.js and Tailwind CSS..."
+echo "-----------------------------------------------"
+
+# Check if Node.js and npm are installed
+if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
+    echo "Installing Node.js and npm..."
+    apt update
+    apt install -y nodejs npm
+    echo "✓ Node.js and npm installed"
+else
+    echo "✓ Node.js and npm already installed"
+fi
+
+# Install npm dependencies (Tailwind CSS)
+if [ -f "$PROJECT_ROOT_DIR/package.json" ]; then
+    echo "Installing Tailwind CSS via npm..."
+    cd "$PROJECT_ROOT_DIR"
+    npm install
+    echo "✓ npm dependencies installed"
+    
+    # Build Tailwind CSS
+    echo "Building Tailwind CSS..."
+    npm run build:css
+    echo "✓ Tailwind CSS compiled"
+else
+    echo "⚠ package.json not found; skipping npm dependency installation"
+fi
+echo ""
+
 CURRENT_STEP="Install web interface service"
 echo "Step 8: Installing web interface service..."
 echo "-------------------------------------------"

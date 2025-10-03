@@ -45,7 +45,7 @@ function initializeForms() {
     });
 
     // General form
-    document.getElementById('general-form')?.addEventListener('submit', async function(e) {
+    document.getElementById('general-form')?.addEventListener('submit', async function(e) { 
         e.preventDefault();
         const payload = {
             web_display_autostart: document.getElementById('web_display_autostart').checked,

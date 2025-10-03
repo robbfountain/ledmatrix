@@ -1,0 +1,13 @@
+{
+  "name": "ledmatrix-web",
+  "version": "1.0.0",
+  "description": "LED Matrix Control Panel",
+  "scripts": {
+    "build:css": "tailwindcss -i ./static/css/input.css -o ./static/css/output.css --minify",
+    "watch:css": "tailwindcss -i ./static/css/input.css -o ./static/css/output.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.0.0"
+  }
+}
+

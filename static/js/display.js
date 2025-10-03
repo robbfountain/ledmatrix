@@ -108,7 +108,7 @@ function renderLedDots() {
     const logicalHeight = Math.floor(ledCanvas.height / scale);
     off.width = logicalWidth;
     off.height = logicalHeight;
-    const offCtx = off.getContext('2d');
+    const offCtx = off.getContext('2d', { willReadFrequently: true });
     // Draw the current image scaled down to logical LEDs to sample colors
     try {
         offCtx.drawImage(img, 0, 0, logicalWidth, logicalHeight);
