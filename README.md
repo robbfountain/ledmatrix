@@ -111,15 +111,27 @@ The system supports live, recent, and upcoming game information for multiple spo
 <details>
 <summary>Hardware Requirements</summary>
 ## Hardware Requirements
-- Raspberry Pi 3b or 4 (NOT RPI5!) : Amazon Affiliate Link: Raspberry Pi 4 4GB (https://amzn.to/4dJixuX)
-- RGB Matrix Bonnet / HAT
-  -   Adafruit RGB Matrix Bonnet/HAT that only supports one "chain" of horizontally connected displays : https://www.adafruit.com/product/3211  
-  -   Adafruit Triple LED Matrix Bonnet that supports up to 3 vertical "chains" of horizontally connected strings of displays : https://www.adafruit.com/product/6358
-  -   Electrodragon RGB HAT that supports up to 3 vertical "chains" of horizonally connected strings of displays : https://www.electrodragon.com/product/rgb-matrix-panel-drive-board-raspberry-pi/
-- LED Matrix panels (2x in a chain is recommended)
-  -   Adafruit (64x32) (Designed for 128x32 but has a lot of dynamic scaling elements that could work on a variety of displays, pixel pitch is user preference) : https://www.adafruit.com/product/2278
-  -   Waveshare (92x46) (higher resolution, requires soldering of the "E" Addressable pad on the [Adafruit RGB Bonnet](https://www.adafruit.com/product/3211) to "8"  OR to toggle the dip switch on the Adafruit Triple LED Matrix Bonnet (No Soldering!) - Amazon Affiliate Link - ChuckBuilds gets a small commission if your purchase : https://amzn.to/4pQdezE
-- 5V 4A DC Power Supply for Adafruit RGB HAT : https://www.adafruit.com/product/1466
+
+### Raspberry Pi
+- **Raspberry Pi 3B or 4 (NOT RPi 5!)**  
+  [Amazon Affiliate Link – Raspberry Pi 4 4GB](https://amzn.to/4dJixuX)
+
+### RGB Matrix Bonnet / HAT
+- [Adafruit RGB Matrix Bonnet/HAT](https://www.adafruit.com/product/3211) – supports one “chain” of horizontally connected displays  
+- [Adafruit Triple LED Matrix Bonnet](https://www.adafruit.com/product/6358) – supports up to 3 vertical “chains” of horizontally connected displays *(use `regular-pi1` as hardware mapping)*  
+- [Electrodragon RGB HAT](https://www.electrodragon.com/product/rgb-matrix-panel-drive-board-raspberry-pi/) – supports up to 3 vertical “chains”  
+- [Seengreat Matrix Adapter Board](https://amzn.to/3KsnT3j) – single-chain LED Matrix *(use `regular` as hardware mapping)*  
+
+### LED Matrix Panels  
+(2x in a chain recommended)
+- [Adafruit 64×32](https://www.adafruit.com/product/2278) – designed for 128×32 but works with dynamic scaling on many displays (pixel pitch is user preference)
+- [Waveshare 64×32](https://amzn.to/3Kw55jK) - Does not require E addressable pad
+- [Waveshare 92×46](https://amzn.to/4pQdezE) – higher resolution, requires soldering the **E addressable pad** on the [Adafruit RGB Bonnet](https://www.adafruit.com/product/3211) to “8” **OR** toggling the DIP switch on the Adafruit Triple LED Matrix Bonnet *(no soldering required!)*  
+  > Amazon Affiliate Link – ChuckBuilds receives a small commission on purchases  
+
+### Power Supply
+- [5V 4A DC Power Supply](https://www.adafruit.com/product/658) (good for 2 -3 displays, depending on brightness and pixel density, you'll need higher amperage for more)
+- [5V 10AM DC Power Supply](https://amzn.to/3IKlYqe) (good for 6-8 displays, depending on brightness and pixel density)
 
 ## Optional but recommended mod for Adafruit RGB Matrix Bonnet
 - By soldering a jumper between pins 4 and 18, you can run a specialized command for polling the matrix display. This provides better brightness, less flicker, and better color.
@@ -187,7 +199,7 @@ These are not required and you can probably rig up something basic with stuff yo
 # Preparing the Raspberry Pi
 1. Create RPI Image on a Micro-SD card (I use 16gb because I have it, size is not too important but I would use 8gb or more) using [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
 2. Choose your Raspberry Pi (3B+ in my case) 
-3. For Operating System (OS), choose "Other", then choose Raspbian OS Lite (64-bit)
+3. For Operating System (OS), choose "Other", then choose Raspbian OS (Legacy, 64-bit) Lite  (This needs to be Debian Bookworm not Debian Trixie! Packages are broken on Trixie as of 10/2/25. I will try to get working as soon as requirements are met!)
 4. For Storage, choose your micro-sd card
 ![image](https://github.com/user-attachments/assets/05580e0a-86d5-4613-aadc-93207365c38f)
 5. Press Next then Edit Settings
