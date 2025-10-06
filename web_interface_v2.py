@@ -8,6 +8,7 @@ import threading
 import time
 import base64
 import psutil
+import io
 from pathlib import Path
 from src.config_manager import ConfigManager
 from src.display_manager import DisplayManager
@@ -582,7 +583,7 @@ def index():
         
         return render_template('index_v3.html', 
                              schedule_config=schedule_config,
-                             main_config=DictWrapper(main_config),
+                             main_config=main_config,
                              main_config_data=main_config_data,
                              secrets_config=secrets_config_data,
                              main_config_json=main_config_json,
@@ -599,7 +600,7 @@ def index():
         safe_secrets = {'weather': {'api_key': ''}}
         return render_template('index_v3.html',
                                schedule_config={},
-                               main_config=DictWrapper({}),
+                               main_config={},
                                main_config_data={},
                                secrets_config=safe_secrets,
                                main_config_json="{}",
@@ -954,6 +955,16 @@ def get_system_status_api():
         return jsonify(get_system_status())
     except Exception as e:
         # Ensure a valid JSON response is always produced
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/config/main')
+def get_main_config():
+    """Get main configuration as JSON."""
+    try:
+        config_manager = ConfigManager()
+        config = config_manager.load_config()
+        return jsonify(config)
+    except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # --- On-Demand Controls ---
@@ -1571,6 +1582,7 @@ def view_logs():
 @app.route('/api/display/current')
 def get_current_display():
     """Get current display image as base64."""
+    global current_display_data
     try:
         # Get display dimensions from config if not available in current_display_data
         if not current_display_data or not current_display_data.get('width') or not current_display_data.get('height'):
@@ -1662,6 +1674,20 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
+    # Initialize display manager for web preview (fallback mode)
+    try:
+        config = config_manager.load_config()
+        display_manager = DisplayManager(config, force_fallback=True, suppress_test_pattern=True)
+        logger.info("DisplayManager initialized in fallback mode for web preview")
+    except Exception as e:
+        logger.error(f"Failed to initialize DisplayManager for web preview: {e}")
+        # Create minimal fallback
+        try:
+            display_manager = DisplayManager({'display': {'hardware': {}}}, force_fallback=True, suppress_test_pattern=True)
+            logger.info("DisplayManager initialized with minimal config for web preview")
+        except Exception as fallback_error:
+            logger.error(f"Failed to initialize DisplayManager even with minimal config: {fallback_error}")
+    
     # Start the display monitor (runs even if display is not started yet for web preview)
     display_monitor.start()
     
@@ -1676,5 +1702,6 @@ if __name__ == '__main__':
         host='0.0.0.0',
         port=5001,
         debug=False,
-        use_reloader=False
+        use_reloader=False,
+        allow_unsafe_werkzeug=True
     )

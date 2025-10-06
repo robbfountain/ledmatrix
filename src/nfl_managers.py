@@ -172,6 +172,7 @@ class NFLLiveManager(BaseNFLManager, FootballLive): # Renamed class
                 "home_logo_path": Path(self.logo_dir, "TB.png"),
                 "away_logo_path": Path(self.logo_dir, "DAL.png"),
                 "is_redzone": False,
+                "scoring_event": "TOUCHDOWN",  # Add this to trigger animation
                 "is_live": True, "is_final": False, "is_upcoming": False, "is_halftime": False,
                 "status_text": "Q4 02:35"
             }

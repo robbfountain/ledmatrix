@@ -330,13 +330,13 @@ class Baseball(SportsCore):
         
         series_summary = game.get("series_summary", "")
         font = ImageFont.truetype("assets/fonts/4x6-font.ttf", 6)
-        bbox = draw_overlay.textbbox((0, 0), series_summary, font=self.fonts['time'])
+        bbox = draw_overlay.textbbox((0, 0), series_summary, font=font)
         height = bbox[3] - bbox[1]
-        shots_y = (self.display_height - height) // 2
-        shots_width = draw_overlay.textlength(series_summary, font=self.fonts['time'])
+        shots_y = (self.display_height - height) // 2 - 4  # Move up 4 pixels
+        shots_width = draw_overlay.textlength(series_summary, font=font)
         shots_x = (self.display_width - shots_width) // 2
         self._draw_text_with_outline(
-            draw_overlay, series_summary, (shots_x, shots_y), self.fonts['time']
+            draw_overlay, series_summary, (shots_x, shots_y), font, fill=(255, 255, 0)  # Yellow color
         )
 
 class BaseballRecent(Baseball, SportsRecent):

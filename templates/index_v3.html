@@ -297,31 +297,36 @@
                 <!-- Dropdown Menu -->
                 <div id="quickControlsDropdown" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200" style="z-index: 9999;">
                     <div class="py-2">
-                        <button onclick="executeQuickAction('start_display')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center">
+                        <button onclick="executeQuickAction('start_display')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 flex items-center transition-all duration-200 hover:shadow-md">
                             <i class="fas fa-play mr-3 text-green-600"></i>
                             Start Display
                         </button>
-                        <button onclick="executeQuickAction('stop_display')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 flex items-center">
+                        <button onclick="executeQuickAction('stop_display')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 flex items-center transition-all duration-200 hover:shadow-md">
                             <i class="fas fa-stop mr-3 text-red-600"></i>
                             Stop Display
                         </button>
-                        <button onclick="executeQuickAction('restart_service')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center">
+                        <div class="border-t border-gray-200 my-1"></div>
+                        <button onclick="executeQuickAction('stop_service')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-700 flex items-center transition-all duration-200 hover:shadow-md cursor-pointer">
+                            <i class="fas fa-pause-circle mr-3 text-orange-600"></i>
+                            Stop LED Service
+                        </button>
+                        <button onclick="executeQuickAction('restart_service')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center transition-all duration-200 hover:shadow-md">
                             <i class="fas fa-redo mr-3 text-blue-600"></i>
                             Restart Service
                         </button>
-                        <button onclick="executeQuickAction('git_pull')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 flex items-center">
+                        <button onclick="executeQuickAction('git_pull')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 flex items-center transition-all duration-200 hover:shadow-md">
                             <i class="fas fa-download mr-3 text-yellow-600"></i>
                             Update Code
                         </button>
-                        <button onclick="executeQuickAction('migrate_config')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center">
+                        <button onclick="executeQuickAction('migrate_config')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center transition-all duration-200 hover:shadow-md">
                             <i class="fas fa-sync-alt mr-3 text-blue-600"></i>
                             Migrate Config
                         </button>
-                        <button onclick="executeQuickAction('reboot_system')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 flex items-center">
+                        <button onclick="executeQuickAction('reboot_system')" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 flex items-center transition-all duration-200 hover:shadow-md">
                             <i class="fas fa-power-off mr-3 text-red-600"></i>
                             Reboot System
                         </button>
-                        <button onclick="stopOnDemand()" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-700 flex items-center">
+                        <button onclick="stopOnDemand()" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-700 flex items-center transition-all duration-200 hover:shadow-md">
                             <i class="fas fa-ban mr-3 text-gray-600"></i>
                             Stop On-Demand
                         </button>
@@ -341,73 +346,73 @@
             <div class="p-4">
                 <h2 class="text-lg font-semibold text-gray-800 mb-4">Control Panel</h2>
                 <nav class="space-y-1">
-                    <button onclick="showTab('overview')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('overview', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-tachometer-alt mr-2"></i>Overview
                     </button>
-                    <button onclick="showTab('general')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('general', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-sliders-h mr-2"></i>General
                     </button>
-                    <button onclick="showTab('schedule')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('schedule', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-calendar mr-2"></i>Schedule
                     </button>
-                    <button onclick="showTab('display')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('display', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-cog mr-2"></i>Display
                     </button>
-                    <button onclick="showTab('clock')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('clock', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-clock mr-2"></i>Clock
                     </button>
-                    <button onclick="showTab('durations')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('durations', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-hourglass-half mr-2"></i>Durations
                     </button>
-                    <button onclick="showTab('sports')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('sports', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-football-ball mr-2"></i>Sports
                     </button>
-                    <button onclick="showTab('weather')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('weather', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-cloud-sun mr-2"></i>Weather
                     </button>
-                    <button onclick="showTab('stocks')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('stocks', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-chart-line mr-2"></i>Stocks
                     </button>
-                    <button onclick="showTab('stocknews')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('stocknews', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-newspaper mr-2"></i>Stock News
                     </button>
-                    <button onclick="showTab('odds')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('odds', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-ticket-alt mr-2"></i>Odds
                     </button>
-                    <button onclick="showTab('leaderboard')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('leaderboard', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-trophy mr-2"></i>Leaderboard
                     </button>
-                    <button onclick="showTab('text')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('text', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-font mr-2"></i>Text
                     </button>
-                    <button onclick="showTab('of_the_day')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('of_the_day', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-calendar-day mr-2"></i>Of The Day
                     </button>
-                    <button onclick="showTab('music')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('music', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-music mr-2"></i>Music
                     </button>
-                    <button onclick="showTab('calendar')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('calendar', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-calendar-alt mr-2"></i>Calendar
                     </button>
-                    <button onclick="showTab('youtube')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('youtube', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fab fa-youtube mr-2"></i>YouTube
                     </button>
-                    <button onclick="showTab('news')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('news', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-newspaper mr-2"></i>News
                     </button>
-                    <button onclick="showTab('secrets')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('secrets', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-key mr-2"></i>API Keys
                     </button>
-                    <button onclick="showTab('editor')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('editor', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-paint-brush mr-2"></i>Editor
                     </button>
-                    <button onclick="showTab('actions')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('actions', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-tools mr-2"></i>Actions
                     </button>
-                    <button onclick="showTab('raw-json')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('raw-json', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-code mr-2"></i>Raw JSON
                     </button>
-                    <button onclick="showTab('logs')" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
+                    <button onclick="showTab('logs', this)" class="tab-btn w-full text-left px-3 py-2 font-medium text-sm border-l-4 border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-r-lg">
                         <i class="fas fa-file-alt mr-2"></i>Logs
                     </button>
                 </nav>
@@ -416,7 +421,7 @@
 
         <!-- Main Content Area -->
         <div class="flex-1 overflow-y-auto main-content-mobile">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 z-20">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20 z-20">
         
         <!-- Editor Mode Banner -->
         {% if editor_mode %}
@@ -560,7 +565,7 @@
         <!-- Control Panel -->
         <div class="bg-white rounded-lg shadow-lg p-6">
             <!-- Tab Content Container -->
-            <div class="tab-content-container max-h-[70vh] overflow-y-auto">
+            <div class="tab-content-container">
                 
                 <!-- Overview Tab -->
                 <div id="overview" class="tab-content">
@@ -2167,7 +2172,7 @@
         });
         
         // Tab switching with Tailwind classes
-        function showTab(tabName) {
+        function showTab(tabName, clickedElement = null) {
             // Hide all tabs
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.add('hidden');
@@ -2180,12 +2185,22 @@
             });
             
             // Show selected tab
-            document.getElementById(tabName).classList.remove('hidden');
+            const targetTab = document.getElementById(tabName);
+            if (targetTab) {
+                targetTab.classList.remove('hidden');
+            }
             
             // Add active styling to clicked button
-            if (event && event.target) {
-                event.target.classList.remove('border-transparent', 'text-gray-600');
-                event.target.classList.add('border-secondary', 'text-secondary');
+            if (clickedElement) {
+                clickedElement.classList.remove('border-transparent', 'text-gray-600');
+                clickedElement.classList.add('border-secondary', 'text-secondary');
+            } else {
+                // Fallback: find the button with the matching onclick
+                const tabButton = document.querySelector(`button[onclick*="showTab('${tabName}')"]`);
+                if (tabButton) {
+                    tabButton.classList.remove('border-transparent', 'text-gray-600');
+                    tabButton.classList.add('border-secondary', 'text-secondary');
+                }
             }
             
             // Load specific data when tabs are opened
@@ -2733,6 +2748,9 @@
         // All additional functionality is loaded from /static/js/v3-functions.js
         // This file includes: form handlers, news manager, sports config, editor, JSON validation, and more
     </script>
+    
+    <!-- Load sports configuration functions -->
+    <script src="/static/js/sports-functions.js"></script>
             </div>
         </div>
     </div>

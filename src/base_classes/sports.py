@@ -33,8 +33,14 @@ class SportsCore(ABC):
         self.odds_manager = OddsManager(
             self.cache_manager, self.config_manager)
         self.display_manager = display_manager
-        self.display_width = self.display_manager.matrix.width
-        self.display_height = self.display_manager.matrix.height
+        # Handle fallback mode where matrix might be None
+        if self.display_manager.matrix is not None:
+            self.display_width = self.display_manager.matrix.width
+            self.display_height = self.display_manager.matrix.height
+        else:
+            # Use fallback dimensions from image size
+            self.display_width = self.display_manager.image.width
+            self.display_height = self.display_manager.image.height
 
         self.sport_key = sport_key
         self.sport = None

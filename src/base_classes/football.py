@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 import logging
 from PIL import Image, ImageDraw, ImageFont
 import time
+import threading
 from src.base_classes.data_sources import ESPNDataSource
 from src.base_classes.sports import SportsCore, SportsLive
 
@@ -15,6 +16,28 @@ class Football(SportsCore):
         super().__init__(config, display_manager, cache_manager, logger, sport_key)
         self.data_source = ESPNDataSource(logger)
         self.sport = "football"
+        
+        # Touchdown animation settings
+        self.touchdown_animation_enabled = self.mode_config.get("touchdown_animation", {}).get("enabled", True)
+        self.touchdown_animation_duration = self.mode_config.get("touchdown_animation", {}).get("duration", 3.0)
+        self.touchdown_animation_flash_speed = self.mode_config.get("touchdown_animation", {}).get("flash_speed", 0.3)
+        
+        # Convert color lists to tuples for PIL compatibility
+        raw_colors = self.mode_config.get("touchdown_animation", {}).get("colors", {
+            "primary": [255, 215, 0],  # Gold
+            "secondary": [255, 255, 255],  # White
+            "background": [0, 0, 0]  # Black
+        })
+        self.touchdown_animation_colors = {
+            key: tuple(color) if isinstance(color, list) else color
+            for key, color in raw_colors.items()
+        }
+        
+        # Touchdown animation state
+        self._touchdown_animation_active = False
+        self._touchdown_animation_start_time = 0
+        self._last_touchdown_game_id = None
+        self._touchdown_animation_thread = None
 
     def _extract_game_details(self, game_event: Dict) -> Optional[Dict]:
         """Extract relevant game details from ESPN NCAA FB API response."""
@@ -116,6 +139,165 @@ class Football(SportsCore):
             logging.error(f"Error extracting game details: {e} from event: {game_event.get('id')}", exc_info=True)
             return None
 
+    def _check_for_touchdown(self, game: Dict) -> bool:
+        """Check if a touchdown just occurred and trigger animation if needed."""
+        if not self.touchdown_animation_enabled or not game.get("is_live", False):
+            return False
+            
+        game_id = game.get("id")
+        scoring_event = game.get("scoring_event", "")
+        
+        # Check if this is a new touchdown
+        if (scoring_event == "TOUCHDOWN" and 
+            game_id != self._last_touchdown_game_id and 
+            not self._touchdown_animation_active):
+            
+            self.logger.info(f"[{self.sport.upper()}] Touchdown detected in game {game_id}!")
+            self._trigger_touchdown_animation(game)
+            self._last_touchdown_game_id = game_id
+            return True
+            
+        return False
+
+    def _trigger_touchdown_animation(self, game: Dict) -> None:
+        """Start the touchdown animation in a separate thread."""
+        if self._touchdown_animation_active:
+            return  # Animation already running
+            
+        self._touchdown_animation_active = True
+        self._touchdown_animation_start_time = time.time()
+        
+        # Start animation in separate thread to avoid blocking display updates
+        self._touchdown_animation_thread = threading.Thread(
+            target=self._run_touchdown_animation,
+            args=(game,),
+            daemon=True
+        )
+        self._touchdown_animation_thread.start()
+
+    def _run_touchdown_animation(self, game: Dict) -> None:
+        """Run the touchdown animation sequence."""
+        try:
+            self.logger.info(f"[{self.sport.upper()}] Starting touchdown animation for {game.get('away_abbr')} @ {game.get('home_abbr')}")
+            
+            animation_start = time.time()
+            flash_cycle = 0
+            
+            while (time.time() - animation_start) < self.touchdown_animation_duration:
+                if not self._touchdown_animation_active:
+                    break
+                    
+                # Create animation frame
+                self._create_touchdown_animation_frame(game, flash_cycle)
+                
+                # Update display
+                self.display_manager.update_display()
+                
+                # Wait for next frame
+                time.sleep(self.touchdown_animation_flash_speed)
+                flash_cycle += 1
+                
+        except Exception as e:
+            self.logger.error(f"Error during touchdown animation: {e}", exc_info=True)
+        finally:
+            self._touchdown_animation_active = False
+            self.logger.info(f"[{self.sport.upper()}] Touchdown animation completed")
+
+    def _create_touchdown_animation_frame(self, game: Dict, flash_cycle: int) -> None:
+        """Create a single frame of the touchdown animation."""
+        try:
+            # Determine flash state (alternating colors)
+            is_primary_color = (flash_cycle % 2) == 0
+            primary_color = self.touchdown_animation_colors["primary"]
+            secondary_color = self.touchdown_animation_colors["secondary"]
+            background_color = self.touchdown_animation_colors["background"]
+            
+            # Create base image with background color
+            main_img = Image.new('RGB', (self.display_width, self.display_height), background_color)
+            draw = ImageDraw.Draw(main_img)
+            
+            # Load team logos
+            home_logo = self._load_and_resize_logo(
+                game["home_id"], game["home_abbr"], 
+                game["home_logo_path"], game.get("home_logo_url")
+            )
+            away_logo = self._load_and_resize_logo(
+                game["away_id"], game["away_abbr"], 
+                game["away_logo_path"], game.get("away_logo_url")
+            )
+            
+            if home_logo and away_logo:
+                center_y = self.display_height // 2
+                
+                # Position logos
+                home_x = self.display_width - home_logo.width + 10
+                home_y = center_y - (home_logo.height // 2)
+                main_img.paste(home_logo, (home_x, home_y), home_logo)
+                
+                away_x = -10
+                away_y = center_y - (away_logo.height // 2)
+                main_img.paste(away_logo, (away_x, away_y), away_logo)
+            
+            # Draw "TOUCHDOWN!" text in large, flashing letters
+            touchdown_text = "TOUCHDOWN!"
+            text_color = primary_color if is_primary_color else secondary_color
+            
+            # Use larger font for touchdown text
+            try:
+                touchdown_font = ImageFont.truetype("assets/fonts/6x12-font.ttf", 12)
+            except IOError:
+                touchdown_font = ImageFont.load_default()
+            
+            # Center the touchdown text
+            text_width = draw.textlength(touchdown_text, font=touchdown_font)
+            text_x = (self.display_width - text_width) // 2
+            text_y = self.display_height // 2 - 10
+            
+            # Draw text with outline for visibility
+            self._draw_text_with_outline(
+                draw, touchdown_text, (text_x, text_y), 
+                touchdown_font, fill=text_color
+            )
+            
+            # Draw scores in smaller text below
+            home_score = str(game.get("home_score", "0"))
+            away_score = str(game.get("away_score", "0"))
+            score_text = f"{away_score} - {home_score}"
+            
+            try:
+                score_font = ImageFont.truetype("assets/fonts/4x6-font.ttf", 8)
+            except IOError:
+                score_font = ImageFont.load_default()
+            
+            score_width = draw.textlength(score_text, font=score_font)
+            score_x = (self.display_width - score_width) // 2
+            score_y = text_y + 15
+            
+            self._draw_text_with_outline(
+                draw, score_text, (score_x, score_y), 
+                score_font, fill=text_color
+            )
+            
+            # Draw team names
+            away_name = game.get("away_abbr", "")
+            home_name = game.get("home_abbr", "")
+            matchup_text = f"{away_name} @ {home_name}"
+            
+            matchup_width = draw.textlength(matchup_text, font=score_font)
+            matchup_x = (self.display_width - matchup_width) // 2
+            matchup_y = score_y + 12
+            
+            self._draw_text_with_outline(
+                draw, matchup_text, (matchup_x, matchup_y), 
+                score_font, fill=text_color
+            )
+            
+            # Set the image for display
+            self.display_manager.image = main_img
+            
+        except Exception as e:
+            self.logger.error(f"Error creating touchdown animation frame: {e}", exc_info=True)
+
 class FootballLive(Football, SportsLive):
     def __init__(self, config: Dict[str, Any], display_manager: DisplayManager, cache_manager: CacheManager, logger: logging.Logger, sport_key: str):
         super().__init__(config, display_manager, cache_manager, logger, sport_key)
@@ -162,6 +344,12 @@ class FootballLive(Football, SportsLive):
     def _draw_scorebug_layout(self, game: Dict, force_clear: bool = False) -> None:
         """Draw the detailed scorebug layout for a live NCAA FB game.""" # Updated docstring
         try:
+            # Check for touchdown and trigger animation if needed
+            self._check_for_touchdown(game)
+            
+            # If touchdown animation is active, don't draw normal layout
+            if self._touchdown_animation_active:
+                return
             main_img = Image.new('RGBA', (self.display_width, self.display_height), (0, 0, 0, 255))
             overlay = Image.new('RGBA', (self.display_width, self.display_height), (0, 0, 0, 0))
             draw_overlay = ImageDraw.Draw(overlay) # Draw text elements on overlay first

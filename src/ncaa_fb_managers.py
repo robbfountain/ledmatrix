@@ -173,6 +173,7 @@ class NCAAFBLiveManager(BaseNCAAFBManager, FootballLive): # Renamed class
                 "home_timeouts": 1, "away_timeouts": 2,
                 "home_logo_path": Path(self.logo_dir, "UGA.png"),
                 "away_logo_path": Path(self.logo_dir, "AUB.png"),
+                "scoring_event": "TOUCHDOWN",  # Add this to trigger animation
                 "is_live": True, "is_final": False, "is_upcoming": False, "is_halftime": False,
                 "status_text": "Q4 01:15"
             }

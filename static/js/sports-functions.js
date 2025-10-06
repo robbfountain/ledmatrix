@@ -50,91 +50,85 @@ async function refreshSportsConfig() {
             const recentModeEnabled = displayModes[`${p}_recent`] ?? true;
             const upcomingModeEnabled = displayModes[`${p}_upcoming`] ?? true;
             return `
-                <div style="border:1px solid #ddd; border-radius:6px; padding:12px; margin:10px 0;">
-                    <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom:8px;">
-                        <label style="display:flex; align-items:center; gap:8px; margin:0;">
-                            <input type="checkbox" data-league="${l.key}" class="sp-enabled" ${sec.enabled ? 'checked' : ''}>
-                            <strong>${l.label}</strong>
+                <div class="bg-white border border-gray-200 rounded-lg p-4 mb-4 shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" data-league="${l.key}" class="sp-enabled rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${sec.enabled ? 'checked' : ''}>
+                            <span class="font-semibold text-gray-800">${l.label}</span>
                         </label>
-                        <div style="display:flex; gap:6px;">
-                            <button type="button" class="btn btn-info" onclick="startOnDemand('${p}_live')"><i class="fas fa-bolt"></i> Live</button>
-                            <button type="button" class="btn btn-info" onclick="startOnDemand('${p}_recent')"><i class="fas fa-bolt"></i> Recent</button>
-                            <button type="button" class="btn btn-info" onclick="startOnDemand('${p}_upcoming')"><i class="fas fa-bolt"></i> Upcoming</button>
-                            <button type="button" class="btn btn-secondary" onclick="stopOnDemand()"><i class="fas fa-ban"></i> Stop</button>
+                        <div class="flex gap-2">
+                            <button type="button" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm transition" onclick="startOnDemand('${p}_live')"><i class="fas fa-bolt mr-1"></i>Live</button>
+                            <button type="button" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm transition" onclick="startOnDemand('${p}_recent')"><i class="fas fa-bolt mr-1"></i>Recent</button>
+                            <button type="button" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded text-sm transition" onclick="startOnDemand('${p}_upcoming')"><i class="fas fa-bolt mr-1"></i>Upcoming</button>
+                            <button type="button" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-sm transition" onclick="stopOnDemand()"><i class="fas fa-ban mr-1"></i>Stop</button>
                         </div>
                     </div>
-                    <div style="margin-top:15px;">
-                        <h4 style="margin: 0 0 10px 0; color: var(--primary-color); font-size: 16px;">
-                            <i class="fas fa-toggle-on"></i> Display Modes
+                    <div class="mt-4">
+                        <h4 class="text-md font-semibold text-gray-700 mb-3">
+                            <i class="fas fa-toggle-on mr-2"></i>Display Modes
                         </h4>
-                        <div class="display-mode-toggle">
-                            <label>
-                                <input type="checkbox" data-league="${l.key}" class="sp-display-mode" data-mode="live" ${liveModeEnabled ? 'checked' : ''}>
-                                <i class="fas fa-circle mode-icon mode-live"></i>
-                                <span class="mode-label mode-live">Live Mode</span>
+                        <div class="space-y-2">
+                            <label class="flex items-center gap-3 p-2 bg-gray-50 rounded border">
+                                <input type="checkbox" data-league="${l.key}" class="sp-display-mode rounded border-gray-300 text-green-600 focus:ring-green-500" data-mode="live" ${liveModeEnabled ? 'checked' : ''}>
+                                <i class="fas fa-circle text-green-500"></i>
+                                <span class="text-sm font-medium text-gray-700">Live Mode</span>
                             </label>
-                        </div>
-                        <div class="display-mode-toggle">
-                            <label>
-                                <input type="checkbox" data-league="${l.key}" class="sp-display-mode" data-mode="recent" ${recentModeEnabled ? 'checked' : ''}>
-                                <i class="fas fa-history mode-icon mode-recent"></i>
-                                <span class="mode-label mode-recent">Recent Mode</span>
+                            <label class="flex items-center gap-3 p-2 bg-gray-50 rounded border">
+                                <input type="checkbox" data-league="${l.key}" class="sp-display-mode rounded border-gray-300 text-blue-600 focus:ring-blue-500" data-mode="recent" ${recentModeEnabled ? 'checked' : ''}>
+                                <i class="fas fa-history text-blue-500"></i>
+                                <span class="text-sm font-medium text-gray-700">Recent Mode</span>
                             </label>
-                        </div>
-                        <div class="display-mode-toggle">
-                            <label>
-                                <input type="checkbox" data-league="${l.key}" class="sp-display-mode" data-mode="upcoming" ${upcomingModeEnabled ? 'checked' : ''}>
-                                <i class="fas fa-clock mode-icon mode-upcoming"></i>
-                                <span class="mode-label mode-upcoming">Upcoming Mode</span>
+                            <label class="flex items-center gap-3 p-2 bg-gray-50 rounded border">
+                                <input type="checkbox" data-league="${l.key}" class="sp-display-mode rounded border-gray-300 text-purple-600 focus:ring-purple-500" data-mode="upcoming" ${upcomingModeEnabled ? 'checked' : ''}>
+                                <i class="fas fa-clock text-purple-500"></i>
+                                <span class="text-sm font-medium text-gray-700">Upcoming Mode</span>
                             </label>
                         </div>
                     </div>
-                    <div class="form-row" style="margin-top:10px;">
-                        <div class="form-group">
-                            <label>Live Priority</label>
-                            <input type="checkbox" data-league="${l.key}" class="sp-live-priority" ${sec.live_priority ? 'checked' : ''}>
+                    <div class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Live Priority</label>
+                            <input type="checkbox" data-league="${l.key}" class="sp-live-priority rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${sec.live_priority ? 'checked' : ''}>
                         </div>
-                        <div class="form-group">
-                            <label>Show Odds</label>
-                            <input type="checkbox" data-league="${l.key}" class="sp-show-odds" ${sec.show_odds ? 'checked' : ''}>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Show Odds</label>
+                            <input type="checkbox" data-league="${l.key}" class="sp-show-odds rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${sec.show_odds ? 'checked' : ''}>
                         </div>
-                        <div class="form-group">
-                            <label>Favorites Only</label>
-                            <input type="checkbox" data-league="${l.key}" class="sp-favorites-only" ${sec.show_favorite_teams_only ? 'checked' : ''}>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Favorites Only</label>
+                            <input type="checkbox" data-league="${l.key}" class="sp-favorites-only rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${sec.show_favorite_teams_only ? 'checked' : ''}>
                         </div>
-                        <div class="form-group">
-                            <label>Test Mode</label>
-                            <input type="checkbox" data-league="${l.key}" class="sp-test-mode" ${sec.test_mode ? 'checked' : ''}>
-                            <div class="description">Enable test mode for demo purposes</div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Test Mode</label>
+                            <input type="checkbox" data-league="${l.key}" class="sp-test-mode rounded border-gray-300 text-orange-600 focus:ring-orange-500" ${sec.test_mode ? 'checked' : ''}>
+                            <p class="text-xs text-gray-500 mt-1">Enable test mode for demo purposes</p>
                         </div>
-                        <div class="form-group">
-                            <label>Favorite Teams</label>
-                            <input type="text" data-league="${l.key}" class="form-control sp-favorites" value="${fav}">
-                            <div class="description">Comma-separated abbreviations</div>
-                        </div>
-                    </div>
-                    <div class="form-row" style="margin-top:10px;">
-                        <div class="form-group">
-                            <label>Live Update Interval (sec)</label>
-                            <input type="number" min="10" class="form-control sp-live-update" data-league="${l.key}" value="${liveUpd}">
-                        </div>
-                        <div class="form-group">
-                            <label>Recent Update Interval (sec)</label>
-                            <input type="number" min="60" class="form-control sp-recent-update" data-league="${l.key}" value="${recentUpd}">
-                        </div>
-                        <div class="form-group">
-                            <label>Upcoming Update Interval (sec)</label>
-                            <input type="number" min="60" class="form-control sp-upcoming-update" data-league="${l.key}" value="${upcomingUpd}">
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Favorite Teams</label>
+                            <input type="text" data-league="${l.key}" class="sp-favorites w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" value="${fav}" placeholder="PHI, PSU">
+                            <p class="text-xs text-gray-500 mt-1">Comma-separated abbreviations</p>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Recent Games to Show</label>
-                            <input type="number" min="0" class="form-control sp-recent-count" data-league="${l.key}" value="${recentToShow}">
+                    <div class="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Live Update Interval (sec)</label>
+                            <input type="number" min="10" class="sp-live-update w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" data-league="${l.key}" value="${liveUpd}">
                         </div>
-                        <div class="form-group">
-                            <label>Upcoming Games to Show</label>
-                            <input type="number" min="0" class="form-control sp-upcoming-count" data-league="${l.key}" value="${upcomingToShow}">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Recent Update Interval (sec)</label>
+                            <input type="number" min="60" class="sp-recent-update w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" data-league="${l.key}" value="${recentUpd}">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Upcoming Update Interval (sec)</label>
+                            <input type="number" min="60" class="sp-upcoming-update w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" data-league="${l.key}" value="${upcomingUpd}">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Recent Games to Show</label>
+                            <input type="number" min="0" class="sp-recent-count w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" data-league="${l.key}" value="${recentToShow}">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Upcoming Games to Show</label>
+                            <input type="number" min="0" class="sp-upcoming-count w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" data-league="${l.key}" value="${upcomingToShow}">
                         </div>
                     </div>
                 </div>
@@ -150,22 +144,21 @@ async function refreshSportsConfig() {
                 const mode = this.getAttribute('data-mode');
                 const isEnabled = this.checked;
                 
-                // Visual feedback
+                // Visual feedback using Tailwind classes
                 const label = this.closest('label');
-                const toggle = this.closest('.display-mode-toggle');
                 
                 if (isEnabled) {
-                    toggle.style.backgroundColor = 'rgba(46, 204, 113, 0.1)';
-                    toggle.style.borderColor = '#2ecc71';
+                    label.classList.add('bg-green-50', 'border-green-200');
+                    label.classList.remove('bg-gray-50', 'border-gray-200');
                 } else {
-                    toggle.style.backgroundColor = 'rgba(231, 76, 60, 0.1)';
-                    toggle.style.borderColor = '#e74c3c';
+                    label.classList.add('bg-red-50', 'border-red-200');
+                    label.classList.remove('bg-gray-50', 'border-gray-200');
                 }
                 
                 // Reset after a short delay
                 setTimeout(() => {
-                    toggle.style.backgroundColor = '';
-                    toggle.style.borderColor = '';
+                    label.classList.remove('bg-green-50', 'border-green-200', 'bg-red-50', 'border-red-200');
+                    label.classList.add('bg-gray-50', 'border-gray-200');
                 }, 1000);
                 
                 showNotification(`${league.toUpperCase()} ${mode} mode ${isEnabled ? 'enabled' : 'disabled'}`, 'success');
@@ -239,4 +232,3 @@ async function saveSportsConfig() {
     }
     showNotification('Sports configuration saved', 'success');
 }
-
