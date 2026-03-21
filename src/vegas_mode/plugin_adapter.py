@@ -408,7 +408,10 @@ class PluginAdapter:
             original_image = self.display_manager.image.copy()
             logger.info("[%s] Fallback: saved original display state", plugin_id)
 
-            # Ensure plugin has fresh data before capturing
+            # Lightweight in-memory data refresh before capturing.
+            # Full update() is intentionally skipped here — the background
+            # update tick in the Vegas coordinator handles periodic API
+            # refreshes so we don't block the content-fetch thread.
             has_update_data = hasattr(plugin, 'update_data')
             logger.info("[%s] Fallback: has update_data=%s", plugin_id, has_update_data)
             if has_update_data:
@@ -581,6 +584,28 @@ class PluginAdapter:
                 self._content_cache.pop(plugin_id, None)
             else:
                 self._content_cache.clear()
+
+    def invalidate_plugin_scroll_cache(self, plugin: 'BasePlugin', plugin_id: str) -> None:
+        """
+        Clear a plugin's scroll_helper cache so Vegas re-fetches fresh visuals.
+
+        Uses scroll_helper.clear_cache() to reset all cached state (cached_image,
+        cached_array, total_scroll_width, scroll_position, etc.) — not just the
+        image.  Without this, plugins that use scroll_helper (stocks, news,
+        odds-ticker, etc.) would keep serving stale scroll images even after
+        their data refreshes.
+
+        Args:
+            plugin: Plugin instance
+            plugin_id: Plugin identifier
+        """
+        scroll_helper = getattr(plugin, 'scroll_helper', None)
+        if scroll_helper is None:
+            return
+
+        if getattr(scroll_helper, 'cached_image', None) is not None:
+            scroll_helper.clear_cache()
+            logger.debug("[%s] Cleared scroll_helper cache", plugin_id)
 
     def get_content_type(self, plugin: 'BasePlugin', plugin_id: str) -> str:
         """
