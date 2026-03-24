@@ -4612,6 +4612,13 @@ def save_plugin_config():
             seed_value = plugin_config['rotation_settings']['random_seed']
             logger.debug(f"After normalization, random_seed value: {repr(seed_value)}, type: {type(seed_value)}")
 
+        # Deduplicate arrays where schema specifies uniqueItems: true
+        # This prevents validation failures when form merging introduces duplicates
+        # (e.g., existing config has ['AAPL','FNMA'] and form adds 'FNMA' again)
+        if schema:
+            from src.web_interface.validators import dedup_unique_arrays
+            dedup_unique_arrays(plugin_config, schema)
+
         # Validate configuration against schema before saving
         if schema:
             # Log what we're validating for debugging
