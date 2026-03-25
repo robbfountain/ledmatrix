@@ -651,12 +651,49 @@ def _initialize_health_monitor():
     
     _health_monitor_initialized = True
 
-# Initialize health monitor on first request (using before_request for compatibility)
+_reconciliation_done = False
+_reconciliation_started = False
+
+def _run_startup_reconciliation():
+    """Run state reconciliation in background to auto-repair missing plugins."""
+    global _reconciliation_done, _reconciliation_started
+    from src.logging_config import get_logger
+    _logger = get_logger('reconciliation')
+
+    try:
+        from src.plugin_system.state_reconciliation import StateReconciliation
+        reconciler = StateReconciliation(
+            state_manager=plugin_state_manager,
+            config_manager=config_manager,
+            plugin_manager=plugin_manager,
+            plugins_dir=plugins_dir,
+            store_manager=plugin_store_manager
+        )
+        result = reconciler.reconcile_state()
+        if result.inconsistencies_found:
+            _logger.info("[Reconciliation] %s", result.message)
+        if result.reconciliation_successful:
+            if result.inconsistencies_fixed:
+                plugin_manager.discover_plugins()
+            _reconciliation_done = True
+        else:
+            _logger.warning("[Reconciliation] Finished with unresolved issues, will retry")
+            _reconciliation_started = False
+    except Exception as e:
+        _logger.error("[Reconciliation] Error: %s", e, exc_info=True)
+        _reconciliation_started = False
+
+# Initialize health monitor and run reconciliation on first request
 @app.before_request
 def check_health_monitor():
-    """Ensure health monitor is initialized on first request."""
+    """Ensure health monitor is initialized; launch reconciliation in background."""
+    global _reconciliation_started
     if not _health_monitor_initialized:
         _initialize_health_monitor()
+    if not _reconciliation_started:
+        _reconciliation_started = True
+        import threading
+        threading.Thread(target=_run_startup_reconciliation, daemon=True).start()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
