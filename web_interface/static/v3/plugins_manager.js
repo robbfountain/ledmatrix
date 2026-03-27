@@ -2265,29 +2265,39 @@ window.showPluginConfigModal = function(pluginId, config) {
 }
 
 // Helper function to get the full property object from schema
+// Uses greedy longest-match to handle schema keys containing dots (e.g., "eng.1")
 function getSchemaProperty(schema, path) {
     if (!schema || !schema.properties) return null;
-    
+
     const parts = path.split('.');
     let current = schema.properties;
-    
-    for (let i = 0; i < parts.length; i++) {
-        const part = parts[i];
-        if (current && current[part]) {
-            if (i === parts.length - 1) {
-                // Last part - return the property
-                return current[part];
-            } else if (current[part].properties) {
-                // Navigate into nested object
-                current = current[part].properties;
-            } else {
-                return null;
+    let i = 0;
+
+    while (i < parts.length) {
+        let matched = false;
+        // Try progressively longer candidates, longest first
+        for (let j = parts.length; j > i; j--) {
+            const candidate = parts.slice(i, j).join('.');
+            if (current && current[candidate]) {
+                if (j === parts.length) {
+                    // Consumed all remaining parts — done
+                    return current[candidate];
+                }
+                if (current[candidate].properties) {
+                    current = current[candidate].properties;
+                    i = j;
+                    matched = true;
+                    break;
+                } else {
+                    return null; // Can't navigate deeper
+                }
             }
-        } else {
+        }
+        if (!matched) {
             return null;
         }
     }
-    
+
     return null;
 }
 
@@ -2311,23 +2321,70 @@ function escapeCssSelector(str) {
 }
 
 // Helper function to convert dot notation to nested object
-function dotToNested(obj) {
+// Uses schema-aware greedy matching to preserve dotted keys (e.g., "eng.1")
+function dotToNested(obj, schema) {
     const result = {};
-    
+
     for (const key in obj) {
         const parts = key.split('.');
         let current = result;
-        
-        for (let i = 0; i < parts.length - 1; i++) {
-            if (!current[parts[i]]) {
-                current[parts[i]] = {};
+        let currentSchema = (schema && schema.properties) ? schema.properties : null;
+        let i = 0;
+
+        while (i < parts.length - 1) {
+            let matched = false;
+            if (currentSchema) {
+                // First, check if the full remaining tail is a leaf property
+                // (e.g., "eng.1" as a complete dotted key with no sub-properties)
+                const tailCandidate = parts.slice(i).join('.');
+                if (tailCandidate in currentSchema) {
+                    current[tailCandidate] = obj[key];
+                    matched = true;
+                    i = parts.length; // consumed all parts
+                    break;
+                }
+                // Try progressively longer candidates (longest first) to greedily
+                // match dotted property names like "eng.1"
+                for (let j = parts.length - 1; j > i; j--) {
+                    const candidate = parts.slice(i, j).join('.');
+                    if (candidate in currentSchema) {
+                        if (!current[candidate]) {
+                            current[candidate] = {};
+                        }
+                        current = current[candidate];
+                        const schemaProp = currentSchema[candidate];
+                        currentSchema = (schemaProp && schemaProp.properties) ? schemaProp.properties : null;
+                        i = j;
+                        matched = true;
+                        break;
+                    }
+                }
             }
-            current = current[parts[i]];
+            if (!matched) {
+                // No schema match or no schema — use single segment
+                const part = parts[i];
+                if (!current[part]) {
+                    current[part] = {};
+                }
+                current = current[part];
+                if (currentSchema) {
+                    const schemaProp = currentSchema[part];
+                    currentSchema = (schemaProp && schemaProp.properties) ? schemaProp.properties : null;
+                } else {
+                    currentSchema = null;
+                }
+                i++;
+            }
         }
-        
-        current[parts[parts.length - 1]] = obj[key];
+
+        // Set the final key (remaining parts joined — may itself be dotted)
+        // Skip if tail-matching already consumed all parts and wrote the value
+        if (i < parts.length) {
+            const finalKey = parts.slice(i).join('.');
+            current[finalKey] = obj[key];
+        }
     }
-    
+
     return result;
 }
 
@@ -2350,42 +2407,20 @@ function collectBooleanFields(schema, prefix = '') {
     return boolFields;
 }
 
-function handlePluginConfigSubmit(e) {
-    e.preventDefault();
-    console.log('Form submitted');
-    
-    if (!currentPluginConfig) {
-        showNotification('Plugin configuration not loaded', 'error');
-        return;
-    }
-    
-    const pluginId = currentPluginConfig.pluginId;
-    const schema = currentPluginConfig.schema;
-    const form = e.target;
-    
-    // Fix invalid hidden fields before submission
-    // This prevents "invalid form control is not focusable" errors
-    const allInputs = form.querySelectorAll('input[type="number"]');
-    allInputs.forEach(input => {
-        const min = parseFloat(input.getAttribute('min'));
-        const max = parseFloat(input.getAttribute('max'));
-        const value = parseFloat(input.value);
-        
-        if (!isNaN(value)) {
-            if (!isNaN(min) && value < min) {
-                input.value = min;
-            } else if (!isNaN(max) && value > max) {
-                input.value = max;
-            }
-        }
-    });
-    
+/**
+ * Normalize FormData from a plugin config form into a nested config object.
+ * Handles _data JSON inputs, bracket-notation checkboxes, array-of-objects,
+ * file-upload widgets, proper checkbox DOM detection, unchecked boolean
+ * handling, and schema-aware dotted-key nesting.
+ *
+ * @param {HTMLFormElement} form - The form element (needed for checkbox DOM detection)
+ * @param {Object|null} schema - The plugin's JSON Schema
+ * @returns {Object} Nested config object ready for saving
+ */
+function normalizeFormDataForConfig(form, schema) {
     const formData = new FormData(form);
     const flatConfig = {};
-    
-    console.log('Schema loaded:', schema ? 'Yes' : 'No');
-    
-    // Process form data with type conversion (using dot notation for nested fields)
+
     for (const [key, value] of formData.entries()) {
         // Check if this is a patternProperties or array-of-objects hidden input (contains JSON data)
         // Only match keys ending with '_data' to avoid false positives like 'meta_data_field'
@@ -2397,36 +2432,35 @@ function handlePluginConfigSubmit(e) {
                 // Only treat as JSON-backed when it's a non-null object (null is typeof 'object' in JavaScript)
                 if (jsonValue !== null && typeof jsonValue === 'object') {
                     flatConfig[baseKey] = jsonValue;
-                    console.log(`JSON data field ${baseKey}: parsed ${Array.isArray(jsonValue) ? 'array' : 'object'}`, jsonValue);
                     continue; // Skip normal processing for JSON data fields
                 }
             } catch (e) {
                 // Not valid JSON, continue with normal processing
             }
         }
-        
+
         // Skip checkbox-group inputs with bracket notation (they're handled by the hidden _data input)
         // Pattern: fieldName[] - these are individual checkboxes, actual data is in fieldName_data
         if (key.endsWith('[]')) {
             continue;
         }
-        
+
         // Skip key_value pair inputs (they're handled by the hidden _data input)
         if (key.includes('[key_') || key.includes('[value_')) {
             continue;
         }
-        
+
         // Skip array-of-objects per-item inputs (they're handled by the hidden _data input)
         // Pattern: feeds_item_0_name, feeds_item_1_url, etc.
         if (key.includes('_item_') && /_item_\d+_/.test(key)) {
             continue;
         }
-        
+
         // Try to get schema property - handle both dot notation and underscore notation
         let propSchema = getSchemaPropertyType(schema, key);
         let actualKey = key;
         let actualValue = value;
-        
+
         // If not found with dots, try converting underscores to dots (for nested fields)
         if (!propSchema && key.includes('_')) {
             const dotKey = key.replace(/_/g, '.');
@@ -2437,10 +2471,10 @@ function handlePluginConfigSubmit(e) {
                 actualValue = value;
             }
         }
-        
+
         if (propSchema) {
             const propType = propSchema.type;
-            
+
             if (propType === 'array') {
                 // Check if this is a file upload widget (JSON array)
                 if (propSchema['x-widget'] === 'file-upload') {
@@ -2454,11 +2488,10 @@ function handlePluginConfigSubmit(e) {
                             tempDiv.innerHTML = actualValue;
                             decodedValue = tempDiv.textContent || tempDiv.innerText || actualValue;
                         }
-                        
+
                         const jsonValue = JSON.parse(decodedValue);
                         if (Array.isArray(jsonValue)) {
                             flatConfig[actualKey] = jsonValue;
-                            console.log(`File upload array field ${actualKey}: parsed JSON array with ${jsonValue.length} items`);
                         } else {
                             // Fallback to comma-separated
                             const arrayValue = decodedValue ? decodedValue.split(',').map(v => v.trim()).filter(v => v) : [];
@@ -2468,13 +2501,11 @@ function handlePluginConfigSubmit(e) {
                         // Not JSON, use comma-separated
                         const arrayValue = actualValue ? actualValue.split(',').map(v => v.trim()).filter(v => v) : [];
                         flatConfig[actualKey] = arrayValue;
-                        console.log(`Array field ${actualKey}: "${actualValue}" -> `, arrayValue);
                     }
                 } else {
                     // Regular array: convert comma-separated string to array
                     const arrayValue = actualValue ? actualValue.split(',').map(v => v.trim()).filter(v => v) : [];
                     flatConfig[actualKey] = arrayValue;
-                    console.log(`Array field ${actualKey}: "${actualValue}" -> `, arrayValue);
                 }
             } else if (propType === 'integer') {
                 flatConfig[actualKey] = parseInt(actualValue, 10);
@@ -2485,14 +2516,13 @@ function handlePluginConfigSubmit(e) {
                 // Escape special CSS selector characters in the name
                 const escapedKey = escapeCssSelector(key);
                 const formElement = form.querySelector(`input[type="checkbox"][name="${escapedKey}"]`);
-                
+
                 if (formElement) {
                     // Element found - use its checked state
                     flatConfig[actualKey] = formElement.checked;
                 } else {
                     // Element not found - normalize string booleans and check FormData value
                     // Checkboxes send "on" when checked, nothing when unchecked
-                    // Normalize string representations of booleans
                     if (typeof actualValue === 'string') {
                         const lowerValue = actualValue.toLowerCase().trim();
                         if (lowerValue === 'true' || lowerValue === '1' || lowerValue === 'on') {
@@ -2500,13 +2530,11 @@ function handlePluginConfigSubmit(e) {
                         } else if (lowerValue === 'false' || lowerValue === '0' || lowerValue === 'off' || lowerValue === '') {
                             flatConfig[actualKey] = false;
                         } else {
-                            // Non-empty string that's not a boolean representation - treat as truthy
                             flatConfig[actualKey] = true;
                         }
                     } else if (actualValue === undefined || actualValue === null) {
                         flatConfig[actualKey] = false;
                     } else {
-                        // Non-string value - coerce to boolean
                         flatConfig[actualKey] = Boolean(actualValue);
                     }
                 }
@@ -2523,10 +2551,9 @@ function handlePluginConfigSubmit(e) {
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = actualValue;
                     decodedValue = tempDiv.textContent || tempDiv.innerText || actualValue;
-                    
+
                     const parsed = JSON.parse(decodedValue);
                     flatConfig[actualKey] = parsed;
-                    console.log(`No schema for ${actualKey}, but parsed as JSON:`, parsed);
                 } catch (e) {
                     // Not valid JSON, save as string
                     flatConfig[actualKey] = actualValue;
@@ -2535,12 +2562,10 @@ function handlePluginConfigSubmit(e) {
                 // No schema - try to detect checkbox by finding the element
                 const escapedKey = escapeCssSelector(key);
                 const formElement = form.querySelector(`input[type="checkbox"][name="${escapedKey}"]`);
-                
+
                 if (formElement && formElement.type === 'checkbox') {
-                    // Found checkbox element - use its checked state
                     flatConfig[actualKey] = formElement.checked;
                 } else {
-                    // Not a checkbox or element not found - normalize string booleans
                     if (typeof actualValue === 'string') {
                         const lowerValue = actualValue.toLowerCase().trim();
                         if (lowerValue === 'true' || lowerValue === '1' || lowerValue === 'on') {
@@ -2548,18 +2573,16 @@ function handlePluginConfigSubmit(e) {
                         } else if (lowerValue === 'false' || lowerValue === '0' || lowerValue === 'off' || lowerValue === '') {
                             flatConfig[actualKey] = false;
                         } else {
-                            // Non-empty string that's not a boolean representation - keep as string
                             flatConfig[actualKey] = actualValue;
                         }
                     } else {
-                        // Non-string value - use as-is
                         flatConfig[actualKey] = actualValue;
                     }
                 }
             }
         }
     }
-    
+
     // Handle unchecked checkboxes (not in FormData) - including nested ones
     if (schema && schema.properties) {
         const allBoolFields = collectBooleanFields(schema);
@@ -2569,11 +2592,43 @@ function handlePluginConfigSubmit(e) {
             }
         });
     }
-    
+
     // Convert dot notation to nested object
-    const config = dotToNested(flatConfig);
-    
-    console.log('Flat config:', flatConfig);
+    return dotToNested(flatConfig, schema);
+}
+
+function handlePluginConfigSubmit(e) {
+    e.preventDefault();
+    console.log('Form submitted');
+
+    if (!currentPluginConfig) {
+        showNotification('Plugin configuration not loaded', 'error');
+        return;
+    }
+
+    const pluginId = currentPluginConfig.pluginId;
+    const schema = currentPluginConfig.schema;
+    const form = e.target;
+
+    // Fix invalid hidden fields before submission
+    // This prevents "invalid form control is not focusable" errors
+    const allInputs = form.querySelectorAll('input[type="number"]');
+    allInputs.forEach(input => {
+        const min = parseFloat(input.getAttribute('min'));
+        const max = parseFloat(input.getAttribute('max'));
+        const value = parseFloat(input.value);
+
+        if (!isNaN(value)) {
+            if (!isNaN(min) && value < min) {
+                input.value = min;
+            } else if (!isNaN(max) && value > max) {
+                input.value = max;
+            }
+        }
+    });
+
+    const config = normalizeFormDataForConfig(form, schema);
+
     console.log('Nested config to save:', config);
     
     // Save the configuration
@@ -4418,42 +4473,9 @@ function switchPluginConfigView(view) {
 function syncFormToJson() {
     const form = document.getElementById('plugin-config-form');
     if (!form) return;
-    
-    const formData = new FormData(form);
-    const config = {};
-    
-    // Get schema for type conversion
+
     const schema = currentPluginConfigState.schema;
-    
-    for (let [key, value] of formData.entries()) {
-        if (key === 'enabled') continue; // Skip enabled, managed separately
-        
-        // Handle nested keys (dot notation)
-        const keys = key.split('.');
-        let current = config;
-        for (let i = 0; i < keys.length - 1; i++) {
-            if (!current[keys[i]]) {
-                current[keys[i]] = {};
-            }
-            current = current[keys[i]];
-        }
-        
-        const finalKey = keys[keys.length - 1];
-        const prop = schema?.properties?.[finalKey] || (keys.length > 1 ? null : schema?.properties?.[key]);
-        
-        // Type conversion based on schema
-        if (prop?.type === 'array') {
-            current[finalKey] = value.split(',').map(item => item.trim()).filter(item => item.length > 0);
-        } else if (prop?.type === 'integer' || key === 'display_duration') {
-            current[finalKey] = parseInt(value) || 0;
-        } else if (prop?.type === 'number') {
-            current[finalKey] = parseFloat(value) || 0;
-        } else if (prop?.type === 'boolean') {
-            current[finalKey] = value === 'true' || value === true;
-        } else {
-            current[finalKey] = value;
-        }
-    }
+    const config = normalizeFormDataForConfig(form, schema);
     
     // Deep merge with existing config to preserve nested structures
     function deepMerge(target, source) {
