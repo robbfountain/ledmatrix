@@ -1,0 +1,12 @@
+[
+  {
+    "operation_id": "7e6ab509-65d2-4296-ab71-038b686202d7",
+    "operation_type": "enable",
+    "plugin_id": "morpheus-cloud",
+    "timestamp": "2026-04-07T12:36:03.858690",
+    "status": "success",
+    "user": null,
+    "details": null,
+    "error": null
+  }
+]

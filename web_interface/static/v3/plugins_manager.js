@@ -3470,14 +3470,17 @@ function generateFieldHtml(key, prop, value, prefix = '') {
     } else {
         // Check if this is a secret field
         const isSecret = prop['x-secret'] === true;
+        const isReadOnly = prop['readOnly'] === true;
         const inputType = isSecret ? 'password' : 'text';
         const maxLength = prop.maxLength || '';
         const maxLengthAttr = maxLength ? `maxlength="${maxLength}"` : '';
         const secretClass = isSecret ? 'pr-10' : '';
-        
+        const readOnlyAttr = isReadOnly ? 'readonly' : '';
+        const readOnlyClass = isReadOnly ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'bg-white text-black';
+
         html += `
             <div class="relative">
-                <input type="${inputType}" id="${fullKey}" name="${fullKey}" value="${value !== undefined ? value : ''}" ${maxLengthAttr} class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-white text-black placeholder:text-gray-500 ${secretClass}">
+                <input type="${inputType}" id="${fullKey}" name="${fullKey}" value="${value !== undefined ? value : ''}" ${maxLengthAttr} ${readOnlyAttr} class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm placeholder:text-gray-500 ${readOnlyClass} ${secretClass}">
         `;
         
         if (isSecret) {

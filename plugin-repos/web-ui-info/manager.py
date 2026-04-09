@@ -42,17 +42,17 @@ class WebUIInfoPlugin(BasePlugin):
             self.logger.warning(f"Could not get hostname: {e}, using 'localhost'")
             self.device_id = "localhost"
         
-        # Get device IP address
-        self.device_ip = self._get_local_ip()
-        
-        # IP refresh tracking
-        self.last_ip_refresh = time.time()
-        self.ip_refresh_interval = 300.0  # Refresh IP every 5 minutes
-
-        # AP mode cache
+        # AP mode cache (must be initialized before _get_local_ip)
         self._ap_mode_cached = False
         self._ap_mode_cache_time = 0.0
         self._ap_mode_cache_ttl = 60.0  # Cache AP mode check for 60 seconds
+
+        # Get device IP address
+        self.device_ip = self._get_local_ip()
+
+        # IP refresh tracking
+        self.last_ip_refresh = time.time()
+        self.ip_refresh_interval = 300.0  # Refresh IP every 5 minutes
 
         # Rotation state
         self.current_display_mode = "hostname"  # "hostname" or "ip"
@@ -171,35 +171,36 @@ class WebUIInfoPlugin(BasePlugin):
                         return ip
 
             # Fallback: Use 'ip addr show' to get interface IPs
-            result = subprocess.run(
-                ["ip", "-4", "addr", "show"],
-                capture_output=True,
-                text=True,
-                timeout=3
-            )
-            if result.returncode == 0:
-                current_interface = None
-                for line in result.stdout.split('\n'):
-                    line = line.strip()
-                    if ':' in line and not line.startswith('inet'):
-                        parts = line.split(':')
-                        if len(parts) >= 2:
-                            current_interface = parts[1].strip().split('@')[0]
-                    elif line.startswith('inet '):
-                        parts = line.split()
-                        if len(parts) >= 2:
-                            ip_with_cidr = parts[1]
-                            ip = ip_with_cidr.split('/')[0]
-                            if not ip.startswith("127.") and ip != "192.168.4.1":
-                                if current_interface and (
-                                    current_interface.startswith("eth") or
-                                    current_interface.startswith("enp")
-                                ):
-                                    self.logger.debug(f"Found Ethernet IP: {ip} on {current_interface}")
-                                    return ip
-                                elif current_interface == "wlan0":
-                                    self.logger.debug(f"Found WiFi IP: {ip} on {current_interface}")
-                                    return ip
+            try:
+                result = subprocess.run(
+                    ["ip", "-4", "addr", "show"],
+                    capture_output=True,
+                    text=True,
+                    timeout=3
+                )
+                if result.returncode == 0:
+                    current_interface = None
+                    for line in result.stdout.split('\n'):
+                        line = line.strip()
+                        if ':' in line and not line.startswith('inet'):
+                            parts = line.split(':')
+                            if len(parts) >= 2:
+                                current_interface = parts[1].strip().split('@')[0]
+                        elif line.startswith('inet '):
+                            parts = line.split()
+                            if len(parts) >= 2:
+                                ip_with_cidr = parts[1]
+                                ip = ip_with_cidr.split('/')[0]
+                                if not ip.startswith("127.") and ip != "192.168.4.1":
+                                    if current_interface and (
+                                        current_interface.startswith("eth") or
+                                        current_interface.startswith("enp")
+                                    ):
+                                        self.logger.debug(f"Found Ethernet IP: {ip} on {current_interface}")
+                                        return ip
+                                    elif current_interface == "wlan0":
+                                        self.logger.debug(f"Found WiFi IP: {ip} on {current_interface}")
+                                        return ip
             except Exception:
                 pass
             

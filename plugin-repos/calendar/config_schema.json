@@ -1,0 +1,152 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "enabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Enable or disable the calendar plugin"
+    },
+    "credentials_file": {
+      "type": "string",
+      "title": "Step 1: Upload Credentials",
+      "default": "credentials.json",
+      "description": "Upload your Google OAuth credentials file. Get it from console.cloud.google.com > APIs > Credentials > Create OAuth Client ID (Desktop app) > Download JSON.",
+      "x-widget": "file-upload",
+      "x-upload-config": {
+        "plugin_id": "calendar",
+        "max_files": 1,
+        "max_size_mb": 1,
+        "allowed_types": ["application/json"],
+        "allowed_extensions": [".json"],
+        "upload_endpoint": "/api/v3/plugins/calendar/upload-credentials",
+        "target_filename": "credentials.json"
+      }
+    },
+    "calendars": {
+      "type": "array",
+      "title": "Step 3: Select Calendars",
+      "x-widget": "google-calendar-picker",
+      "items": {
+        "type": "string"
+      },
+      "default": ["primary"],
+      "description": "After authenticating, click 'Load My Calendars' to select which calendars to display."
+    },
+    "max_events": {
+      "type": "integer",
+      "default": 3,
+      "minimum": 1,
+      "maximum": 10,
+      "description": "Maximum number of upcoming events to show"
+    },
+    "show_all_day_events": {
+      "type": "boolean",
+      "default": true,
+      "description": "Include all-day events in the display"
+    },
+    "event_rotation_interval": {
+      "type": "number",
+      "default": 10,
+      "minimum": 5,
+      "description": "Seconds between rotating displayed events"
+    },
+    "display_duration": {
+      "type": "number",
+      "default": 30,
+      "minimum": 5,
+      "description": "Total display duration in seconds before moving to next plugin"
+    },
+    "update_interval": {
+      "type": "integer",
+      "default": 3600,
+      "minimum": 60,
+      "maximum": 86400,
+      "description": "How often to refresh calendar data from Google (seconds)"
+    },
+    "customization": {
+      "type": "object",
+      "title": "Display Customization",
+      "description": "Customize fonts for calendar display elements",
+      "properties": {
+        "datetime_text": {
+          "type": "object",
+          "title": "Date/Time",
+          "description": "Font settings for event date and time",
+          "properties": {
+            "font": {
+              "type": "string",
+              "title": "Font Family",
+              "description": "Select the font to use",
+              "enum": [
+                "PressStart2P-Regular.ttf",
+                "4x6-font.ttf",
+                "5by7.regular.ttf",
+                "5x7.bdf",
+                "4x6.bdf",
+                "cozette.bdf"
+              ],
+              "default": "PressStart2P-Regular.ttf"
+            },
+            "font_size": {
+              "type": "integer",
+              "title": "Font Size",
+              "description": "Font size in pixels",
+              "minimum": 4,
+              "maximum": 16,
+              "default": 8
+            }
+          },
+          "x-propertyOrder": ["font", "font_size"],
+          "additionalProperties": false
+        },
+        "title_text": {
+          "type": "object",
+          "title": "Event Title",
+          "description": "Font settings for the event title/description",
+          "properties": {
+            "font": {
+              "type": "string",
+              "title": "Font Family",
+              "description": "Select the font to use",
+              "enum": [
+                "PressStart2P-Regular.ttf",
+                "4x6-font.ttf",
+                "5by7.regular.ttf",
+                "5x7.bdf",
+                "4x6.bdf",
+                "cozette.bdf"
+              ],
+              "default": "PressStart2P-Regular.ttf"
+            },
+            "font_size": {
+              "type": "integer",
+              "title": "Font Size",
+              "description": "Font size in pixels",
+              "minimum": 4,
+              "maximum": 16,
+              "default": 8
+            }
+          },
+          "x-propertyOrder": ["font", "font_size"],
+          "additionalProperties": false
+        }
+      },
+      "x-propertyOrder": ["datetime_text", "title_text"],
+      "additionalProperties": false
+    }
+  },
+  "x-propertyOrder": [
+    "enabled",
+    "credentials_file",
+    "calendars",
+    "max_events",
+    "show_all_day_events",
+    "event_rotation_interval",
+    "display_duration",
+    "update_interval",
+    "customization"
+  ],
+  "required": ["enabled"],
+  "additionalProperties": true
+}

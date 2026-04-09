@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "states": {
+    "morpheus-cloud": {
+      "plugin_id": "morpheus-cloud",
+      "status": "enabled",
+      "enabled": true,
+      "version": null,
+      "installed_at": null,
+      "last_updated": "2026-04-07T12:36:03.857892",
+      "config_version": 2,
+      "metadata": {}
+    }
+  },
+  "last_updated": "2026-04-07T12:36:03.858049"
+}
